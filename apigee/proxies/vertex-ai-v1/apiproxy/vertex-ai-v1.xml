@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<APIProxy revision="18" name="vertex-ai-v1">
+  <DisplayName/>
+  <Description/>
+  <CreatedAt>1777277602519</CreatedAt>
+  <LastModifiedAt>1781681133307</LastModifiedAt>
+  <BasePaths>/vertexai/v1</BasePaths>
+  <Policies>
+    <Policy>AM-RemoveAuthorization</Policy>
+    <Policy>CORS-Headers</Policy>
+    <Policy>VA-VerifyAPIKey</Policy>
+    <Policy>EV-ModelResponse</Policy>
+    <Policy>DC-ModelAnalytics</Policy>
+    <Policy>SUP-UserPrompt</Policy>
+    <Policy>LTQ-TokenEnforce</Policy>
+    <Policy>EV-RequestDetails</Policy>
+    <Policy>RF-MissingUserEmail</Policy>
+    <Policy>ML-CloudLogging</Policy>
+    <Policy>LTQ-TokenCount</Policy>
+    <Policy>SCL-Semantic-Cache-Lookup</Policy>
+    <Policy>SCP-Semantic-Cache-Populate</Policy>
+    <Policy>EV-OpenAIResponse</Policy>
+  </Policies>
+  <ProxyEndpoints>
+    <ProxyEndpoint>default</ProxyEndpoint>
+  </ProxyEndpoints>
+  <TargetEndpoints>
+    <TargetEndpoint>default</TargetEndpoint>
+  </TargetEndpoints>
+</APIProxy>

@@ -1,0 +1,95 @@
+components:
+    schemas:
+        Error:
+            properties:
+                error:
+                    description: A description of the error.
+                    example: SKU not found
+                    type: string
+            type: object
+        PartDiscount:
+            properties:
+                discounted_price:
+                    description: The discounted price of the part.
+                    example: 10.99
+                    format: float
+                    type: number
+                sku:
+                    description: The Stock Keeping Unit (i.e. SKU) of the part.
+                    example: PART123
+                    type: string
+            type: object
+info:
+    description: API for looking up discounted prices for parts based on SKU.
+    title: Discounted Price Lookup API
+    version: 1.0.0
+openapi: 3.0.0
+paths:
+    /v1/discounted-price-lookup-api/discounts:
+        get:
+            description: |-
+                List All Discounted Parts Prices
+            operationId: listAllDiscounts
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                items:
+                                    $ref: '#/components/schemas/PartDiscount'
+                                type: array
+                    description: A list of all discounted parts prices.
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: No discounts found.
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Internal server error.
+            summary: List All Discounted Parts Prices
+    /v1/discounted-price-lookup-api/discounts/{part_SKU}:
+        get:
+            description: |-
+                Get Discount Price for a Specific Part by Part SKU
+            operationId: getDiscountForSku
+            parameters:
+                - description: The SKU of the part for which discounted price is to be looked up.
+                  in: path
+                  name: part_SKU
+                  required: true
+                  schema:
+                    example: PART123
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PartDiscount'
+                    description: Discounted price for the specified Part identified by Part SKU.
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: SKU parameter is missing (though path parameter makes this less likely for this specific endpoint).
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Part SKU not found.
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Internal server error.
+            summary: Get Discount Price for a Specific Part by Part SKU
+servers:
+    - url: https://api.maloosatyam.demo.altostrat.com

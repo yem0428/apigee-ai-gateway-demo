@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<SanitizeUserPrompt async="false" continueOnError="false" enabled="true" name="SUP-UserPrompt">
+  <IgnoreUnresolvedVariables>false</IgnoreUnresolvedVariables>
+  <DisplayName>SUP-UserPrompt</DisplayName>
+  <ModelArmor>
+    <TemplateName>projects/bap-apac-demo2/locations/asia-southeast1/templates/apigee-sanitize-user-prompt</TemplateName>
+  </ModelArmor>
+  <UserPromptSource>{jsonPath('$.contents[-1].parts[-1].text',request.content,true)}</UserPromptSource>
+</SanitizeUserPrompt>

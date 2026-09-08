@@ -1,0 +1,435 @@
+components:
+    schemas:
+        ErrorResponse:
+            description: Standard error response format for API errors.
+            properties:
+                code:
+                    description: A unique error code for the specific error, allowing programmatic handling.
+                    example: INVALID_INPUT
+                    type: string
+                details:
+                    description: Optional additional details about the error, such as validation failures.
+                    example: 'Specific field validation failures: [''loanAmount must be > 0'']'
+                    nullable: true
+                    type: string
+                message:
+                    description: A human-readable description of the error.
+                    example: The 'loanAmount' field is required and must be a positive number.
+                    type: string
+            required:
+                - code
+                - message
+            title: Error Response
+            type: object
+        LoanApplicationPatchRequest:
+            description: Schema for executing flexible partial updates on an existing loan application.
+            properties:
+                applicantInfo:
+                    properties:
+                        creditScore:
+                            example: 740
+                            type: integer
+                        income:
+                            example: 82000
+                            format: float
+                            type: number
+                    type: object
+                contactInfo:
+                    properties:
+                        email:
+                            example: john.newemail@example.com
+                            format: email
+                            type: string
+                        phoneNumber:
+                            example: "+15559876543"
+                            type: string
+                    type: object
+                loanDetails:
+                    properties:
+                        loanAmount:
+                            example: 45000
+                            format: float
+                            type: number
+                    type: object
+                status:
+                    enum:
+                        - PENDING_REVIEW
+                        - APPROVED
+                        - REJECTED
+                        - ADDITIONAL_INFO_REQUIRED
+                    example: APPROVED
+                    type: string
+            title: Loan Application Patch Request
+            type: object
+        LoanApplicationRequest:
+            description: Schema for submitting a new loan application, including applicant, loan, and contact details.
+            properties:
+                applicantInfo:
+                    description: Information about the loan applicant.
+                    properties:
+                        address:
+                            properties:
+                                city:
+                                    example: Anytown
+                                    type: string
+                                state:
+                                    example: CA
+                                    type: string
+                                street:
+                                    example: 123 Main St
+                                    type: string
+                                zipCode:
+                                    example: "90210"
+                                    type: string
+                            required:
+                                - street
+                                - city
+                                - state
+                                - zipCode
+                            title: Applicant Address
+                            type: object
+                        creditScore:
+                            description: Applicant's credit score, typically FICO or equivalent.
+                            example: 720
+                            maximum: 850
+                            minimum: 300
+                            type: integer
+                        dateOfBirth:
+                            example: "1985-07-09"
+                            format: date
+                            type: string
+                        firstName:
+                            example: John
+                            type: string
+                        income:
+                            description: Annual income of the applicant.
+                            example: 75000
+                            format: float
+                            type: number
+                        lastName:
+                            example: Doe
+                            type: string
+                        ssnLast4:
+                            description: Last 4 digits of Social Security Number (SSN) or an equivalent national identification number. This field is sensitive.
+                            example: "1234"
+                            pattern: ^\d{4}$
+                            type: string
+                    required:
+                        - firstName
+                        - lastName
+                        - dateOfBirth
+                        - ssnLast4
+                        - address
+                        - income
+                        - creditScore
+                    title: Applicant Information
+                    type: object
+                applicantSegment:
+                    description: The customer segment the applicant belongs to. This helps categorize applications for internal processing. **Crucial for Apigee Custom Analytics (dimension)**
+                    enum:
+                        - Retail
+                        - Premier
+                        - Small Business
+                        - Corporate
+                    example: Retail
+                    type: string
+                contactInfo:
+                    description: Contact information for the applicant.
+                    properties:
+                        email:
+                            example: john.doe@example.com
+                            format: email
+                            type: string
+                        phoneNumber:
+                            description: Applicant's phone number in E.164 format (e.g., +15551234567).
+                            example: "+15551234567"
+                            pattern: ^\+\d{1,15}$
+                            type: string
+                    required:
+                        - email
+                        - phoneNumber
+                    title: Contact Information
+                    type: object
+                loanDetails:
+                    description: Details about the requested loan.
+                    properties:
+                        loanAmount:
+                            description: The principal amount requested for the loan.
+                            example: 50000
+                            format: float
+                            type: number
+                        loanProductType:
+                            description: The type of loan being applied for. **Crucial for Apigee Custom Analytics (dimension)**
+                            enum:
+                                - Personal Loan
+                                - Mortgage
+                                - Auto Loan
+                                - Business Loan
+                            example: Personal Loan
+                            type: string
+                        loanTermMonths:
+                            description: Loan repayment term in months.
+                            example: 60
+                            minimum: 1
+                            type: integer
+                        purpose:
+                            description: The purpose of the loan, e.g., "Home Renovation", "Debt Consolidation", "Vehicle Purchase".
+                            example: Home Renovation
+                            type: string
+                    required:
+                        - loanAmount
+                        - loanProductType
+                        - loanTermMonths
+                        - purpose
+                    title: Loan Details
+                    type: object
+            required:
+                - applicantInfo
+                - loanDetails
+                - contactInfo
+                - applicantSegment
+            title: Loan Application Request
+            type: object
+        LoanApplicationResponse:
+            description: Response schema for a submitted loan application, including its status and initial assessment.
+            properties:
+                applicationId:
+                    description: Unique identifier for the submitted loan application.
+                    example: LN-20250709-0012345
+                    readOnly: true
+                    type: string
+                estimatedApprovalTimeMinutes:
+                    description: Estimated time in minutes for an initial approval decision or further contact.
+                    example: 30
+                    type: integer
+                initialAssessment:
+                    description: Initial risk assessment results provided immediately after submission.
+                    properties:
+                        loanRiskScore:
+                            description: A calculated score indicating the risk level of the loan application (0=lowest risk, 100=highest risk). **This is the key custom attribute for Apigee analytics.**
+                            example: 45
+                            maximum: 100
+                            minimum: 0
+                            type: integer
+                        recommendation:
+                            description: Initial recommendation or next action based on the assessment.
+                            example: Further documentation required for income verification.
+                            type: string
+                        riskLevel:
+                            description: Human-readable categorization of the loan risk score.
+                            enum:
+                                - Low Risk
+                                - Medium Risk
+                                - High Risk
+                            example: Medium Risk
+                            type: string
+                    required:
+                        - loanRiskScore
+                        - riskLevel
+                    title: Initial Risk Assessment
+                    type: object
+                nextSteps:
+                    description: List of next steps or actions required from the applicant.
+                    example:
+                        - Upload income statements
+                        - Schedule call with loan officer
+                    items:
+                        type: string
+                    type: array
+                status:
+                    description: Current status of the loan application.
+                    enum:
+                        - PENDING_REVIEW
+                        - APPROVED
+                        - REJECTED
+                        - ADDITIONAL_INFO_REQUIRED
+                    example: PENDING_REVIEW
+                    type: string
+                submissionTimestamp:
+                    description: Timestamp when the application was submitted (ISO 8601 format).
+                    example: "2025-07-09T14:07:26Z"
+                    format: date-time
+                    readOnly: true
+                    type: string
+            required:
+                - applicationId
+                - status
+                - submissionTimestamp
+                - initialAssessment
+            title: Loan Application Response
+            type: object
+info:
+    description: API for submitting new loan applications and receiving an initial risk assessment. This API is designed to support digital loan application channels and provide real-time risk insights for the bank's analytics.
+    title: Bank Loan Application API
+    version: 1.0.0
+openapi: 3.0.3
+paths:
+    /loans-application/v1/loan:
+        post:
+            description: |-
+                Submit a new loan application
+
+                Submit a new loan application
+
+                Submit a new loan application
+
+                Submits a new loan application to the Bank system. The application undergoes an initial assessment, and a response with the application status and preliminary risk insights is returned.
+            operationId: submitLoanApplication
+            requestBody:
+                content:
+                    application/json:
+                        examples:
+                            newPersonalLoan:
+                                summary: Example for a new personal loan application
+                                value:
+                                    applicantInfo:
+                                        address:
+                                            city: Anytown
+                                            state: CA
+                                            street: 123 Main St
+                                            zipCode: "90210"
+                                        creditScore: 720
+                                        dateOfBirth: "1985-07-09"
+                                        firstName: John
+                                        income: 75000
+                                        lastName: Doe
+                                        ssnLast4: "1234"
+                                    applicantSegment: Retail
+                                    contactInfo:
+                                        email: john.doe@example.com
+                                        phoneNumber: "+15551234567"
+                                    loanDetails:
+                                        loanAmount: 50000
+                                        loanProductType: Personal Loan
+                                        loanTermMonths: 60
+                                        purpose: Home Renovation
+                        schema:
+                            $ref: '#/components/schemas/LoanApplicationRequest'
+                description: Loan application details
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            examples:
+                                successfulSubmission:
+                                    summary: Example of a successful loan application submission
+                                    value:
+                                        applicationId: LN-20250709-0012345
+                                        estimatedApprovalTimeMinutes: 30
+                                        initialAssessment:
+                                            loanRiskScore: 45
+                                            recommendation: Further documentation required for income verification.
+                                            riskLevel: Medium Risk
+                                        nextSteps:
+                                            - Upload income statements
+                                            - Schedule call with loan officer
+                                        status: PENDING_REVIEW
+                                        submissionTimestamp: "2025-07-09T14:07:26Z"
+                            schema:
+                                $ref: '#/components/schemas/LoanApplicationResponse'
+                    description: Loan application successfully created with initial assessment.
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Invalid request payload or missing required fields.
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Internal server error.
+            summary: Submit a new loan application
+            tags:
+                - Loan Applications
+    /loans-application/v1/loan/{applicationId}:
+        get:
+            description: |-
+                Retrieve a loan application
+
+                Retrieve a loan application
+
+                Retrieve a loan application
+
+                Retrieve a loan application
+
+                Fetches the details and current status of an existing loan application using its unique ID.
+            operationId: getLoanApplication
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LoanApplicationResponse'
+                    description: Loan application details retrieved successfully.
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Loan application not found.
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Internal server error.
+            summary: Retrieve a loan application
+            tags:
+                - Loan Applications
+        parameters:
+            - description: Unique identifier of the loan application.
+              in: path
+              name: applicationId
+              required: true
+              schema:
+                example: LN-20250709-0012345
+                type: string
+        patch:
+            description: |-
+                Partially update a loan application
+
+                Allows partial updates to a loan application, such as changing the status or modifying applicant contact details.
+            operationId: patchLoanApplication
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/LoanApplicationPatchRequest'
+                description: Partial fields to update in the loan application
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LoanApplicationResponse'
+                    description: Loan application partially updated successfully.
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Invalid partial patch payload.
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Loan application not found.
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                    description: Internal server error.
+            summary: Partially update a loan application
+            tags:
+                - Loan Applications
+servers:
+    - url: https://api.maloosatyam.demo.altostrat.com
+tags:
+    - description: Operations related to managing loan applications.
+      name: Loan Applications
