@@ -46,26 +46,34 @@ export const getEnvironment = (env?: string): EnvironmentInfo => {
   return ENVIRONMENTS.dev;
 };
 
+export const getRuntimeEnv = (key: string, fallback: string = ''): string => {
+  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.[key]) {
+    return (window as any).__RUNTIME_CONFIG__[key];
+  }
+  const viteVal = (import.meta.env as any)[`VITE_${key}`] || (import.meta.env as any)[key];
+  return viteVal !== undefined && viteVal !== '' ? viteVal : fallback;
+};
+
 export const USERS: Record<UserPersona, UserInfo> = {
   bronze_user: {
     id: 'bronze_user',
     name: 'Bronze User',
-    email: import.meta.env.VITE_BRONZE_USER_EMAIL || 'bronze.user@example.com',
-    apiKey: import.meta.env.VITE_BRONZE_API_KEY || '',
+    email: getRuntimeEnv('BRONZE_USER_EMAIL', 'bronze.user@example.com'),
+    apiKey: getRuntimeEnv('BRONZE_API_KEY', ''),
     badge: 'Bronze',
   },
   silver_user: {
     id: 'silver_user',
     name: 'Silver User',
-    email: import.meta.env.VITE_SILVER_USER_EMAIL || 'silver.user@example.com',
-    apiKey: import.meta.env.VITE_SILVER_API_KEY || '',
+    email: getRuntimeEnv('SILVER_USER_EMAIL', 'silver.user@example.com'),
+    apiKey: getRuntimeEnv('SILVER_API_KEY', ''),
     badge: 'Silver',
   },
   sales_agent: {
     id: 'sales_agent',
     name: 'Sales Agent',
-    email: import.meta.env.VITE_SALES_AGENT_EMAIL || 'sales.agent@example.com',
-    apiKey: import.meta.env.VITE_SALES_API_KEY || '',
+    email: getRuntimeEnv('SALES_AGENT_EMAIL', 'sales.agent@example.com'),
+    apiKey: getRuntimeEnv('SALES_API_KEY', ''),
     badge: 'Sales Agent',
   },
 };
