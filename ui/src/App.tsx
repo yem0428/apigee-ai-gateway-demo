@@ -3,7 +3,7 @@ import { Navbar } from './components/Navbar';
 import { ChatPlayground } from './components/ChatPlayground';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
 import { GatewaySettings, ChatMessage, GatewayTelemetry, UserPersona } from './types';
-import { DEFAULT_SETTINGS, USERS } from './services/defaultSettings';
+import { DEFAULT_SETTINGS, USERS, DEFAULT_SSO_USER } from './services/defaultSettings';
 
 export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -23,8 +23,11 @@ export function App() {
           parsed.activeUser = 'bronze_user';
         }
         const userInfo = USERS[parsed.activeUser as UserPersona] || USERS.bronze_user;
-        parsed.userEmail = userInfo.email;
         parsed.apiKey = userInfo.apiKey;
+
+        // Ensure SSO user profile is preserved and prioritized
+        parsed.ssoUser = parsed.ssoUser || DEFAULT_SSO_USER;
+        parsed.userEmail = parsed.ssoUser?.email || DEFAULT_SSO_USER.email;
 
         const validModels = ['gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-3.1-pro-preview', 'auto'];
         if (!validModels.includes(parsed.model)) {

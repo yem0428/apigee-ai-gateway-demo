@@ -97,36 +97,45 @@ https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1/v1/projects/bap-apac-
 
 ---
 
-## 4. User Personas & Credential Model
+## 4. Enterprise Identity (SSO) & Quota Entitlements
 
-To eliminate manual error during customer demonstrations, API keys are strictly bound to **User Personas**. Manual API key entry has been removed from the primary UI in favor of one-click persona switching:
+In an enterprise environment, identity and API authorization are cleanly decoupled:
+1. **Identity Layer (Who you are)**: Provided by **Google Workspace / Cloud Identity-Aware Proxy (IAP) SSO**. The authenticated user's email (e.g. `maloosatyam@google.com`) is displayed in the top-right corner of the interface and dynamically injected into the `X-User-Email` header on every gateway request.
+2. **Entitlement / Product Tier Layer (What you invoke)**: Governed by Apigee API Products and API Keys (`x-apikey`), categorizing developer quota limits and product entitlements.
 
 ```mermaid
 classDiagram
-    class UserPersona {
-        +String id
-        +String name
-        +String email
-        +String apiKey
-        +String badge
+    class SsoIdentity {
+        +String name: "Satyam Maloo"
+        +String email: "maloosatyam@google.com"
+        +String organization: "google.com"
+        +String provider: "Google SSO"
+        +Boolean isAuthenticated
     }
-    UserPersona <|-- BronzeUser : "Standard Developer Tier"
-    UserPersona <|-- SilverUser : "Enterprise / High Volume"
-    UserPersona <|-- SalesAgent : "Line of Business App"
+
+    class EntitlementTier {
+        +String id: "bronze" | "silver" | "sales_agent"
+        +String name: "Bronze Tier" | "Silver Tier" | "Sales Agent"
+        +String apiKey: "$VITE_..."
+        +String quotaDescription
+    }
+
+    SsoIdentity --> GatewayRequest : "Injected as X-User-Email"
+    EntitlementTier --> GatewayRequest : "Injected as x-apikey"
 ```
 
-### Persona Registry
-| Persona | Injected `X-User-Email` | Injected `x-apikey` (from `.env`) | Expected Behavior |
+### Entitlement Tier Registry
+| Entitlement Tier | Active SSO Caller (`X-User-Email`) | Injected `x-apikey` (from `.env`) | Expected Apigee Gateway Behavior |
 | :--- | :--- | :--- | :--- |
-| **Bronze User** *(Default)* | `bronze.user@example.com` | `$VITE_BRONZE_API_KEY` | **HTTP 200 OK** (Standard quota, fully entitled) |
-| **Silver User** | `silver.user@example.com` | `$VITE_SILVER_API_KEY` | **HTTP 401 Fault** (`InvalidAPICallAsNoApiProductMatchFound` - Demonstrates Apigee API product access governance) |
-| **Sales Agent** | `sales.agent@example.com` | `$VITE_SALES_API_KEY` | **HTTP 200 OK** (Specialized service agent key) |
+| **Bronze Tier** *(Default)* | `maloosatyam@google.com` (SSO User) | `$VITE_BRONZE_API_KEY` | **HTTP 200 OK** (Standard developer quota, fully entitled) |
+| **Silver Tier** | `maloosatyam@google.com` (SSO User) | `$VITE_SILVER_API_KEY` | **HTTP 401 Fault** (`InvalidAPICallAsNoApiProductMatchFound` - Demonstrates Apigee API product access governance) |
+| **Sales Agent** | `maloosatyam@google.com` (SSO User) | `$VITE_SALES_API_KEY` | **HTTP 200 OK** (Specialized business line agent entitlement) |
 
 ### Mandatory Headers
 Every request to the gateway includes:
 - `Content-Type: application/json`
-- `X-User-Email: <persona-email>` (Required by policy `RF-MissingUserEmail`)
-- `x-apikey: <persona-key>` (Required by policy `VA-VerifyAPIKey`)
+- `X-User-Email: <sso-user-email>` (Dynamically resolved from the authenticated SSO profile; required by policy `RF-MissingUserEmail`)
+- `x-apikey: <tier-api-key>` (Resolved from the selected entitlement tier; required by policy `VA-VerifyAPIKey`)
 - `use-cache: true` *(Optional: included only when Semantic Cache is enabled)*
 
 ---
@@ -158,40 +167,63 @@ The platform supports 4 model options in the Navbar dropdown:
 
 ---
 
-## 7. Frontend UI Architecture
+## 7. Frontend UI Architecture & Mobile Responsiveness
 
-The UI is built using **React 18 + TypeScript + Vite + Tailwind CSS**, following a clean, uncluttered dual-pane Studio layout:
+The UI is built using **React 18 + TypeScript + Vite + Tailwind CSS**, following a modern dual-pane Studio layout with enterprise-grade responsive mobile viewports and Cloud Identity SSO integration:
 
 ```
 ui/
 ├── src/
 │   ├── components/
-│   │   ├── Navbar.tsx                # Sticky top bar: Dev/Prod pills, Persona pills, Model dropdown, Reset, Settings
-│   │   ├── ChatPlayground.tsx        # Left pane: Chat thread, inline telemetry badges, quick chips, status footer
-│   │   ├── GatewayTraceViewer.tsx    # Right pane: Caller identity, 4 telemetry summary cards, technical accordion
-│   │   └── GatewaySettingsModal.tsx  # Modal: Persona selector, custom endpoints, missing email simulation toggle
+│   │   ├── Navbar.tsx                # Sticky top bar: Brand, SSO profile chip (top-right), collapsible mobile controls drawer, Dev/Prod pills, Tier pills, Model selector
+│   │   ├── ChatPlayground.tsx        # Responsive workspace: Chat thread, inline telemetry badges, mobile view-switch tab bar ([💬 Chat] | [📊 Gateway Trace]), quick chips, status footer
+│   │   ├── GatewayTraceViewer.tsx    # Telemetry inspection pane: SSO caller identity, 4 telemetry summary cards, technical accordion
+│   │   └── GatewaySettingsModal.tsx  # Modal: Persona/Tier selector, SSO user configuration, custom endpoints, missing email simulation toggle
 │   ├── services/
-│   │   ├── apigeeClient.ts           # REST dispatcher, error classifier, Vertex AI contents payload builder
-│   │   └── defaultSettings.ts       # Central dictionary of environments, users, models, and scenario presets
+│   │   ├── apigeeClient.ts           # REST dispatcher, error classifier, Vertex AI payload builder, dynamic SSO email injection
+│   │   └── defaultSettings.ts       # Central dictionary of SSO defaults, environments, entitlement tiers, models, and scenario presets
 │   ├── types/
-│   │   └── index.ts                  # TypeScript interfaces (GatewaySettings, GatewayTelemetry, UserPersona, ChatMessage)
-│   ├── App.tsx                       # Root container, localStorage state persistence and sanitization
+│   │   └── index.ts                  # TypeScript interfaces (SsoUser, GatewaySettings, GatewayTelemetry, UserPersona, ChatMessage)
+│   ├── App.tsx                       # Root container, localStorage state persistence, persona/SSO synchronization
 │   └── main.tsx                      # Vite React entrypoint
 ├── vite.config.ts                    # Vite dev proxy configuration (/api/vertexai-dev, /api/vertexai-prod)
 ├── package.json                      # Dependencies and build scripts
 └── tailwind.config.js                # Tailwind theme configuration
 ```
 
-### Component Hierarchy & Responsibilities
+### Component Hierarchy & Interaction Flow
 
 ```mermaid
 graph TD
     App[App.tsx\nRoot State & localStorage Persistence]
-    App --> Navbar[Navbar.tsx\nEnv Pills | Persona Pills | Model Dropdown | Reset | Settings]
-    App --> Chat[ChatPlayground.tsx\nChat Feed | Inline Badges | Quick Chips | Input | Status Bar]
-    App --> Trace[GatewayTraceViewer.tsx\nCaller Identity | Model Armor Card | Cache Card | Latency Card | Quota Card | Technical Accordion]
-    App --> Modal[GatewaySettingsModal.tsx\nPersona Switcher | Custom URL | Omit Email Toggle]
+    App --> Navbar[Navbar.tsx\nTop Bar: Brand | SSO Profile Chip | Mobile Controls Drawer\nControls: Env [Dev/Prod] | Entitlement Tiers | Model Dropdown | Reset | Settings]
+    App --> Chat[ChatPlayground.tsx\nMobile Tab Switcher: [💬 Chat] vs [📊 Gateway Trace]\nChat Feed | Inline Badges | Quick Chips | Touch-Friendly Input | Status Bar]
+    App --> Trace[GatewayTraceViewer.tsx\nSSO Caller Identity | Model Armor Card | Cache Card | Latency Card | Quota Card | Technical Accordion]
+    App --> Modal[GatewaySettingsModal.tsx\nSSO Identity Config | Tier Switcher | Custom URLs | Omit Email Toggle]
 ```
+
+### Mobile Responsive Architecture Specifications
+
+1. **Dual-Pane Viewport Adaptability**:
+   - **Desktop (`md:` $\ge$ 768px)**: Split-screen dual-pane. Left pane (`w-7/12` or `flex-1`) hosts the conversational playground; right pane (`w-5/12` or `w-[440px]`) provides sticky real-time gateway trace telemetry.
+   - **Mobile (`< md` < 768px)**: Segmented tab switcher docked above the playground: `[ 💬 Chat ]  |  [ 📊 Gateway Trace (●) ]`.
+     - Switching tabs smoothly renders the selected view in full viewport height (`calc(100vh - headerHeight)`).
+     - When an Apigee call finishes while on the Chat tab, a glowing emerald notification dot (`●`) appears on the **Gateway Trace** tab, notifying the user that live policy telemetry is ready for inspection.
+
+2. **Top-Right Enterprise SSO Profile**:
+   - Prominently positioned on the top-right corner of the Navbar across all viewport sizes.
+   - Displays avatar circle (`SM`), user full name (`Satyam Maloo`), email (`maloosatyam@google.com`), and an active green SSO indicator badge.
+   - Clicking opens an SSO identity card detailing identity provider (`Google Cloud Identity / IAP`), organization domain (`google.com`), and assigned entitlements.
+   - Enables editing the SSO user email dynamically for zero-trust attribution testing.
+
+3. **Collapsible Mobile Toolbar**:
+   - On screens `< md`, controls (Environment pills, Entitlement Tier pills, Model dropdown) collapse into a sleek, expandable drawer triggered by a compact `[ Controls ▾ ]` button.
+   - Prevents multi-line header wrapping and guarantees full vertical space for the active view.
+
+4. **Touch-Friendly Hit Targets**:
+   - All interactive chips, buttons, and select dropdowns maintain minimum 44px tap targets conforming to mobile accessibility standards.
+   - Quick demo chips support smooth horizontal inertia scrolling (`overflow-x-auto pb-1 no-scrollbar`).
+
 
 ---
 

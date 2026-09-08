@@ -1,5 +1,5 @@
 import { GatewaySettings, GatewayTelemetry, ChatMessage } from '../types';
-import { getEnvironment, getUserInfo } from './defaultSettings';
+import { getEnvironment, getUserInfo, DEFAULT_SSO_USER } from './defaultSettings';
 
 export interface GenerateContentResult {
   success: boolean;
@@ -38,10 +38,10 @@ export async function sendPromptToApigee(
 
   const endpointUrl = `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/${targetModel}:generateContent`;
 
-  // Resolve active user and associate credentials
+  // Resolve active user entitlement and dynamic SSO caller email
   const userInfo = getUserInfo(settings.activeUser);
   const effectiveApiKey = settings.apiKey || userInfo.apiKey;
-  const effectiveEmail = settings.userEmail || userInfo.email;
+  const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
 
   const headersSent: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -162,6 +162,7 @@ export async function sendPromptToApigee(
       environment: settings.environment,
       user: userInfo.name,
       userEmail: effectiveEmail,
+      ssoUser: settings.ssoUser || DEFAULT_SSO_USER,
       latencyMs: durationMs,
       promptTokens,
       candidatesTokens,
@@ -221,6 +222,7 @@ export async function sendPromptToApigee(
       environment: settings.environment,
       user: userInfo.name,
       userEmail: effectiveEmail,
+      ssoUser: settings.ssoUser || DEFAULT_SSO_USER,
       latencyMs: durationMs,
       cacheStatus: settings.useCache ? 'MISS' : 'DISABLED',
       guardrailStatus: 'NONE',

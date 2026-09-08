@@ -1,4 +1,4 @@
-import { GatewaySettings, ScenarioPreset, GatewayEnvironment, UserPersona, UserInfo, KeyTier } from '../types';
+import { GatewaySettings, ScenarioPreset, GatewayEnvironment, UserPersona, UserInfo, KeyTier, SsoUser } from '../types';
 
 export interface EnvironmentInfo {
   id: GatewayEnvironment;
@@ -52,6 +52,15 @@ export const getRuntimeEnv = (key: string, fallback: string = ''): string => {
   }
   const viteVal = (import.meta.env as any)[`VITE_${key}`] || (import.meta.env as any)[key];
   return viteVal !== undefined && viteVal !== '' ? viteVal : fallback;
+};
+
+export const DEFAULT_SSO_USER: SsoUser = {
+  name: 'Satyam Maloo',
+  email: getRuntimeEnv('SSO_USER_EMAIL', 'maloosatyam@google.com'),
+  organization: 'google.com',
+  provider: 'Google Cloud Identity SSO',
+  avatarText: 'SM',
+  isAuthenticated: true,
 };
 
 export const USERS: Record<UserPersona, UserInfo> = {
@@ -123,7 +132,8 @@ export const DEFAULT_SETTINGS: GatewaySettings = {
   activeUser: 'bronze_user',
   keyTier: 'bronze',
   apiKey: USERS.bronze_user.apiKey,
-  userEmail: USERS.bronze_user.email,
+  userEmail: DEFAULT_SSO_USER.email,
+  ssoUser: DEFAULT_SSO_USER,
   projectId: 'bap-apac-demo2',
   location: 'global',
   model: 'gemini-3.1-flash-lite',

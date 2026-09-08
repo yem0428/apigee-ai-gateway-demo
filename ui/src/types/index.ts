@@ -2,6 +2,15 @@ export type GatewayEnvironment = 'dev' | 'prod' | 'custom';
 export type UserPersona = 'bronze_user' | 'silver_user' | 'sales_agent';
 export type KeyTier = 'bronze' | 'silver' | 'custom';
 
+export interface SsoUser {
+  name: string;
+  email: string;
+  organization: string;
+  provider: string;
+  avatarText: string;
+  isAuthenticated: boolean;
+}
+
 export interface UserInfo {
   id: UserPersona;
   name: string;
@@ -16,6 +25,7 @@ export interface GatewaySettings {
   activeUser: UserPersona;
   userEmail: string;
   apiKey: string;
+  ssoUser?: SsoUser;
   keyTier?: KeyTier;
   projectId: string;
   location: string;
@@ -34,6 +44,7 @@ export interface GatewayTelemetry {
   environment: GatewayEnvironment;
   user?: string;
   userEmail?: string;
+  ssoUser?: SsoUser;
   keyTier?: KeyTier;
   latencyMs: number;
   promptTokens?: number;

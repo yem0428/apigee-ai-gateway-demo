@@ -82,16 +82,30 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
 
       {/* 4 Focused Summary Cards */}
       <div className="p-4 space-y-3.5">
-        {/* Caller Identity Pill */}
-        <div className="flex items-center justify-between px-3 py-2 bg-slate-900/90 rounded-xl border border-slate-800 text-[11px]">
-          <div className="flex items-center gap-1.5 text-slate-300 font-medium">
-            <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>Caller:</span>
-            <span className="font-semibold text-white">{telemetry.user || 'Bronze User'}</span>
+        {/* Caller Identity & SSO Pill */}
+        <div className="flex flex-col gap-1.5 p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 text-[11px]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-slate-300 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>SSO Identity:</span>
+              <span className="font-semibold text-white truncate max-w-[120px]">
+                {telemetry.ssoUser?.name || settings.ssoUser?.name || 'Satyam Maloo'}
+              </span>
+            </div>
+            <span
+              className="font-mono text-[10px] text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/25 truncate max-w-[160px]"
+              title={telemetry.userEmail || settings.ssoUser?.email || settings.userEmail}
+            >
+              {telemetry.userEmail || settings.ssoUser?.email || settings.userEmail}
+            </span>
           </div>
-          <span className="font-mono text-[10px] text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/25 truncate max-w-[170px]" title={telemetry.userEmail || settings.userEmail}>
-            {telemetry.userEmail || settings.userEmail}
-          </span>
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
+            <span className="flex items-center gap-1">
+              <User className="w-3 h-3 text-amber-400 shrink-0" />
+              Entitlement Tier:
+            </span>
+            <span className="font-semibold text-amber-300">{telemetry.user || 'Bronze User'}</span>
+          </div>
         </div>
 
         {/* Card 1: Model Armor Guardrail */}

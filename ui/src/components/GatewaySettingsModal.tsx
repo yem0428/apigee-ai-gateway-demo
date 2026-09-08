@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GatewaySettings, GatewayEnvironment, UserPersona } from '../types';
-import { DEFAULT_SETTINGS, USERS } from '../services/defaultSettings';
-import { X, Save, RotateCcw, ShieldCheck, Server, User, AlertTriangle } from 'lucide-react';
+import { DEFAULT_SETTINGS, USERS, DEFAULT_SSO_USER } from '../services/defaultSettings';
+import { X, Save, RotateCcw, ShieldCheck, Server, User, AlertTriangle, Mail } from 'lucide-react';
 
 interface GatewaySettingsModalProps {
   isOpen: boolean;
@@ -32,8 +32,19 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
     setForm((prev) => ({
       ...prev,
       activeUser: userPersona,
-      userEmail: user.email,
       apiKey: user.apiKey,
+    }));
+  };
+
+  const handleEmailChange = (newEmail: string) => {
+    const cleanEmail = newEmail.trim() || DEFAULT_SSO_USER.email;
+    setForm((prev) => ({
+      ...prev,
+      userEmail: cleanEmail,
+      ssoUser: {
+        ...(prev.ssoUser || DEFAULT_SSO_USER),
+        email: cleanEmail,
+      },
     }));
   };
 
@@ -47,6 +58,8 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
     setForm({ ...DEFAULT_SETTINGS });
   };
 
+  const ssoEmail = form.ssoUser?.email || form.userEmail || DEFAULT_SSO_USER.email;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -58,7 +71,7 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -126,11 +139,35 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
             )}
           </div>
 
-          {/* User Persona Selection (Automatically links X-User-Email and x-apikey) */}
+          {/* SSO Caller Identity Section */}
           <div className="space-y-2">
             <label className="text-slate-300 font-semibold flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Select Authenticated User Persona</span>
+              <Mail className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Enterprise SSO User Identity (<code className="font-mono text-emerald-400 text-[11px]">X-User-Email</code>)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={ssoEmail}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                placeholder="user@google.com"
+              />
+              <button
+                type="button"
+                onClick={() => handleEmailChange('maloosatyam@google.com')}
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition cursor-pointer"
+              >
+                Default
+              </button>
+            </div>
+          </div>
+
+          {/* Entitlement Tier Selection */}
+          <div className="space-y-2">
+            <label className="text-slate-300 font-semibold flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-amber-400" />
+              <span>API Entitlement Tier (<code className="font-mono text-amber-400 text-[11px]">x-apikey</code>)</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -142,8 +179,8 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
                     : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <div className="font-semibold text-xs text-amber-300">Bronze User</div>
-                <div className="text-[10px] opacity-80 mt-0.5 truncate">{USERS.bronze_user.email}</div>
+                <div className="font-semibold text-xs text-amber-300">Bronze Tier</div>
+                <div className="text-[10px] opacity-80 mt-0.5">Standard Dev Quota</div>
                 <div className="text-[9px] font-mono text-slate-500 mt-1 truncate">Key: {USERS.bronze_user.apiKey.slice(0, 8)}...</div>
               </button>
 
@@ -156,8 +193,8 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
                     : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <div className="font-semibold text-xs text-cyan-300">Silver User</div>
-                <div className="text-[10px] opacity-80 mt-0.5 truncate">{USERS.silver_user.email}</div>
+                <div className="font-semibold text-xs text-cyan-300">Silver Tier</div>
+                <div className="text-[10px] opacity-80 mt-0.5">401 Product Boundary</div>
                 <div className="text-[9px] font-mono text-slate-500 mt-1 truncate">Key: {USERS.silver_user.apiKey.slice(0, 8)}...</div>
               </button>
 
@@ -171,7 +208,7 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
                 }`}
               >
                 <div className="font-semibold text-xs text-indigo-300">Sales Agent</div>
-                <div className="text-[10px] opacity-80 mt-0.5 truncate">{USERS.sales_agent.email}</div>
+                <div className="text-[10px] opacity-80 mt-0.5">Enterprise Agent Tier</div>
                 <div className="text-[9px] font-mono text-slate-500 mt-1 truncate">Key: {USERS.sales_agent.apiKey.slice(0, 8)}...</div>
               </button>
             </div>
@@ -180,11 +217,13 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
             <div className="mt-3 p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-1.5 font-mono text-[11px]">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">X-User-Email:</span>
-                <span className="text-emerald-400">{form.userEmail}</span>
+                <span className={form.omitEmailHeader ? 'text-rose-400 line-through' : 'text-emerald-400'}>
+                  {form.omitEmailHeader ? '(Header Omitted for Testing)' : ssoEmail}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">x-apikey:</span>
-                <span className="text-amber-400">{form.apiKey.slice(0, 10)}...{form.apiKey.slice(-6)}</span>
+                <span className="text-amber-400">{form.apiKey ? `${form.apiKey.slice(0, 10)}...${form.apiKey.slice(-6)}` : '—'}</span>
               </div>
             </div>
 
