@@ -100,16 +100,16 @@ https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1/v1/projects/bap-apac-
 ## 4. Enterprise Identity (SSO) & Quota Entitlements
 
 In an enterprise environment, identity and API authorization are cleanly decoupled:
-1. **Identity Layer (Who you are)**: Provided by **Google Workspace / Cloud Identity-Aware Proxy (IAP) SSO**. The authenticated user's email (e.g. `maloosatyam@google.com`) is displayed in the top-right corner of the interface and dynamically injected into the `X-User-Email` header on every gateway request.
+1. **Identity Layer (Who you are)**: Provided dynamically by **Google Workspace / Cloud Identity-Aware Proxy (IAP) SSO**. The authenticated user's email (e.g. `<authenticated-user>@google.com` or `/api/me`) is displayed in the top-right corner of the interface and dynamically injected into the `X-User-Email` header on every gateway request.
 2. **Entitlement / Product Tier Layer (What you invoke)**: Governed by Apigee API Products and API Keys (`x-apikey`), categorizing developer quota limits and product entitlements.
 
 ```mermaid
 classDiagram
     class SsoIdentity {
-        +String name: "Satyam Maloo"
-        +String email: "maloosatyam@google.com"
-        +String organization: "google.com"
-        +String provider: "Google SSO"
+        +String name: "Authenticated User"
+        +String email: "user@domain.com"
+        +String organization: "domain.com"
+        +String provider: "Google SSO (IAP)"
         +Boolean isAuthenticated
     }
 
@@ -127,9 +127,9 @@ classDiagram
 ### Entitlement Tier Registry
 | Entitlement Tier | Active SSO Caller (`X-User-Email`) | Injected `x-apikey` (from `.env`) | Expected Apigee Gateway Behavior |
 | :--- | :--- | :--- | :--- |
-| **Bronze Tier** *(Default)* | `maloosatyam@google.com` (SSO User) | `$VITE_BRONZE_API_KEY` | **HTTP 200 OK** (Standard developer quota, fully entitled) |
-| **Silver Tier** | `maloosatyam@google.com` (SSO User) | `$VITE_SILVER_API_KEY` | **HTTP 401 Fault** (`InvalidAPICallAsNoApiProductMatchFound` - Demonstrates Apigee API product access governance) |
-| **Sales Agent** | `maloosatyam@google.com` (SSO User) | `$VITE_SALES_API_KEY` | **HTTP 200 OK** (Specialized business line agent entitlement) |
+| **Bronze Tier** *(Default)* | Signed-in SSO User (`X-User-Email`) | `$VITE_BRONZE_API_KEY` | **HTTP 200 OK** (Standard developer quota, fully entitled) |
+| **Silver Tier** | Signed-in SSO User (`X-User-Email`) | `$VITE_SILVER_API_KEY` | **HTTP 401 Fault** (`InvalidAPICallAsNoApiProductMatchFound` - Demonstrates Apigee API product access governance) |
+| **Sales Agent** | Signed-in SSO User (`X-User-Email`) | `$VITE_SALES_API_KEY` | **HTTP 200 OK** (Specialized business line agent entitlement) |
 
 ### Mandatory Headers
 Every request to the gateway includes:
@@ -212,8 +212,8 @@ graph TD
 
 2. **Top-Right Enterprise SSO Profile**:
    - Prominently positioned on the top-right corner of the Navbar across all viewport sizes.
-   - Displays avatar circle (`SM`), user full name (`Satyam Maloo`), email (`maloosatyam@google.com`), and an active green SSO indicator badge.
-   - Clicking opens an SSO identity card detailing identity provider (`Google Cloud Identity / IAP`), organization domain (`google.com`), and assigned entitlements.
+   - Displays dynamic avatar circle, authenticated user full name, email, and an active green SSO indicator badge.
+   - Automatically synchronizes with Google Cloud Identity-Aware Proxy (IAP) via `/api/me`.
    - Enables editing the SSO user email dynamically for zero-trust attribution testing.
 
 3. **Collapsible Mobile Toolbar**:

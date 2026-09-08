@@ -138,7 +138,8 @@ To comply with strict security standards prohibiting secrets in source control o
      SALES_API_KEY: "${SALES_API_KEY:-}",
      BRONZE_USER_EMAIL: "${BRONZE_USER_EMAIL:-bronze.user@example.com}",
      SILVER_USER_EMAIL: "${SILVER_USER_EMAIL:-silver.user@example.com}",
-     SALES_AGENT_EMAIL: "${SALES_AGENT_EMAIL:-sales.agent@example.com}"
+     SALES_AGENT_EMAIL: "${SALES_AGENT_EMAIL:-sales.agent@example.com}",
+     SSO_USER_EMAIL: "${SSO_USER_EMAIL:-demouser@google.com}"
    };
    EOF
    ```
@@ -157,11 +158,13 @@ To comply with strict security standards prohibiting secrets in source control o
 5. **HTML Script Injection ([`ui/index.html`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/index.html))**:
    The `/env-config.js` script tag is loaded in `<head>` before the Vite SPA bundles execute.
 
-### B. NGINX Reverse Proxying & SPA Fallback
+### B. NGINX Reverse Proxying, IAP Identity & SPA Fallback
 In **[`ui/nginx.conf.template`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/nginx.conf.template)**:
 1. **Dynamic Port Binding**: `listen ${PORT};` substituted automatically by official NGINX entrypoint using `NGINX_ENVSUBST_FILTER="PORT"`.
-2. **SPA Routing**: `location / { try_files $uri $uri/ /index.html; }` preserves client-side routing.
-3. **Apigee Reverse Proxying**:
+2. **IAP Identity Endpoint (`/api/me`)**:
+   Extracts the authenticated Google SSO user email from the `X-Goog-Authenticated-User-Email` header passed by Google Cloud IAP, stripping `accounts.google.com:` via `map $http_x_goog_authenticated_user_email $iap_user_email`. The React frontend queries `/api/me` on mount to automatically display the signed-in user and inject their email into `X-User-Email`.
+3. **SPA Routing**: `location / { try_files $uri $uri/ /index.html; }` preserves client-side routing.
+4. **Apigee Reverse Proxying**:
    - `/api/vertexai-dev` -> rewrites to `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1/$1`
    - `/api/vertexai-prod` -> rewrites to `https://api.maloosatyam.demo.altostrat.com/vertexai/v1/$1`
    - `proxy_ssl_server_name on;` and explicit DNS resolver (`8.8.8.8`) ensure seamless TLS SNI handshakes with Apigee routers.

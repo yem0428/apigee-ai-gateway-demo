@@ -124,7 +124,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     if (preset.settingsOverride?.activeUser) {
       const u = USERS[preset.settingsOverride.activeUser];
       if (u) {
-        effectiveSettings.userEmail = u.email;
         effectiveSettings.apiKey = u.apiKey;
       }
     }
@@ -140,7 +139,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
           ...persistentOverrides,
           ...(preset.settingsOverride?.activeUser
             ? {
-                userEmail: USERS[preset.settingsOverride.activeUser]?.email || prev.userEmail,
                 apiKey: USERS[preset.settingsOverride.activeUser]?.apiKey || prev.apiKey,
               }
             : {}),

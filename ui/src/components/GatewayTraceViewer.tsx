@@ -89,7 +89,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <span>SSO Identity:</span>
               <span className="font-semibold text-white truncate max-w-[120px]">
-                {telemetry.ssoUser?.name || settings.ssoUser?.name || 'Satyam Maloo'}
+                {telemetry.ssoUser?.name || settings.ssoUser?.name || 'SSO User'}
               </span>
             </div>
             <span

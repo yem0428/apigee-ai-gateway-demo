@@ -1,3 +1,8 @@
+map $http_x_goog_authenticated_user_email $iap_user_email {
+    ~*^accounts\.google\.com:(.+)$ $1;
+    default $http_x_goog_authenticated_user_email;
+}
+
 server {
     listen ${PORT};
     server_name localhost;
@@ -24,6 +29,13 @@ server {
         access_log off;
         default_type text/plain;
         return 200 "healthy\n";
+    }
+
+    # IAP Identity endpoint for SPA frontend
+    location ~ ^/api/me/?$ {
+        default_type application/json;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+        return 200 '{"email":"$iap_user_email","raw":"$http_x_goog_authenticated_user_email","id":"$http_x_goog_authenticated_user_id"}';
     }
 
     # Apigee Dev Gateway Reverse Proxy

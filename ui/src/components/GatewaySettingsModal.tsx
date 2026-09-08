@@ -155,10 +155,26 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
               />
               <button
                 type="button"
-                onClick={() => handleEmailChange('maloosatyam@google.com')}
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/me');
+                    if (res.ok) {
+                      const data = await res.json();
+                      const clean = (data.email || '').replace(/^accounts\.google\.com:/, '').trim();
+                      if (clean) {
+                        handleEmailChange(clean);
+                        return;
+                      }
+                    }
+                  } catch {
+                    // ignore fetch errors
+                  }
+                  handleEmailChange(DEFAULT_SSO_USER.email);
+                }}
                 className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition cursor-pointer"
+                title="Re-sync from active SSO session"
               >
-                Default
+                Re-sync
               </button>
             </div>
           </div>

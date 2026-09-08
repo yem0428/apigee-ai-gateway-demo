@@ -240,7 +240,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Avatar Circle with Status Indicator */}
               <div className="relative">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm ring-1 ring-emerald-400/50">
-                  {ssoUser.avatarText || 'SM'}
+                  {ssoUser.avatarText || 'SSO'}
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-950 rounded-full animate-pulse" />
               </div>
@@ -256,7 +256,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 </div>
                 <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]">
-                  {ssoUser.email}
+                  {ssoUser.email || 'Authenticating...'}
                 </span>
               </div>
 
@@ -269,7 +269,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="flex items-start justify-between pb-3 border-b border-slate-800">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-sm ring-2 ring-emerald-400/50">
-                      {ssoUser.avatarText || 'SM'}
+                      {ssoUser.avatarText || 'SSO'}
                     </div>
                     <div>
                       <div className="font-bold text-slate-100 text-sm">{ssoUser.name}</div>
@@ -331,14 +331,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        handleEmailUpdate('maloosatyam@google.com');
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/me');
+                          if (res.ok) {
+                            const data = await res.json();
+                            const clean = (data.email || '').replace(/^accounts\.google\.com:/, '').trim();
+                            if (clean) {
+                              handleEmailUpdate(clean);
+                              setSsoPopoverOpen(false);
+                              return;
+                            }
+                          }
+                        } catch {
+                          // ignore fetch errors
+                        }
+                        handleEmailUpdate(DEFAULT_SSO_USER.email);
                         setSsoPopoverOpen(false);
                       }}
                       className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] transition cursor-pointer"
-                      title="Reset to default SSO user"
+                      title="Re-sync from active SSO session"
                     >
-                      Default
+                      Re-sync
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">

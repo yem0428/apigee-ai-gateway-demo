@@ -7,6 +7,6 @@ window.__RUNTIME_CONFIG__ = {
   BRONZE_USER_EMAIL: "${BRONZE_USER_EMAIL:-bronze.user@example.com}",
   SILVER_USER_EMAIL: "${SILVER_USER_EMAIL:-silver.user@example.com}",
   SALES_AGENT_EMAIL: "${SALES_AGENT_EMAIL:-sales.agent@example.com}",
-  SSO_USER_EMAIL: "${SSO_USER_EMAIL:-demouser@google.com}"
+  SSO_USER_EMAIL: "${SSO_USER_EMAIL:-}"
 };
 EOF

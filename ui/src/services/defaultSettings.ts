@@ -16,13 +16,6 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     upstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1',
     tag: 'Dev',
   },
-  bap: {
-    id: 'dev',
-    name: 'Dev Gateway',
-    proxyPath: '/api/vertexai-dev',
-    upstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1',
-    tag: 'Dev',
-  },
   prod: {
     id: 'prod',
     name: 'Production Gateway',
@@ -54,14 +47,54 @@ export const getRuntimeEnv = (key: string, fallback: string = ''): string => {
   return viteVal !== undefined && viteVal !== '' ? viteVal : fallback;
 };
 
-export const DEFAULT_SSO_USER: SsoUser = {
-  name: 'Satyam Maloo',
-  email: getRuntimeEnv('SSO_USER_EMAIL', 'maloosatyam@google.com'),
-  organization: 'google.com',
-  provider: 'Google Cloud Identity SSO',
-  avatarText: 'SM',
-  isAuthenticated: true,
+export const createSsoUserFromEmail = (
+  email: string,
+  provider: string = 'Google Cloud Identity SSO'
+): SsoUser => {
+  const cleanEmail = email.trim();
+  if (!cleanEmail) {
+    return {
+      name: 'SSO User',
+      email: '',
+      organization: 'google.com',
+      provider,
+      avatarText: 'SSO',
+      isAuthenticated: false,
+    };
+  }
+
+  const namePart = cleanEmail.split('@')[0] || 'User';
+  const displayName = namePart
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+    .join(' ') || namePart;
+
+  let initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('');
+
+  if (!initials) {
+    initials = cleanEmail.slice(0, 2).toUpperCase();
+  }
+
+  const domain = cleanEmail.split('@')[1] || 'google.com';
+
+  return {
+    name: displayName,
+    email: cleanEmail,
+    organization: domain,
+    provider,
+    avatarText: initials,
+    isAuthenticated: true,
+  };
 };
+
+const defaultInitialEmail = getRuntimeEnv('SSO_USER_EMAIL', '');
+export const DEFAULT_SSO_USER: SsoUser = createSsoUserFromEmail(defaultInitialEmail);
 
 export const USERS: Record<UserPersona, UserInfo> = {
   bronze_user: {
@@ -217,7 +250,6 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     settingsOverride: {
       activeUser: 'silver_user',
       apiKey: USERS.silver_user.apiKey,
-      userEmail: USERS.silver_user.email,
     },
   },
   {
