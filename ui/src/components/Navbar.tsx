@@ -13,13 +13,16 @@ import {
   Mail,
   Shield,
   X,
+  Terminal,
 } from 'lucide-react';
-import { GatewaySettings, GatewayEnvironment, UserPersona } from '../types';
+import { GatewaySettings, GatewayEnvironment, UserPersona, AppTab } from '../types';
 import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER } from '../services/defaultSettings';
 
 interface NavbarProps {
   settings: GatewaySettings;
   setSettings: React.Dispatch<React.SetStateAction<GatewaySettings>>;
+  activeTab: AppTab;
+  onTabChange: (tab: AppTab) => void;
   onOpenSettings: () => void;
   onResetChat: () => void;
 }
@@ -27,6 +30,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   settings,
   setSettings,
+  activeTab,
+  onTabChange,
   onOpenSettings,
   onResetChat,
 }) => {
@@ -88,16 +93,51 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="bg-slate-950/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur">
       {/* Primary Bar */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-500/25">
-            <ShieldCheck className="w-4 h-4 text-white" />
+        {/* Left: Brand & Gateway Tabs */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-500/25">
+              <ShieldCheck className="w-4 h-4 text-white" />
+            </div>
+            <div className="hidden xl:flex items-center gap-1.5">
+              <span className="font-bold text-sm text-white tracking-tight">Apigee</span>
+              <span className="text-[10px] bg-blue-500/15 text-blue-400 font-mono font-medium px-1.5 py-0.5 rounded border border-blue-500/25">
+                Studio
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-sm text-white tracking-tight">Apigee AI Gateway</span>
-            <span className="text-[10px] bg-blue-500/15 text-blue-400 font-mono font-medium px-1.5 py-0.5 rounded border border-blue-500/25 hidden sm:inline-block">
-              Studio
-            </span>
+
+          {/* Primary Gateway Tabs Switcher */}
+          <div className="flex items-center bg-slate-900 p-0.5 rounded-xl border border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => onTabChange('ai-gateway')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
+                activeTab === 'ai-gateway'
+                  ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+              title="Apigee AI Gateway (Gemini Model Routing & Guardrails)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-300" />
+              <span>AI Gateway</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onTabChange('mcp-gateway')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
+                activeTab === 'mcp-gateway'
+                  ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+              title="Apigee Native MCP Tools Server (/mcp)"
+            >
+              <Terminal className="w-3.5 h-3.5 text-cyan-300" />
+              <span>MCP Gateway</span>
+              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30 hidden sm:inline-block">
+                /mcp
+              </span>
+            </button>
           </div>
         </div>
 
@@ -186,38 +226,47 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Model Selector Pill / Dropdown */}
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800">
-            <div className="flex items-center gap-1 pl-2 pr-1 text-slate-400 text-[11px]">
-              <Sparkles className="w-3 h-3 text-emerald-400" />
-              <span>Model:</span>
+          {/* Model Selector Pill / Dropdown (AI Gateway only) */}
+          {activeTab === 'ai-gateway' ? (
+            <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+              <div className="flex items-center gap-1 pl-2 pr-1 text-slate-400 text-[11px]">
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <span>Model:</span>
+              </div>
+              <select
+                value={settings.model}
+                onChange={(e) => handleModelChange(e.target.value)}
+                className="bg-slate-800 text-slate-100 text-[11px] font-medium rounded-md px-2 py-1 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                {AVAILABLE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              value={settings.model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              className="bg-slate-800 text-slate-100 text-[11px] font-medium rounded-md px-2 py-1 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
-              {AVAILABLE_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          ) : (
+            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-cyan-400">
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Target: /mcp</span>
+            </div>
+          )}
         </div>
 
         {/* Right: Actions & Top-Right SSO Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* New Chat / Reset */}
-          <button
-            type="button"
-            onClick={onResetChat}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition text-xs cursor-pointer"
-            title="Clear Chat & Reset Session"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
+          {/* New Chat / Reset (AI Gateway only) */}
+          {activeTab === 'ai-gateway' && (
+            <button
+              type="button"
+              onClick={onResetChat}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition text-xs cursor-pointer"
+              title="Clear Chat & Reset Session"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+          )}
 
           {/* Settings Modal */}
           <button

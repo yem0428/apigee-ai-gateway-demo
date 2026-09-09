@@ -140,7 +140,72 @@ Every request to the gateway includes:
 
 ---
 
-## 5. Supported Models & Routing
+## 5. Apigee Native MCP Tools Gateway (Model Context Protocol)
+
+The platform provides a dedicated second tab **[ 🔌 MCP Gateway ]** connecting directly to Apigee's native Model Context Protocol (MCP) server proxy deployed at base path `/mcp`.
+
+```mermaid
+flowchart LR
+    subgraph Client ["Studio Web UI"]
+        AITab["[ 🤖 AI Gateway ]\n(Vertex AI / Gemini)"]
+        MCPTab["[ 🔌 MCP Gateway ]\n(JSON-RPC 2.0 Tools)"]
+    end
+
+    subgraph ReverseProxy ["Reverse Proxy (Vite / NGINX)"]
+        DevMcp["/api/mcp-dev"]
+        ProdMcp["/api/mcp-prod"]
+    end
+
+    subgraph ApigeeMCP ["Apigee MCP Proxy (/mcp)"]
+        PP["PP-MCP\n(Protocol: MCP, JSON-RPC 2.0)"]
+        VA["VA-VerifyAPIKey\n(Validates x-apikey)"]
+        Q["Q-Limit\n(Tool Quota Enforcement)"]
+        ML["ML-CloudLogging\n(Audit Transaction Log)"]
+    end
+
+    subgraph Backend ["Enterprise Backends"]
+        Discounts["Parts Discounts Service"]
+        ServiceNow["Incident ITSM Service"]
+        Loans["Banking Loan Application System"]
+    end
+
+    MCPTab -->|tools/list or tools/call| DevMcp --> PP
+    MCPTab -->|tools/list or tools/call| ProdMcp --> PP
+    PP --> VA --> Q --> ML
+    ML --> Discounts
+    ML --> ServiceNow
+    ML --> Loans
+```
+
+### 5.1 MCP Gateway Environments & Endpoints
+| Environment | Gateway Upstream URL | UI Proxy Route (Vite & NGINX) | Security Policy Behavior |
+| :--- | :--- | :--- | :--- |
+| **Dev Gateway** | `https://bap.api.maloosatyam.demo.altostrat.com/mcp` | `/api/mcp-dev` | **Open Access Sandbox**: Unrestricted developer exploration. |
+| **Prod Gateway** | `https://api.maloosatyam.demo.altostrat.com/mcp` | `/api/mcp-prod` | **Enforced API Products**: Strict `VA-VerifyAPIKey` product authorization. |
+
+### 5.2 Discovered Enterprise Tools Catalog
+| Tool Name | Domain / Service | Required Inputs | Authorized Credentials on Prod |
+| :--- | :--- | :--- | :--- |
+| **`listAllDiscounts`** | Parts Pricing | None (`{}`) | Sales Agent, All MCP Key |
+| **`getDiscountForSku`** | Parts Pricing | `part_SKU` (e.g. `"PART123"`) | Sales Agent, All MCP Key |
+| **`getLoanApplication`** | Banking / Loans | `applicationId` (e.g. `"LN-20250709-0012345"`) | All MCP Key (`dFxh...`) only |
+| **`patchLoanApplication`**| Banking / Loans | `applicationId`, patch request object | All MCP Key (`dFxh...`) only |
+| **`submitLoanApplication`**| Banking / Loans | `LoanApplicationRequest` (applicant, credit score, amount) | All MCP Key (`dFxh...`) only |
+
+### 5.3 MCP Credential Access Matrix (Production)
+1. **Bronze Credentials (`$VITE_BRONZE_API_KEY`)**:
+   - Status: **HTTP 401 Unauthorized** (`oauth.v2.InvalidApiKeyForGivenResource`).
+   - Demonstrates Apigee access control: AI developer keys cannot execute enterprise MCP tools without product entitlement.
+2. **Sales Agent Credentials (`$VITE_SALES_API_KEY`)**:
+   - Status: **HTTP 200 OK** for Sales tools (`listAllDiscounts`, `getDiscountForSku`).
+   - Banking loan tools are hidden and blocked with `401`.
+3. **All MCP Access Credentials (`dFxh2nFMGfVFAIQ3ZvH17be6iDJegSObl6jFs7TA8oE0FxpM`)**:
+   - Status: **HTTP 200 OK** for all 5 enterprise tools across sales and banking.
+
+
+---
+
+## 6. Supported Models & Routing
 
 The platform supports 4 model options in the Navbar dropdown:
 
@@ -153,7 +218,7 @@ The platform supports 4 model options in the Navbar dropdown:
 
 ---
 
-## 6. Apigee Policy Catalog & Fault Interception
+## 7. Apigee Policy Catalog & Fault Interception
 
 | Policy Name | Apigee Policy Type | Execution Trigger | Gate Behavior & Telemetry Signal |
 | :--- | :--- | :--- | :--- |
@@ -164,29 +229,35 @@ The platform supports 4 model options in the Navbar dropdown:
 | **`SCP-Semantic-Cache-Populate`** | ExtensionCallout | Cache Miss | Stores prompt embedding and model output into the vector index for future semantically similar queries. |
 | **`LTQ-TokenEnforce`** | SpikeArrest / Quota | Post-Inference | Enforces token limits calculated from upstream `usageMetadata`. |
 | **`DC-ModelAnalytics`** | DataCapture | PostFlow | Extracts prompt tokens, candidate tokens, model name, and user email for GCP Cloud Logging and Looker Studio dashboards. |
+| **`PP-MCP`** | ParsePayload | MCP JSON-RPC PreFlow | Native Apigee policy parsing MCP JSON-RPC protocol methods (`tools/list`, `tools/call`). |
+| **`Q-Limit`** | Quota | MCP PreFlow | Enforces tool call rate limits per minute on tool invocations. |
 
 ---
 
-## 7. Frontend UI Architecture & Mobile Responsiveness
+## 8. Frontend UI Architecture & Multi-Gateway Studio
 
-The UI is built using **React 18 + TypeScript + Vite + Tailwind CSS**, following a modern dual-pane Studio layout with enterprise-grade responsive mobile viewports and Cloud Identity SSO integration:
+The UI is built using **React 18 + TypeScript + Vite + Tailwind CSS**, providing a top-level tabbed console for both the AI Gateway and MCP Tools Gateway:
 
 ```
 ui/
 ├── src/
 │   ├── components/
-│   │   ├── Navbar.tsx                # Sticky top bar: Brand, SSO profile chip (top-right), collapsible mobile controls drawer, Dev/Prod pills, Tier pills, Model selector
-│   │   ├── ChatPlayground.tsx        # Responsive workspace: Chat thread, inline telemetry badges, mobile view-switch tab bar ([💬 Chat] | [📊 Gateway Trace]), quick chips, status footer
-│   │   ├── GatewayTraceViewer.tsx    # Telemetry inspection pane: SSO caller identity, 4 telemetry summary cards, technical accordion
+│   │   ├── Navbar.tsx                # Sticky top bar: Brand, Gateway Tabs Switcher ([AI Gateway] | [MCP Gateway]), SSO profile chip (top-right), Dev/Prod pills, Tier pills
+│   │   ├── ChatPlayground.tsx        # Tab 1: AI Gateway Chat thread, inline telemetry badges, mobile view-switch tab bar ([💬 Chat] | [📊 Gateway Trace]), quick chips, status footer
+│   │   ├── GatewayTraceViewer.tsx    # Tab 1: AI Gateway telemetry inspection pane: SSO caller identity, token counters, technical accordion
+│   │   ├── McpPlayground.tsx         # Tab 2: MCP Tools Gateway: Live tool discovery, dynamic schema form, presets, rapid quota test
+│   │   ├── McpTraceViewer.tsx        # Tab 2: MCP Protocol & Telemetry Inspector: JSON-RPC 2.0 request/response viewer, PP-MCP, VA-VerifyAPIKey, Q-Limit policy trace
 │   │   └── GatewaySettingsModal.tsx  # Modal: Persona/Tier selector, SSO user configuration, custom endpoints, missing email simulation toggle
 │   ├── services/
-│   │   ├── apigeeClient.ts           # REST dispatcher, error classifier, Vertex AI payload builder, dynamic SSO email injection
+│   │   ├── apigeeClient.ts           # REST dispatcher for Vertex AI Gemini model routing
+│   │   ├── mcpClient.ts              # JSON-RPC 2.0 dispatcher for tools/list and tools/call on /mcp
 │   │   └── defaultSettings.ts       # Central dictionary of SSO defaults, environments, entitlement tiers, models, and scenario presets
 │   ├── types/
-│   │   └── index.ts                  # TypeScript interfaces (SsoUser, GatewaySettings, GatewayTelemetry, UserPersona, ChatMessage)
-│   ├── App.tsx                       # Root container, localStorage state persistence, persona/SSO synchronization
+│   │   └── index.ts                  # TypeScript interfaces (AppTab, McpTool, McpTelemetry, SsoUser, GatewaySettings, GatewayTelemetry)
+│   ├── App.tsx                       # Root container, activeAppTab state, localStorage persistence, IAP session auto-sync (/api/me)
 │   └── main.tsx                      # Vite React entrypoint
-├── vite.config.ts                    # Vite dev proxy configuration (/api/vertexai-dev, /api/vertexai-prod)
+├── vite.config.ts                    # Local proxy routes (/api/vertexai-*, /api/mcp-*, /api/me)
+├── nginx.conf.template               # Cloud Run NGINX reverse proxy template with IAP headers extraction
 ├── package.json                      # Dependencies and build scripts
 └── tailwind.config.js                # Tailwind theme configuration
 ```

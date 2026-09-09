@@ -1,10 +1,12 @@
-import { GatewaySettings, ScenarioPreset, GatewayEnvironment, UserPersona, UserInfo, KeyTier, SsoUser } from '../types';
+import { GatewaySettings, ScenarioPreset, GatewayEnvironment, UserPersona, UserInfo, KeyTier, SsoUser, McpPresetScenario } from '../types';
 
 export interface EnvironmentInfo {
   id: GatewayEnvironment;
   name: string;
   proxyPath: string;
   upstreamUrl: string;
+  mcpProxyPath: string;
+  mcpUpstreamUrl: string;
   tag: string;
 }
 
@@ -14,6 +16,8 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     name: 'Dev Gateway',
     proxyPath: '/api/vertexai-dev',
     upstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1',
+    mcpProxyPath: '/api/mcp-dev',
+    mcpUpstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/mcp',
     tag: 'Dev',
   },
   prod: {
@@ -21,6 +25,8 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     name: 'Production Gateway',
     proxyPath: '/api/vertexai-prod',
     upstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/vertexai/v1',
+    mcpProxyPath: '/api/mcp-prod',
+    mcpUpstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/mcp',
     tag: 'Prod',
   },
   custom: {
@@ -28,6 +34,8 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     name: 'Custom Endpoint',
     proxyPath: '',
     upstreamUrl: '',
+    mcpProxyPath: '',
+    mcpUpstreamUrl: '',
     tag: 'Custom',
   },
 };
@@ -106,16 +114,16 @@ export const USERS: Record<UserPersona, UserInfo> = {
   },
   silver_user: {
     id: 'silver_user',
-    name: 'Silver User',
-    email: getRuntimeEnv('SILVER_USER_EMAIL', 'silver.user@example.com'),
-    apiKey: getRuntimeEnv('SILVER_API_KEY', ''),
-    badge: 'Silver',
+    name: 'All MCP User',
+    email: getRuntimeEnv('SILVER_USER_EMAIL', 'all.mcp@example.com'),
+    apiKey: getRuntimeEnv('SILVER_API_KEY', 'dFxh2nFMGfVFAIQ3ZvH17be6iDJegSObl6jFs7TA8oE0FxpM'),
+    badge: 'All MCP',
   },
   sales_agent: {
     id: 'sales_agent',
     name: 'Sales Agent',
     email: getRuntimeEnv('SALES_AGENT_EMAIL', 'sales.agent@example.com'),
-    apiKey: getRuntimeEnv('SALES_API_KEY', ''),
+    apiKey: getRuntimeEnv('SALES_API_KEY', 'c7DvF8Cwo013IWpXvLhUqxvqZeCHYpU0lCYDdkGDzUmLGovL'),
     badge: 'Sales Agent',
   },
 };
@@ -145,10 +153,10 @@ export const KEY_TIERS: Record<KeyTier, KeyTierInfo> = {
   },
   silver: {
     id: 'silver',
-    name: 'Silver User Key',
+    name: 'All MCP Access Key',
     key: USERS.silver_user.apiKey,
-    description: 'Silver User quota tier',
-    badge: 'Silver',
+    description: 'Full MCP tool suite access (Loans, Discounts, SKU Pricing)',
+    badge: 'All MCP',
   },
   custom: {
     id: 'custom',
@@ -261,5 +269,58 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     badgeText: 'RF-MissingUserEmail',
     badgeColor: 'orange',
     settingsOverride: { omitEmailHeader: true },
+  },
+];
+
+export const MCP_PRESET_SCENARIOS: McpPresetScenario[] = [
+  {
+    id: 'list-all-discounts',
+    title: 'List All Parts Discounts',
+    toolName: 'listAllDiscounts',
+    category: 'Inventory',
+    description: 'Queries Apigee MCP backend for all active parts promotional discounts',
+    arguments: {},
+    badgeText: 'Discounts',
+    badgeColor: 'emerald',
+  },
+  {
+    id: 'get-incident',
+    title: 'Lookup Incident INC0010023',
+    toolName: 'getIncidentByNumber',
+    category: 'ITSM',
+    description: 'Retrieves incident status and diagnostic URL for ticket INC0010023',
+    arguments: { inc_number: 'INC0010023' },
+    badgeText: 'Incident',
+    badgeColor: 'blue',
+  },
+  {
+    id: 'get-sku-discount',
+    title: 'Check Price for SKU PART123',
+    toolName: 'getDiscountForSku',
+    category: 'Pricing',
+    description: 'Looks up discounted price for automotive part SKU PART123',
+    arguments: { part_SKU: 'PART123' },
+    badgeText: 'SKU Price',
+    badgeColor: 'purple',
+  },
+  {
+    id: 'get-loan-app',
+    title: 'Lookup Loan Application',
+    toolName: 'getLoanApplication',
+    category: 'Banking',
+    description: 'Retrieves loan details and status for application LN-20250709-0012345 (All MCP key)',
+    arguments: { applicationId: 'LN-20250709-0012345' },
+    badgeText: 'Loan App',
+    badgeColor: 'blue',
+  },
+  {
+    id: 'quota-stress-test',
+    title: 'Quota Rate-Limit Test',
+    toolName: 'listAllDiscounts',
+    category: 'Governance',
+    description: 'Tests Apigee Q-Limit policy enforcement by triggering rapid calls',
+    arguments: {},
+    badgeText: 'Rate Limit',
+    badgeColor: 'amber',
   },
 ];

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { ChatPlayground } from './components/ChatPlayground';
+import { McpPlayground } from './components/McpPlayground';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
-import { GatewaySettings, ChatMessage, GatewayTelemetry, UserPersona } from './types';
+import { GatewaySettings, ChatMessage, GatewayTelemetry, UserPersona, AppTab } from './types';
 import { DEFAULT_SETTINGS, USERS, DEFAULT_SSO_USER, createSsoUserFromEmail } from './services/defaultSettings';
 
 export function App() {
@@ -94,6 +95,7 @@ export function App() {
     }
   }, [settings.omitEmailHeader]);
 
+  const [activeTab, setActiveTab] = useState<AppTab>('ai-gateway');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeTelemetry, setActiveTelemetry] = useState<GatewayTelemetry | null>(null);
 
@@ -108,20 +110,28 @@ export function App() {
       <Navbar
         settings={settings}
         setSettings={setSettings}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onResetChat={handleResetChat}
       />
 
-      {/* Main Dual-Pane Studio */}
+      {/* Main Dual-Pane Studio Body */}
       <main className="flex-1 overflow-hidden">
-        <ChatPlayground
-          settings={settings}
-          setSettings={setSettings}
-          messages={messages}
-          setMessages={setMessages}
-          activeTelemetry={activeTelemetry}
-          setActiveTelemetry={setActiveTelemetry}
-        />
+        {activeTab === 'ai-gateway' ? (
+          <ChatPlayground
+            settings={settings}
+            setSettings={setSettings}
+            messages={messages}
+            setMessages={setMessages}
+            activeTelemetry={activeTelemetry}
+            setActiveTelemetry={setActiveTelemetry}
+          />
+        ) : (
+          <McpPlayground
+            settings={settings}
+          />
+        )}
       </main>
 
       {/* Gateway Configuration Drawer / Modal */}

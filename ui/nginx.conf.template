@@ -64,6 +64,32 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Apigee Dev MCP Gateway Reverse Proxy
+    location /api/mcp-dev {
+        resolver 8.8.8.8 8.8.4.4 valid=300s;
+        resolver_timeout 5s;
+        rewrite ^/api/mcp-dev/?(.*)$ /mcp/$1 break;
+        proxy_pass https://bap.api.maloosatyam.demo.altostrat.com;
+        proxy_ssl_server_name on;
+        proxy_set_header Host bap.api.maloosatyam.demo.altostrat.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Apigee Prod MCP Gateway Reverse Proxy
+    location /api/mcp-prod {
+        resolver 8.8.8.8 8.8.4.4 valid=300s;
+        resolver_timeout 5s;
+        rewrite ^/api/mcp-prod/?(.*)$ /mcp/$1 break;
+        proxy_pass https://api.maloosatyam.demo.altostrat.com;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.maloosatyam.demo.altostrat.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # SPA routing: fallback to index.html
     location / {
         try_files $uri $uri/ /index.html;

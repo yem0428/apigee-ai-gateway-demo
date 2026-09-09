@@ -40,6 +40,18 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api\/vertexai-prod/, ''),
           secure: false,
         },
+        '/api/mcp-dev': {
+          target: 'https://bap.api.maloosatyam.demo.altostrat.com/mcp',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/mcp-dev/, ''),
+          secure: false,
+        },
+        '/api/mcp-prod': {
+          target: 'https://api.maloosatyam.demo.altostrat.com/mcp',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/mcp-prod/, ''),
+          secure: false,
+        },
       },
     },
   };
