@@ -2,15 +2,10 @@ import React, { useState } from 'react';
 import { McpTelemetry } from '../types';
 import {
   Activity,
-  CheckCircle2,
-  AlertTriangle,
   Clock,
   Code2,
   Copy,
   Check,
-  Shield,
-  Key,
-  Database,
   FileJson,
   User,
 } from 'lucide-react';
@@ -30,7 +25,7 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
         <div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mb-4" />
         <h4 className="text-sm font-semibold text-slate-200">Executing MCP Request</h4>
         <p className="text-xs text-slate-400 mt-1 max-w-xs">
-          Routing JSON-RPC payload through Apigee PP-MCP, checking API Key entitlements, and executing tool...
+          Routing JSON-RPC payload and executing tool...
         </p>
       </div>
     );
@@ -44,7 +39,7 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
         </div>
         <h4 className="text-sm font-semibold text-slate-200">MCP Protocol & Trace Telemetry</h4>
         <p className="text-xs text-slate-400 mt-1 max-w-sm leading-relaxed">
-          Select a registered tool and click <span className="text-cyan-300 font-medium">Execute Tool</span> or choose a preset scenario to inspect the live JSON-RPC 2.0 transaction and Apigee policy execution.
+          Select a registered tool and click <span className="text-cyan-300 font-medium">Execute Tool</span> or choose a preset scenario to inspect the live JSON-RPC 2.0 transaction.
         </p>
       </div>
     );
@@ -97,69 +92,6 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-lg border border-slate-700 text-xs font-mono text-slate-300">
             <Clock className="w-3.5 h-3.5 text-cyan-400" />
             <span>{telemetry.latencyMs} ms</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Apigee Policy Execution Trace Ribbon */}
-      <div className="px-4 py-3 bg-slate-950/40 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-        {/* PP-MCP Policy */}
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/90 border border-slate-800">
-          <Code2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <div className="min-w-0">
-            <div className="text-[10px] text-slate-400 font-mono">PP-MCP (Parser)</div>
-            <div className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Parsed MCP
-            </div>
-          </div>
-        </div>
-
-        {/* VA-VerifyAPIKey */}
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/90 border border-slate-800">
-          <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <div className="min-w-0">
-            <div className="text-[10px] text-slate-400 font-mono">VA-VerifyAPIKey</div>
-            <div className="text-xs font-semibold flex items-center gap-1">
-              {telemetry.policyTrace.vaVerifyApiKey ? (
-                <span className="text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Valid Key
-                </span>
-              ) : (
-                <span className="text-red-400 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Rejected
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Q-Limit Policy */}
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/90 border border-slate-800">
-          <Shield className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-          <div className="min-w-0">
-            <div className="text-[10px] text-slate-400 font-mono">Q-Limit (Quota)</div>
-            <div className="text-xs font-semibold flex items-center gap-1">
-              {telemetry.policyTrace.qLimit ? (
-                <span className="text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Allowed
-                </span>
-              ) : (
-                <span className="text-amber-400 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Quota Exceeded
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ML-CloudLogging */}
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/90 border border-slate-800">
-          <Database className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-          <div className="min-w-0">
-            <div className="text-[10px] text-slate-400 font-mono">ML-CloudLogging</div>
-            <div className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Audit Logged
-            </div>
           </div>
         </div>
       </div>
@@ -225,7 +157,7 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
                 : 'bg-slate-800 text-slate-400 hover:text-slate-200'
             }`}
           >
-            Headers & Trace
+            Headers
           </button>
         </div>
 

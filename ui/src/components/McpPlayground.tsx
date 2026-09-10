@@ -12,7 +12,6 @@ import {
   Wrench,
   Play,
   RefreshCw,
-  Zap,
   Layers,
   Code2,
   Terminal,
@@ -158,37 +157,6 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
     }
   };
 
-  // Quota Stress Test: fires rapid calls to demonstrate Q-Limit policy
-  const handleStressTest = async () => {
-    if (!selectedTool) return;
-    setExecuting(true);
-    setStatusNotification('Running Quota Stress Test (5 consecutive calls)...');
-
-    let finalTelem: McpTelemetry | null = null;
-    for (let i = 1; i <= 5; i++) {
-      try {
-        const { telemetry: telem } = await callMcpTool(
-          settings,
-          selectedTool.name,
-          toolArgs
-        );
-        finalTelem = telem;
-        if (telem.status === 429) {
-          setStatusNotification(`Call #${i} triggered Apigee Q-Limit: 429 Quota Exceeded!`);
-          break;
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    if (finalTelem) {
-      setTelemetry(finalTelem);
-      setHasNewTrace(true);
-    }
-    setExecuting(false);
-  };
-
   return (
     <div className="h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
       {/* Mobile Sub-Navigation Switcher (< md) */}
@@ -268,50 +236,6 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
                 <span>Refresh Tools</span>
               </button>
             </div>
-
-            {/* Environment & Access Governance Strip */}
-            <div className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${settings.environment === 'prod' ? 'bg-purple-400 animate-pulse' : 'bg-blue-400'}`} />
-                <span className="font-semibold text-slate-200">
-                  {settings.environment === 'prod' ? 'Prod Gateway:' : 'Dev Sandbox Gateway:'}
-                </span>
-                <span className="text-slate-400 font-mono text-[11px] truncate">
-                  {settings.environment === 'prod' ? 'https://api.maloosatyam.demo.altostrat.com/mcp' : 'https://bap.api.maloosatyam.demo.altostrat.com/mcp'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {settings.environment === 'prod' ? (
-                  settings.activeUser === 'bronze_user' ? (
-                    <span className="px-2.5 py-1 rounded-full bg-red-950/80 text-red-300 border border-red-500/40 text-[11px] font-medium flex items-center gap-1">
-                      ⚠️ Bronze: 401 Unauthorized
-                    </span>
-                  ) : settings.activeUser === 'sales_agent' ? (
-                    <span className="px-2.5 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/40 text-[11px] font-medium flex items-center gap-1">
-                      ✓ Sales Agent: 2 Sales Tools
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-full bg-purple-950/80 text-purple-300 border border-purple-500/40 text-[11px] font-medium flex items-center gap-1">
-                      ✓ All MCP: Full 5 Tools Access
-                    </span>
-                  )
-                ) : (
-                  <span className="px-2.5 py-1 rounded-full bg-blue-950/80 text-blue-300 border border-blue-500/40 text-[11px] font-medium flex items-center gap-1">
-                    ✓ Open Access Sandbox
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Prod Bronze Unauthorized Notice */}
-            {settings.environment === 'prod' && settings.activeUser === 'bronze_user' && (
-              <div className="p-3 rounded-xl bg-red-950/30 border border-red-500/30 text-xs text-red-200 flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <div className="leading-relaxed text-[11px]">
-                  <strong className="font-semibold text-red-300">Apigee Governance Notice:</strong> On the Production instance, Bronze credentials do not possess the required API product entitlement and will be rejected with <code className="font-mono text-red-300">401 (InvalidApiKeyForGivenResource)</code>. Switch to <strong>Sales Agent</strong> or <strong>All MCP</strong> in the top bar to discover and execute tools.
-                </div>
-              </div>
-            )}
 
             {/* Quick Demo Presets */}
             <div className="space-y-2">
@@ -488,26 +412,15 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
                 )}
 
                 {/* Action Buttons */}
-                <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center gap-3">
+                <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={handleExecute}
                     disabled={executing}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-cyan-500/25 transition cursor-pointer"
+                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-cyan-500/25 transition cursor-pointer"
                   >
                     <Play className={`w-3.5 h-3.5 fill-current ${executing ? 'animate-pulse' : ''}`} />
-                    <span>{executing ? 'Executing...' : 'Execute Tool (JSON-RPC)'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleStressTest}
-                    disabled={executing}
-                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-300 border border-amber-500/30 text-xs font-medium transition cursor-pointer"
-                    title="Triggers rapid calls to test Apigee Q-Limit policy"
-                  >
-                    <Zap className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Quota Stress Test</span>
+                    <span>{executing ? 'Executing...' : 'Execute Tool'}</span>
                   </button>
                 </div>
               </div>

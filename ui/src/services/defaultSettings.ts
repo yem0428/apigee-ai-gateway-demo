@@ -313,14 +313,5 @@ export const MCP_PRESET_SCENARIOS: McpPresetScenario[] = [
     badgeText: 'Loan App',
     badgeColor: 'blue',
   },
-  {
-    id: 'quota-stress-test',
-    title: 'Quota Rate-Limit Test',
-    toolName: 'listAllDiscounts',
-    category: 'Governance',
-    description: 'Tests Apigee Q-Limit policy enforcement by triggering rapid calls',
-    arguments: {},
-    badgeText: 'Rate Limit',
-    badgeColor: 'amber',
-  },
 ];
+

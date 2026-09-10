@@ -245,8 +245,8 @@ ui/
 │   │   ├── Navbar.tsx                # Sticky top bar: Brand, Gateway Tabs Switcher ([AI Gateway] | [MCP Gateway]), SSO profile chip (top-right), Dev/Prod pills, Tier pills
 │   │   ├── ChatPlayground.tsx        # Tab 1: AI Gateway Chat thread, inline telemetry badges, mobile view-switch tab bar ([💬 Chat] | [📊 Gateway Trace]), quick chips, status footer
 │   │   ├── GatewayTraceViewer.tsx    # Tab 1: AI Gateway telemetry inspection pane: SSO caller identity, token counters, technical accordion
-│   │   ├── McpPlayground.tsx         # Tab 2: MCP Tools Gateway: Live tool discovery, dynamic schema form, presets, rapid quota test
-│   │   ├── McpTraceViewer.tsx        # Tab 2: MCP Protocol & Telemetry Inspector: JSON-RPC 2.0 request/response viewer, PP-MCP, VA-VerifyAPIKey, Q-Limit policy trace
+│   │   ├── McpPlayground.tsx         # Tab 2: MCP Tools Gateway: Live tool discovery, dynamic schema form, enterprise scenario presets, one-click execution
+│   │   ├── McpTraceViewer.tsx        # Tab 2: MCP Protocol & Telemetry Inspector: JSON-RPC 2.0 response/request viewer, latency telemetry, headers inspection
 │   │   └── GatewaySettingsModal.tsx  # Modal: Persona/Tier selector, SSO user configuration, custom endpoints, missing email simulation toggle
 │   ├── services/
 │   │   ├── apigeeClient.ts           # REST dispatcher for Vertex AI Gemini model routing
