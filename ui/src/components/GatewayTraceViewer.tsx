@@ -235,41 +235,58 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
         </div>
 
         {/* Card 4: Token Quota Accounting */}
-        <div className="p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl">
+        <div className={`p-3.5 bg-slate-900/80 border rounded-xl transition ${
+          telemetry.status === 429 ? 'border-amber-500/50 bg-amber-950/20' : 'border-slate-800'
+        }`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <Sparkles className={`w-3.5 h-3.5 ${telemetry.status === 429 ? 'text-amber-400' : 'text-purple-400'}`} />
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                 Token Quotas
               </span>
             </div>
-            <span className="text-[10px] font-mono text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded border border-purple-500/30">
-              LTQ-TokenQuota
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+              telemetry.status === 429
+                ? 'text-amber-300 bg-amber-950/60 border-amber-500/40 font-bold'
+                : 'text-purple-400 bg-purple-950/50 border-purple-500/30'
+            }`}>
+              {telemetry.status === 429 ? '⚠️ Quota Exceeded (429)' : 'LTQ-TokenEnforce'}
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center pt-1 font-mono">
-            <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-              <div className="text-slate-500 text-[10px]">Prompt</div>
-              <div className="text-xs font-bold text-slate-200 mt-0.5">
-                {telemetry.promptTokens ?? (telemetry.status === 200 ? '—' : 0)}
+          {telemetry.status === 429 ? (
+            <div className="p-2.5 bg-amber-950/40 border border-amber-500/30 rounded-lg text-[11px] text-amber-200/90 leading-relaxed font-sans">
+              <div className="font-semibold text-amber-300 flex items-center gap-1.5">
+                <span>⚠️ LTQ-TokenEnforce Policy Triggered</span>
+              </div>
+              <div className="text-[10px] text-amber-300/80 mt-1">
+                Developer product token quota exceeded (200 tokens/minute on Bronze tier). Request blocked at Apigee edge before calling Vertex AI.
               </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 text-center pt-1 font-mono">
+              <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
+                <div className="text-slate-500 text-[10px]">Prompt</div>
+                <div className="text-xs font-bold text-slate-200 mt-0.5">
+                  {telemetry.promptTokens ?? (telemetry.status === 200 ? '—' : 0)}
+                </div>
+              </div>
 
-            <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-              <div className="text-slate-500 text-[10px]">Output</div>
-              <div className="text-xs font-bold text-slate-200 mt-0.5">
-                {telemetry.candidatesTokens ?? (telemetry.status === 200 ? '—' : 0)}
+              <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
+                <div className="text-slate-500 text-[10px]">Output</div>
+                <div className="text-xs font-bold text-slate-200 mt-0.5">
+                  {telemetry.candidatesTokens ?? (telemetry.status === 200 ? '—' : 0)}
+                </div>
               </div>
-            </div>
 
-            <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-              <div className="text-slate-500 text-[10px]">Total</div>
-              <div className="text-xs font-bold text-emerald-400 mt-0.5">
-                {telemetry.totalTokens ?? (telemetry.status === 200 ? '—' : 0)}
+              <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
+                <div className="text-slate-500 text-[10px]">Total</div>
+                <div className="text-xs font-bold text-emerald-400 mt-0.5">
+                  {telemetry.totalTokens ?? (telemetry.status === 200 ? '—' : 0)}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Accordion: Deep Technical Details (HTTP Headers & Raw JSON) */}

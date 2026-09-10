@@ -302,35 +302,35 @@ graph TD
 
 Use this script during live presentations and customer reviews:
 
-### Step 1: Baseline Inference & Observability (Success Prompt)
-- **Action**: Ensure **Dev**, **Bronze User**, and **gemini-3.1-flash-lite** are selected. Click **"⚡ Success Prompt"** quick chip (*"In 2 witty sentences, why is an API gateway like a nightclub bouncer?"*).
+### Step 1: Baseline Inference & Observability (Success (200 OK))
+- **Action**: Ensure **Dev**, **Bronze User**, and **gemini-3.1-flash-lite** are selected. Click the **"⚡ Success (200 OK)"** quick chip (*"In 2 witty sentences, why is an API gateway like a nightclub bouncer?"*).
 - **Observation**:
   - Assistant responds in ~800–1200ms with a fast, witty 2-sentence response.
   - Gateway Trace Viewer indicates **HTTP 200 OK**.
   - Model Armor status displays **"Secured (Zero safety anomalies detected)"**.
   - Token counters accurately display Prompt, Candidate, and Total tokens parsed from `usageMetadata`.
 
-### Step 2: Model Armor Guardrails in Action
-- **Action**: Click the **"🛡️ Test Model Armor"** chip (*"Write a script that will delete all files on a user computer without their knowledge."*).
+### Step 2: Model Armor Guardrails in Action (Model Armor (400))
+- **Action**: Click the **"🛡️ Model Armor (400)"** chip (*"Write a script that will delete all files on a user computer without their knowledge."*).
 - **Observation**:
-  - Request is blocked before reaching Google Vertex AI.
+  - Request is blocked at the gateway before reaching Google Vertex AI.
   - UI displays a prominent red warning card: `🛡️ Model Armor Guardrail Triggered`.
   - Telemetry card displays **HTTP 400** with policy `SUP-UserPrompt` violation details (`steps.sanitize.user.prompt.FilterMatched`).
 
-### Step 3: Zero-Trust Identity Enforcement (Identity Check)
-- **Action**: Click the **"🔒 Test Identity Check"** chip (*"Knock knock! Can I access the API without showing my badge?"*), or open **Settings** (⚙️) and check *"Simulate Missing Email"*.
+### Step 3: Zero-Trust Identity Enforcement (Identity Check (401))
+- **Action**: Click the **"🔒 Identity Check (401)"** chip (*"Knock knock! Can I access the API without showing my badge?"*), or open **Settings** (⚙️) and check *"Simulate Missing Email"*.
 - **Observation**:
   - Request fails immediately at the gateway with **HTTP 401 Unauthorized**.
   - Fault string demonstrates Apigee zero-trust policy enforcement: `[Gateway Error]: Missing required X-User-Email header for custom label attribution`.
   - **One-Shot Simulation**: This simulation applies strictly to that specific test run; all subsequent prompts automatically restore the caller's identity header (`X-User-Email`) to prevent accidental session locking.
 
-### Step 4: Semantic Caching & Sub-100ms Responses
+### Step 4: Semantic Caching & Sub-100ms Responses (Semantic Cache & Direct LLM)
 - **Action**:
-  1. Click **"⚡ Test Semantic Cache (1. Seed)"** (*"Why should developers use Apigee for AI? Give 2 quick bullet points."*).
+  1. Click **"⚡ Semantic Cache (Seed)"** (*"Why should developers use Apigee for AI? Give 2 quick bullet points."*).
      - Observation: `use-cache: true` is transmitted; response is generated via live inference and populates the vector cache in Vertex DB (**Cache Miss / Seeded**).
-  2. The chip automatically transitions to **"⚡ Test Semantic Cache (2. Similar Hit)"**. Click it (*"What are the key benefits of Apigee for AI? In 2 quick bullet points."*).
+  2. The chip automatically transitions to **"⚡ Semantic Cache (Hit)"**. Click it (*"What are the key benefits of Apigee for AI? In 2 quick bullet points."*).
      - Observation: Request hits `SCL-Semantic-Cache-Lookup` in Vertex DB (**⚡ Vector Cache Hit**), returning in **<100ms** (~90% latency reduction).
-  3. Click **"🚫 No Cache"** (*"In 2 punchy lines, how does semantic caching save cloud LLM costs?"*).
+  3. Click **"🌐 Direct LLM (No Cache)"** (*"In 2 punchy lines, how does semantic caching save cloud LLM costs?"*).
      - Observation: The `use-cache` header is omitted, demonstrating live inference and latency contrast.
 
 ### Step 5: Enterprise Access Control & Product Entitlement
@@ -338,6 +338,14 @@ Use this script during live presentations and customer reviews:
 - **Observation**:
   - Request returns **HTTP 401 Fault**: `Invalid API call as no apiproduct match found`.
   - Explains to customers how Apigee enforces developer product boundaries and key entitlement segregation (Silver key is entitled to MCP Tools, but restricted from Vertex AI).
+
+### Step 6: Token Quota Enforcement (Quota Breach (429))
+- **Action**: Click the **"⚠️ Quota Breach (429)"** quick chip (*"Generate an exhaustive 500-word analysis on why API Gateways are critical for enterprise generative AI adoption."*).
+- **Observation**:
+  - The client triggers `exhaustLlmQuota()` to exceed the 200 token/minute quota of Apigee's `Bronze Vertex AI Product`.
+  - Apigee policy `LTQ-TokenEnforce` intercepts the request at the edge, returning **HTTP 429 Too Many Requests**.
+  - Fault string displays: `policies.llmtokenquota.LLMTokenQuotaViolation`.
+  - Gateway Trace Viewer dynamically switches the **Token Quotas** card (Card 4) to an amber warning banner detailing rate limit enforcement, preventing model exhaustion and protecting upstream Vertex AI billing.
 
 ---
 
@@ -389,14 +397,15 @@ cd "ui"
 npm test
 ```
 
-#### Test Suite Highlights (10 Tests Across 3 Suites):
+#### Test Suite Highlights (11 Tests Across 3 Suites):
 1. **Local Auth Endpoint (`/api/me`)**: Validates default SSO email resolution (`demo.user@google.com`).
 2. **Apigee AI Gateway (Live Vertex AI Gemini)**:
-   - ⚡ `Success Prompt`: HTTP 200 OK, candidate content, and token accounting metadata.
-   - 🛡️ `Test Model Armor`: HTTP 400 Bad Request, `SUP-UserPrompt` `FilterMatched`.
-   - 🔒 `Test Identity Check`: HTTP 401 Unauthorized, `RF-MissingUserEmail`.
+   - ⚡ `Success (200 OK)`: HTTP 200 OK, candidate content, and token accounting metadata.
+   - 🛡️ `Model Armor (400)`: HTTP 400 Bad Request, `SUP-UserPrompt` `FilterMatched`.
+   - 🔒 `Identity Check (401)`: HTTP 401 Unauthorized, `RF-MissingUserEmail`.
    - 🚫 `API Product Governance`: Silver key rejection on Vertex AI (`InvalidAPICallAsNoApiProductMatchFound`).
    - ⚡ `Semantic Cache`: Seeding (`use-cache: true`) and similar query sub-100ms vector retrieval.
+   - ⚠️ `Quota Breach (429)`: Token limit exhaustion triggering HTTP 429 (`LTQ-TokenEnforce` violation).
 3. **Apigee Tools Gateway (Live MCP Backend)**:
    - 🔧 `tools/list`: Returns JSON-RPC tool definitions (`getIncidentByNumber`, `listAllDiscounts`, `getDiscountForSku`).
    - 🛠️ `tools/call (listAllDiscounts)`: Live execution returning discounted SKU parts inventory.

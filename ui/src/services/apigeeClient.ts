@@ -241,3 +241,43 @@ export async function sendPromptToApigee(
     };
   }
 }
+
+/**
+ * Generates sufficient output tokens on Bronze Vertex AI tier to breach
+ * the 200 token/min quota, demonstrating Apigee's LTQ-TokenEnforce (HTTP 429).
+ */
+export async function exhaustLlmQuota(settings: GatewaySettings): Promise<void> {
+  let baseUrl = '/api/vertexai-dev';
+  if (settings.environment === 'custom') {
+    baseUrl = (settings.customBaseUrl || '').replace(/\/$/, '');
+  } else {
+    baseUrl = getEnvironment(settings.environment).proxyPath || '/api/vertexai-dev';
+  }
+
+  const endpointUrl = `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/gemini-3.1-flash-lite:generateContent`;
+  const userInfo = getUserInfo(settings.activeUser);
+  const effectiveApiKey = settings.apiKey || userInfo.apiKey;
+  const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
+
+  try {
+    await fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': effectiveApiKey,
+        'X-User-Email': effectiveEmail,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Write a comprehensive 500-word analysis of enterprise API gateway security.' }],
+          },
+        ],
+      }),
+    });
+  } catch {
+    // Ignore error if already exhausted
+  }
+}
+

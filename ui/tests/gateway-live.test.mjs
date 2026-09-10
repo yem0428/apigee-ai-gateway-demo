@@ -207,6 +207,44 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     const hitData = await hitRes.json();
     assert.ok(hitData.candidates?.[0]?.content?.parts?.[0]?.text, 'Cache hit response should contain text');
   });
+
+  it('⚠️ Scenario: Quota Breach exhausts token limit and triggers HTTP 429 (LTQ-TokenEnforce)', async () => {
+    // Prime the quota counter (>200 tokens/min) with a verbose request
+    try {
+      await fetch(buildUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-apikey': BRONZE_KEY,
+          'X-User-Email': TEST_EMAIL,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Write a comprehensive 500-word analysis of enterprise API gateway security.' }] }],
+        }),
+      });
+    } catch {
+      // Ignore if already exhausted
+    }
+
+    // Now send the follow-up request to verify 429
+    const res = await fetch(buildUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': BRONZE_KEY,
+        'X-User-Email': TEST_EMAIL,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Can I exceed my developer token budget? Test quota limits.' }] }],
+      }),
+    });
+
+    assert.strictEqual(res.status, 429, `Expected HTTP 429 Quota Exceeded, got ${res.status}`);
+    const data = await res.json();
+    assert.ok(data.fault, 'Expected Apigee fault in 429 response');
+    assert.match(data.fault.faultstring, /quota violation|quota limit exceeded/i);
+    assert.strictEqual(data.fault.detail?.errorcode, 'policies.llmtokenquota.LLMTokenQuotaViolation');
+  });
 });
 
 describe('3. Apigee Tools Gateway - Live MCP Backend', () => {

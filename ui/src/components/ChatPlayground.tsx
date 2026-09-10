@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset } from '../types';
-import { sendPromptToApigee } from '../services/apigeeClient';
+import { sendPromptToApigee, exhaustLlmQuota } from '../services/apigeeClient';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
 import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER } from '../services/defaultSettings';
-import { Send, Bot, User, ShieldAlert, Activity } from 'lucide-react';
+import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, Key, AlertTriangle } from 'lucide-react';
 
 interface ChatPlaygroundProps {
   settings: GatewaySettings;
@@ -29,76 +29,70 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const [cacheStep, setCacheStep] = useState<0 | 1>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
   }, [messages, loading]);
 
-  const handleExecute = async (promptToSend: string, settingsToUse: GatewaySettings) => {
-    if (!promptToSend.trim() || loading) return;
+  const handleExecute = async (textToSubmit: string, overrideSettings?: GatewaySettings) => {
+    if (!textToSubmit.trim() || loading) return;
 
-    const userMsgText = promptToSend.trim();
+    const userText = textToSubmit.trim();
     setInputText('');
 
     const userMessage: ChatMessage = {
-      id: String(Date.now()),
+      id: Date.now().toString(),
       sender: 'user',
-      text: userMsgText,
+      text: userText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
+    const settingsToUse = overrideSettings || settings;
+
     try {
-      const result = await sendPromptToApigee(userMsgText, settingsToUse, messages);
+      const response = await sendPromptToApigee(
+        userText,
+        settingsToUse,
+        messages
+      );
 
       const agentMessage: ChatMessage = {
-        id: String(Date.now() + 1),
+        id: (Date.now() + 1).toString(),
         sender: 'agent',
-        text: result.text,
+        text: response.text,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        model: result.telemetry.model,
-        isError: !result.success,
-        telemetry: result.telemetry,
+        model: response.telemetry.model,
+        isError: !response.success,
+        telemetry: {
+          ...response.telemetry,
+          userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
+        },
       };
 
       setMessages((prev) => [...prev, agentMessage]);
-      setActiveTelemetry(result.telemetry);
+      setActiveTelemetry({
+        ...response.telemetry,
+        userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
+      });
+
       if (mobileTab === 'chat') {
         setHasUnreadTrace(true);
       }
     } catch (err: any) {
-      const userInfo = getUserInfo(settingsToUse.activeUser);
-      const errorTelemetry: GatewayTelemetry = {
-        status: 500,
-        statusText: 'Client Error',
-        endpointUrl: '',
-        model: settingsToUse.model,
-        environment: settingsToUse.environment,
-        user: userInfo.name,
-        userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
-        latencyMs: 0,
-        cacheStatus: 'DISABLED',
-        guardrailStatus: 'NONE',
-        headersSent: {},
-        headersReceived: {},
-        rawRequest: { prompt: userMsgText },
-        rawResponse: { error: err.message || 'Unknown network error' },
-      };
-
       const errorMessage: ChatMessage = {
-        id: String(Date.now() + 1),
+        id: (Date.now() + 1).toString(),
         sender: 'agent',
-        text: `Error connecting to Apigee: ${err.message || 'Network request failed'}`,
+        text: `Error connecting to gateway: ${err.message}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isError: true,
-        telemetry: errorTelemetry,
       };
       setMessages((prev) => [...prev, errorMessage]);
-      setActiveTelemetry(errorTelemetry);
-      if (mobileTab === 'chat') {
-        setHasUnreadTrace(true);
-      }
     } finally {
       setLoading(false);
     }
@@ -130,7 +124,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       }
     }
 
-    // Persist visual/user settings (model, user, cache) but NEVER persist omitEmailHeader
     if (preset.settingsOverride) {
       const persistentOverrides = { ...preset.settingsOverride };
       delete persistentOverrides.omitEmailHeader;
@@ -156,53 +149,80 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     handleExecute(preset.prompt, effectiveSettings);
   };
 
-  // Primary sample prompt chips
   const sampleChips = [
     {
-      label: '⚡ Success Prompt',
+      label: '⚡ Success (200 OK)',
       promptId: 'success-prompt',
-      title: 'In 2 witty sentences, why is an API gateway like a nightclub bouncer?',
+      title: 'Normal 200 OK inference with token telemetry accounting',
       color: 'hover:border-blue-500 hover:text-blue-300',
+      icon: Sparkles,
+      iconColor: 'text-blue-400',
     },
     {
-      label: '🛡️ Test Model Armor',
+      label: '🛡️ Model Armor (400)',
       promptId: 'model-armor-block',
-      title: 'Harmful file deletion script blocked by Apigee Model Armor',
+      title: 'Destructive script blocked by Apigee Model Armor (SUP-UserPrompt)',
       color: 'hover:border-rose-500 hover:text-rose-300',
+      icon: Shield,
+      iconColor: 'text-rose-400',
     },
     {
       label:
         cacheStep === 0
-          ? '⚡ Test Semantic Cache (1. Seed)'
-          : '⚡ Test Semantic Cache (2. Similar Hit)',
+          ? '⚡ Semantic Cache (Seed)'
+          : '⚡ Semantic Cache (Hit)',
       promptId: 'cache-toggle',
       title:
         cacheStep === 0
-          ? "Step 1: 'Why should developers use Apigee for AI? Give 2 quick bullet points.' (with use-cache: true)"
-          : "Step 2: 'What are the key benefits of Apigee for AI? In 2 quick bullet points.' (sub-100ms vector cache hit)",
+          ? "Seed cache: 'Why should developers use Apigee for AI? Give 2 quick bullet points.' (with use-cache: true)"
+          : "Sub-100ms vector hit: 'What are the key benefits of Apigee for AI? In 2 quick bullet points.'",
       color: 'hover:border-emerald-500 hover:text-emerald-300',
+      icon: Database,
+      iconColor: 'text-emerald-400',
     },
     {
-      label: '🚫 No Cache',
+      label: '🌐 Direct LLM (No Cache)',
       promptId: 'no-cache',
       title: "In 2 punchy lines, how does semantic caching save cloud LLM costs? (without use-cache header)",
       color: 'hover:border-cyan-500 hover:text-cyan-300',
+      icon: Globe,
+      iconColor: 'text-cyan-400',
     },
     {
-      label: '🔒 Test Identity Check',
+      label: '🔒 Identity Check (401)',
       promptId: 'zero-trust-identity',
       title: 'Knock knock! Can I access the API without showing my badge? (without X-User-Email header)',
       color: 'hover:border-orange-500 hover:text-orange-300',
+      icon: Key,
+      iconColor: 'text-orange-400',
+    },
+    {
+      label: '⚠️ Quota Breach (429)',
+      promptId: 'quota-breach',
+      title: 'Demonstrates Apigee LTQ-TokenEnforce rate limit token quota violation (HTTP 429)',
+      color: 'hover:border-amber-500 hover:text-amber-300',
+      icon: AlertTriangle,
+      iconColor: 'text-amber-400',
     },
   ];
 
-  const handleChipClick = (chip: (typeof sampleChips)[0]) => {
+  const handleChipClick = async (chip: (typeof sampleChips)[0]) => {
     if (chip.promptId === 'cache-toggle') {
       const targetPresetId = cacheStep === 0 ? 'cache-seed' : 'cache-hit';
       const preset = SCENARIO_PRESETS.find((p) => p.id === targetPresetId);
       if (preset) {
         handleSelectSample(preset);
         setCacheStep((prev) => (prev === 0 ? 1 : 0));
+      }
+      return;
+    }
+
+    if (chip.promptId === 'quota-breach') {
+      const preset = SCENARIO_PRESETS.find((p) => p.id === 'quota-breach');
+      if (preset) {
+        setLoading(true);
+        await exhaustLlmQuota(settings);
+        handleSelectSample(preset);
       }
       return;
     }
@@ -214,7 +234,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   };
 
   const activeUser = getUserInfo(settings.activeUser);
-
   const ssoUser = settings.ssoUser || DEFAULT_SSO_USER;
   const effectiveEmail = ssoUser.email || settings.userEmail || DEFAULT_SSO_USER.email;
 
@@ -263,12 +282,54 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         {/* Messages Feed */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 select-none">
-              <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center mb-2.5 text-blue-400">
+            <div className="h-full flex flex-col items-center justify-center p-4 sm:p-6 select-none max-w-2xl mx-auto my-auto">
+              <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center mb-2 text-blue-400">
                 <Bot className="w-5 h-5" />
               </div>
-              <p className="text-xs text-slate-400 font-medium">Apigee AI Gateway</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">Send a prompt or pick a quick demo chip below.</p>
+              <h3 className="text-sm font-semibold text-slate-200">Apigee AI Gateway Studio</h3>
+              <p className="text-xs text-slate-400 mt-0.5 mb-5 text-center">
+                Select a live capability tile below or enter a prompt to inspect gateway governance:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
+                {sampleChips.map((chip) => {
+                  const preset = SCENARIO_PRESETS.find(
+                    (p) =>
+                      p.id ===
+                      (chip.promptId === 'cache-toggle'
+                        ? cacheStep === 0
+                          ? 'cache-seed'
+                          : 'cache-hit'
+                        : chip.promptId)
+                  );
+                  const Icon = chip.icon || Sparkles;
+                  return (
+                    <button
+                      key={chip.promptId}
+                      type="button"
+                      onClick={() => handleChipClick(chip)}
+                      className="p-3 bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition group cursor-pointer flex flex-col justify-between gap-2 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Icon className={`w-3.5 h-3.5 shrink-0 ${chip.iconColor || 'text-blue-400'}`} />
+                          <span className="text-xs font-semibold text-slate-200 group-hover:text-blue-300 transition truncate">
+                            {chip.label}
+                          </span>
+                        </div>
+                        {preset?.badgeText && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0">
+                            {preset.badgeText}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                        {preset?.description || chip.title}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
