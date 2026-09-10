@@ -167,13 +167,13 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
 
             <button
               onClick={onToggleCache}
-              className={`px-2 py-0.5 rounded text-[10px] font-medium border transition ${
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium border transition ${
                 settings.useCache
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-slate-800 text-slate-400 border-slate-700'
               }`}
             >
-              {settings.useCache ? 'Cache: ON' : 'Cache: OFF'}
+              {settings.useCache ? 'use-cache: true' : 'use-cache: omitted'}
             </button>
           </div>
 
@@ -188,10 +188,14 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
                   ? isCacheHit
                     ? '⚡ Vector Cache Hit'
                     : 'Cache Miss (Seeded)'
-                  : 'Cache Disabled'}
+                  : 'Cache Bypassed (No Header)'}
               </div>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                {isCacheHit ? 'Sub-100ms response from Vertex DB' : 'Generated via live inference'}
+                {settings.useCache
+                  ? isCacheHit
+                    ? 'Sub-100ms response from Vertex DB'
+                    : 'Generated via live inference'
+                  : 'use-cache header omitted; routed to LLM'}
               </div>
             </div>
 

@@ -26,8 +26,8 @@ export function App() {
         const userInfo = USERS[parsed.activeUser as UserPersona] || USERS.bronze_user;
         parsed.apiKey = userInfo.apiKey;
 
-        // Sanitize any previous legacy hardcoded emails from localStorage
-        if (!parsed.ssoUser?.isAuthenticated || parsed.userEmail?.includes('maloosatyam')) {
+        // Sanitize any invalid or empty session from localStorage
+        if (!parsed.ssoUser?.isAuthenticated || !parsed.userEmail) {
           delete parsed.ssoUser;
           delete parsed.userEmail;
         }

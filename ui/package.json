@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --env-file=.env --test tests/gateway-live.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
             res.setHeader('Cache-Control', 'no-store');
             const incomingHeader = (req.headers['x-goog-authenticated-user-email'] as string) || '';
             const cleanHeader = incomingHeader.replace(/^accounts\.google\.com:/, '').trim();
-            const email = cleanHeader || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || '';
+            const email = cleanHeader || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || 'demo.user@google.com';
             res.end(JSON.stringify({
               email,
               raw: incomingHeader,

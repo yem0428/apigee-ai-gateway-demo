@@ -26,6 +26,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const [loading, setLoading] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'trace'>('chat');
   const [hasUnreadTrace, setHasUnreadTrace] = useState(false);
+  const [cacheStep, setCacheStep] = useState<0 | 1>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,26 +76,25 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         model: settingsToUse.model,
         environment: settingsToUse.environment,
         user: userInfo.name,
-        userEmail: settingsToUse.userEmail || userInfo.email,
+        userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
         latencyMs: 0,
-        cacheStatus: settingsToUse.useCache ? 'MISS' : 'DISABLED',
+        cacheStatus: 'DISABLED',
         guardrailStatus: 'NONE',
         headersSent: {},
         headersReceived: {},
         rawRequest: { prompt: userMsgText },
-        rawResponse: { error: err.message },
+        rawResponse: { error: err.message || 'Unknown network error' },
       };
 
-      const errorMsg: ChatMessage = {
+      const errorMessage: ChatMessage = {
         id: String(Date.now() + 1),
         sender: 'agent',
-        text: `⚠️ Execution error: ${err.message}`,
+        text: `Error connecting to Apigee: ${err.message || 'Network request failed'}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isError: true,
         telemetry: errorTelemetry,
       };
-
-      setMessages((prev) => [...prev, errorMsg]);
+      setMessages((prev) => [...prev, errorMessage]);
       setActiveTelemetry(errorTelemetry);
       if (mobileTab === 'chat') {
         setHasUnreadTrace(true);
@@ -104,8 +104,9 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     }
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
     if (settings.omitEmailHeader) {
       setSettings((prev) => ({ ...prev, omitEmailHeader: false }));
     }
@@ -113,7 +114,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   };
 
   const handleSelectSample = (preset: ScenarioPreset) => {
-    const isIdentityTest = preset.id === 'zero-trust-identity';
+    const isIdentityTest =
+      preset.id === 'zero-trust-identity' || Boolean(preset.settingsOverride?.omitEmailHeader);
 
     let effectiveSettings: GatewaySettings = {
       ...settings,
@@ -157,26 +159,59 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   // Primary sample prompt chips
   const sampleChips = [
     {
-      label: '⚡ Apigee Overview',
-      promptId: 'apigee-summary',
+      label: '⚡ Success Prompt',
+      promptId: 'success-prompt',
+      title: 'In 2 witty sentences, why is an API gateway like a nightclub bouncer?',
       color: 'hover:border-blue-500 hover:text-blue-300',
     },
     {
       label: '🛡️ Test Model Armor',
       promptId: 'model-armor-block',
+      title: 'Harmful file deletion script blocked by Apigee Model Armor',
       color: 'hover:border-rose-500 hover:text-rose-300',
     },
     {
-      label: '⚡ Test Semantic Cache',
-      promptId: 'cache-hit',
+      label:
+        cacheStep === 0
+          ? '⚡ Test Semantic Cache (1. Seed)'
+          : '⚡ Test Semantic Cache (2. Similar Hit)',
+      promptId: 'cache-toggle',
+      title:
+        cacheStep === 0
+          ? "Step 1: 'Why should developers use Apigee for AI? Give 2 quick bullet points.' (with use-cache: true)"
+          : "Step 2: 'What are the key benefits of Apigee for AI? In 2 quick bullet points.' (sub-100ms vector cache hit)",
       color: 'hover:border-emerald-500 hover:text-emerald-300',
+    },
+    {
+      label: '🚫 No Cache',
+      promptId: 'no-cache',
+      title: "In 2 punchy lines, how does semantic caching save cloud LLM costs? (without use-cache header)",
+      color: 'hover:border-cyan-500 hover:text-cyan-300',
     },
     {
       label: '🔒 Test Identity Check',
       promptId: 'zero-trust-identity',
+      title: 'Knock knock! Can I access the API without showing my badge? (without X-User-Email header)',
       color: 'hover:border-orange-500 hover:text-orange-300',
     },
   ];
+
+  const handleChipClick = (chip: (typeof sampleChips)[0]) => {
+    if (chip.promptId === 'cache-toggle') {
+      const targetPresetId = cacheStep === 0 ? 'cache-seed' : 'cache-hit';
+      const preset = SCENARIO_PRESETS.find((p) => p.id === targetPresetId);
+      if (preset) {
+        handleSelectSample(preset);
+        setCacheStep((prev) => (prev === 0 ? 1 : 0));
+      }
+      return;
+    }
+
+    const preset = SCENARIO_PRESETS.find((p) => p.id === chip.promptId);
+    if (preset) {
+      handleSelectSample(preset);
+    }
+  };
 
   const activeUser = getUserInfo(settings.activeUser);
 
@@ -327,20 +362,17 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
           {/* Subtle Horizontal Chips */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 no-scrollbar">
             <span className="text-[10px] text-slate-500 font-medium shrink-0 mr-1">Quick Demo:</span>
-            {sampleChips.map((chip) => {
-              const preset = SCENARIO_PRESETS.find((p) => p.id === chip.promptId);
-              if (!preset) return null;
-              return (
-                <button
-                  key={chip.promptId}
-                  type="button"
-                  onClick={() => handleSelectSample(preset)}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium bg-slate-900 border border-slate-800 text-slate-300 whitespace-nowrap transition cursor-pointer min-h-[32px] ${chip.color}`}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
+            {sampleChips.map((chip) => (
+              <button
+                key={chip.promptId}
+                type="button"
+                onClick={() => handleChipClick(chip)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-medium bg-slate-900 border border-slate-800 text-slate-300 whitespace-nowrap transition cursor-pointer min-h-[32px] ${chip.color}`}
+                title={chip.title}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
 
           {/* Prompt Input */}
