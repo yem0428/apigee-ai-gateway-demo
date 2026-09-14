@@ -257,23 +257,23 @@ ui/
 ├── src/
 │   ├── components/
 │   │   ├── Navbar.tsx                # Sticky top bar: Brand, Gateway Tabs Switcher ([AI Gateway] | [MCP Gateway] | [Analytics] | [Monetization]), SSO profile chip (top-right), Reset button
-│   │   ├── ChatPlayground.tsx        # Tab 1: AI Gateway Chat thread, inline telemetry badges, quick scenario chips, status footer
+│   │   ├── ChatPlayground.tsx        # Tab 1: AI Gateway Chat thread, inline telemetry badges, interactive Auto Routing (1. Fast, 2. Deep, 3. Coding) & Cache sub-buttons, status footer
 │   │   ├── GatewayTraceViewer.tsx    # Tab 1: AI Gateway telemetry inspection pane: SSO caller identity, token counters, technical accordion
 │   │   ├── McpPlayground.tsx         # Tab 2: MCP Tools Gateway: Live tool discovery, dynamic schema form, enterprise scenario presets, one-click execution
 │   │   ├── McpTraceViewer.tsx        # Tab 2: MCP Protocol & Telemetry Inspector: JSON-RPC 2.0 response/request viewer, latency telemetry
 │   │   ├── AnalyticsDashboard.tsx    # Tab 3: Apigee Analytics Fleet KPIs, token usage, cost distribution, and active developer filters
-│   │   ├── MonetizationManager.tsx   # Tab 4: Monetization Management (3 subtabs: Prepaid Wallets & Balances, KVM Rate Cards, Rate Plans & Subscriptions)
+│   │   ├── MonetizationManager.tsx   # Tab 4: Monetization Management (3 subtabs: Prepaid Wallets & Balances, KVM Rate Cards, Rate Plans & Subscriptions with automatic load-sync)
 │   │   └── GatewaySettingsModal.tsx  # Modal: Persona/Tier selector, SSO user configuration, custom endpoints, missing email simulation toggle
 │   ├── services/
-│   │   ├── apigeeClient.ts           # REST dispatcher for Vertex AI Gemini model routing
+│   │   ├── apigeeClient.ts           # REST dispatcher for Vertex AI Gemini model routing with pre-flight dynamic API key resolution
 │   │   ├── mcpClient.ts              # JSON-RPC 2.0 dispatcher for tools/list and tools/call on /mcp
 │   │   ├── api.ts                    # Management API client endpoints (/api/me, /api/monetization/*, /api/analytics/*)
-│   │   └── defaultSettings.ts        # Central dictionary of SSO defaults, environments, entitlement tiers, and scenarios
+│   │   └── defaultSettings.ts        # Central dictionary of SSO defaults, environments, entitlement tiers, and scenarios (zero hardcoded keys)
 │   ├── types/
 │   │   └── index.ts                  # TypeScript interfaces (AppTab, McpTool, SsoUser, GatewaySettings, GatewayTelemetry, UserMonetizationAttribution)
-│   ├── App.tsx                       # Root container, activeTab state, defaults on reset/reload (AI Gateway + Admin persona), IAP auto-provisioning (/api/me)
+│   ├── App.tsx                       # Root container, activeTab state, defaults on reset/reload (AI Gateway + Admin persona), IAP auto-provisioning (/api/me), sanitized localStorage
 │   └── main.tsx                      # Vite React entrypoint
-├── server.js                         # Production Node server serving static dist assets, /env-config.js, OAuth SA token management, and reverse proxies
+├── server.js                         # Production Node server serving static dist assets, /env-config.js, OAuth SA token management, dynamic app provisioning via /api/me, and reverse proxies
 ├── vite.config.ts                    # Vite dev server middleware (/api/me, /api/monetization/*, /api/analytics/*)
 ├── package.json                      # Dependencies and build scripts
 └── tailwind.config.js                # Tailwind theme configuration
