@@ -607,7 +607,7 @@ export default defineConfig(({ mode }) => {
               consumptionRows.sort((a, b) => b.costUsd - a.costUsd || b.totalTraffic - a.totalTraffic);
 
               const totalCalls = totalTraffic;
-              const slaHealth = totalProxyCalls > 0 ? Number(((1 - totalProxyErrors / totalProxyCalls) * 100).toFixed(1)) : 99.0;
+              const slaHealth = totalProxyCalls > 0 ? Math.round((1 - totalProxyErrors / totalProxyCalls) * 100) : 99;
               const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : 78.5;
 
               res.end(JSON.stringify({

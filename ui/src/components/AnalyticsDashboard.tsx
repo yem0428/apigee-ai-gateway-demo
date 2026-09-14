@@ -148,7 +148,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         totalSpend: fleetData.kpis.totalSpendUsd.toFixed(2),
         cacheSavings: (fleetData.kpis.cacheCostSavingsUsd ?? 0).toFixed(2),
         cacheHitRate: Math.round(fleetData.kpis.cacheHitRate || 29),
-        slaHealth: fleetData.kpis.slaHealth ?? 99,
+        slaHealth: Math.round(fleetData.kpis.slaHealth ?? 99),
         faultCount: fleetData.kpis.isErrorCount ?? 0,
       };
     }
@@ -451,11 +451,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <div className="p-3 sm:px-4 space-y-1">
               <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
                 <span>Gateway SLA Health</span>
-                <Info className="w-3 h-3 text-slate-400" />
+                <span title="Apigee Gateway availability rate: 100% minus proxy error rate">
+                  <Info className="w-3 h-3 text-slate-400 hover:text-purple-500 cursor-pointer" />
+                </span>
               </div>
               <div className="flex items-center gap-3 pt-1">
                 <div className="w-11 h-11 rounded-full bg-teal-50 dark:bg-teal-950/60 border-2 border-teal-500 flex items-center justify-center font-mono font-bold text-sm text-teal-600 dark:text-teal-400 shadow-xs">
-                  {aggregatedStats.slaHealth}%
+                  {Math.round(aggregatedStats.slaHealth)}%
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
