@@ -64,7 +64,8 @@ export function App() {
 
         const userInfo = USERS[activeUser] || USERS.admin;
 
-        // Sanitize any invalid or empty session from localStorage
+        // Sanitize any invalid or stale session/key from localStorage
+        delete parsed.apiKey;
         if (!parsed.ssoUser?.isAuthenticated || !parsed.userEmail) {
           delete parsed.ssoUser;
           delete parsed.userEmail;
@@ -147,10 +148,11 @@ export function App() {
     syncAuthenticatedUser();
   }, []);
 
-  // Save settings changes to localStorage (excluding temporary simulation flags)
+  // Save settings changes to localStorage (excluding temporary simulation flags and dynamic API keys)
   useEffect(() => {
     try {
       const toSave = { ...settings, environment: 'prod', omitEmailHeader: false };
+      delete (toSave as any).apiKey;
       localStorage.setItem('apigee_ai_settings', JSON.stringify(toSave));
     } catch (e) {
       console.error('Failed to save settings to localStorage', e);
