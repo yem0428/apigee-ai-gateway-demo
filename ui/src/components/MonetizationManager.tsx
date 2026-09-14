@@ -20,6 +20,9 @@ import {
   Activity,
   User,
   Users,
+  Code,
+  Check,
+  Copy,
 } from 'lucide-react';
 import {
   fetchModelRates,
@@ -638,7 +641,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     {userAttributions.length}
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Enterprise callers & personas
+                    Enterprise callers & developer personas
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 flex items-center justify-center shrink-0">
@@ -652,11 +655,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     Total Fleet Token Spend
                   </span>
                   <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">
-                    ${userAttributions.reduce((acc, u) => acc + u.totalConsumedUsd, 0).toFixed(2)}{' '}
+                    ${userAttributions.reduce((acc, u) => acc + (u.totalConsumedUsd || 0), 0).toFixed(2)}{' '}
                     <span className="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">USD</span>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Total consumed across models
+                    {userAttributions.reduce((acc, u) => acc + (u.totalCalls || 0), 0).toLocaleString()} calls • {(userAttributions.reduce((acc, u) => acc + (u.totalTokens || 0), 0) / 1e6).toFixed(2)}M tokens
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shrink-0">
@@ -670,11 +673,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     Available Prepaid Pool
                   </span>
                   <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-                    ${userAttributions.reduce((acc, u) => acc + u.currentBalanceUsd, 0).toFixed(2)}{' '}
+                    ${userAttributions.reduce((acc, u) => acc + (u.currentBalanceUsd || 0), 0).toFixed(2)}{' '}
                     <span className="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">USD</span>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    PreFlow Limits Check budget
+                    Enforced by Apigee PreFlow Limits
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center shrink-0">
@@ -683,7 +686,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </div>
             </div>
 
-            {/* Enterprise User & Persona Attribution: Consumed vs Balance (Admin Hero) */}
+            {/* Enterprise User & Persona Attribution: Consumed vs Balance */}
             <div className="rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-5 space-y-4 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
@@ -720,16 +723,20 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       <th className="pb-3">Billing Mode</th>
                       <th className="pb-3">Total Consumed</th>
                       <th className="pb-3">Active Balance</th>
-                      <th className="pb-3">Consumed vs Balance</th>
+                      <th className="pb-3">Wallet Status & Quota</th>
                       <th className="pb-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-xs">
                     {userAttributions.map((user) => {
-                      const isSelected = user.userEmail === selectedDeveloper;
-                      const totalAllocated = user.totalConsumedUsd + user.currentBalanceUsd;
-                      const consumedPct = totalAllocated > 0 ? Math.min(100, Math.round((user.totalConsumedUsd / totalAllocated) * 100)) : 0;
-                      const isDepleted = user.currentBalanceUsd <= 0;
+                      const isSelected = user.userEmail.toLowerCase() === selectedDeveloper.toLowerCase();
+                      const isPrepaid = user.billingType === 'PREPAID';
+                      const isDepleted = isPrepaid && (user.currentBalanceUsd <= 0);
+
+                      const totalAllocated = (user.totalConsumedUsd || 0) + (user.currentBalanceUsd || 0);
+                      const consumedPct = totalAllocated > 0
+                        ? Math.min(100, Math.round(((user.totalConsumedUsd || 0) / totalAllocated) * 100))
+                        : 0;
 
                       return (
                         <tr
@@ -737,23 +744,29 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           onClick={() => setSelectedDeveloper(user.userEmail)}
                           className={`cursor-pointer transition group ${
                             isSelected
-                              ? 'bg-emerald-50/60 dark:bg-slate-850/90'
+                              ? 'bg-emerald-50/70 dark:bg-slate-850/90'
                               : 'hover:bg-slate-50 dark:hover:bg-slate-850/40'
                           }`}
                         >
                           {/* User & Persona */}
                           <td className="py-3 font-sans">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2.5">
                               <span
                                 className={`w-2 h-2 rounded-full shrink-0 ${
-                                  isSelected ? 'bg-emerald-500 animate-pulse' : isDepleted ? 'bg-rose-500' : 'bg-slate-400 dark:bg-slate-500'
+                                  isSelected
+                                    ? 'bg-emerald-500 animate-pulse ring-2 ring-emerald-400/30'
+                                    : isDepleted
+                                    ? 'bg-rose-500'
+                                    : isPrepaid
+                                    ? 'bg-emerald-500'
+                                    : 'bg-blue-400'
                                 }`}
                               />
                               <div>
-                                <div className="font-semibold text-slate-900 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white flex items-center gap-1.5">
+                                <div className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white flex items-center gap-1.5">
                                   <span>{user.name}</span>
                                   {isSelected && (
-                                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">
+                                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">
                                       ACTIVE
                                     </span>
                                   )}
@@ -768,20 +781,20 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           {/* Entitlement Tier */}
                           <td className="py-3 font-sans">
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                              user.badge === 'Enterprise AI' || user.badge === 'SSO Caller'
+                              user.badge === 'Enterprise AI' || user.badge === 'SSO Caller' || user.tier?.includes('Enterprise')
                                 ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30'
-                                : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                             }`}>
-                              {user.badge}
+                              {user.badge || user.tier || 'Developer'}
                             </span>
                           </td>
 
                           {/* Billing Mode */}
                           <td className="py-3">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                              user.billingType === 'PREPAID'
-                                ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
-                                : 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30'
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                              isPrepaid
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
+                                : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30'
                             }`}>
                               {user.billingType}
                             </span>
@@ -789,44 +802,75 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
                           {/* Consumed (Sum) */}
                           <td className="py-3">
-                            <div className="font-bold text-slate-900 dark:text-slate-200">
-                              ${user.totalConsumedUsd.toFixed(2)} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
+                            <div className="font-bold text-slate-900 dark:text-slate-100">
+                              ${(user.totalConsumedUsd || 0).toFixed(2)}{' '}
+                              <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
                             </div>
                             <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
-                              {user.totalCalls.toLocaleString()} calls • {(user.totalTokens / 1e6).toFixed(1)}M tokens
+                              {(user.totalCalls || 0).toLocaleString()} calls • {((user.totalTokens || 0) / 1e6).toFixed(2)}M tokens
                             </div>
                           </td>
 
                           {/* Active Balance */}
                           <td className="py-3">
-                            <div className={`font-bold ${isDepleted ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                              ${user.currentBalanceUsd.toFixed(2)} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
-                            </div>
-                            <div className="text-[10px] text-slate-500 font-sans">
-                              {isDepleted ? 'Depleted (403)' : 'Available to Spend'}
-                            </div>
+                            {isPrepaid ? (
+                              <>
+                                <div className={`font-bold ${isDepleted ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                  ${(user.currentBalanceUsd || 0).toFixed(2)}{' '}
+                                  <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
+                                  {isDepleted ? 'Depleted (403 Blocked)' : 'Prepaid Available'}
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="font-bold text-slate-600 dark:text-slate-300">
+                                  N/A <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">(Invoiced)</span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
+                                  Postpaid Monthly
+                                </div>
+                              </>
+                            )}
                           </td>
 
                           {/* Consumed vs Balance Health */}
                           <td className="py-3 w-48 font-sans">
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-[10px]">
-                                <span className="text-slate-500 dark:text-slate-400 font-mono">{consumedPct}% Used</span>
-                                <span className={`font-mono font-medium ${isDepleted ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                  {isDepleted ? 'DEPLETED' : 'HEALTHY'}
-                                </span>
+                                {isPrepaid ? (
+                                  <>
+                                    <span className="text-slate-500 dark:text-slate-400 font-mono">{consumedPct}% Used</span>
+                                    <span className={`font-mono font-semibold ${isDepleted ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                      {isDepleted ? 'DEPLETED' : 'HEALTHY'}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-slate-500 dark:text-slate-400 font-mono">Invoiced</span>
+                                    <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">POSTPAID</span>
+                                  </>
+                                )}
                               </div>
                               <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    isDepleted
-                                      ? 'bg-rose-500'
-                                      : consumedPct > 75
-                                      ? 'bg-amber-500'
-                                      : 'bg-emerald-500'
-                                  }`}
-                                  style={{ width: `${Math.max(4, consumedPct)}%` }}
-                                />
+                                {isPrepaid ? (
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      isDepleted
+                                        ? 'bg-rose-500'
+                                        : consumedPct > 75
+                                        ? 'bg-amber-500'
+                                        : 'bg-emerald-500'
+                                    }`}
+                                    style={{ width: `${isDepleted ? 100 : Math.max(6, consumedPct)}%` }}
+                                  />
+                                ) : (
+                                  <div
+                                    className="h-full rounded-full bg-blue-400 dark:bg-blue-500"
+                                    style={{ width: '100%' }}
+                                  />
+                                )}
                               </div>
                             </div>
                           </td>
@@ -840,7 +884,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                   e.stopPropagation();
                                   setSelectedDeveloper(user.userEmail);
                                 }}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                                   isSelected
                                     ? 'bg-emerald-600 text-white shadow-xs'
                                     : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -856,7 +900,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                   setSelectedDeveloper(user.userEmail);
                                   setShowCustomTopUpModal(true);
                                 }}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 transition cursor-pointer flex items-center gap-1"
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 transition cursor-pointer flex items-center gap-1 shadow-xs"
                                 title="Top up prepaid wallet credits for this user"
                               >
                                 <Plus className="w-3 h-3" />
@@ -1036,21 +1080,21 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                   min="0"
                                   value={item.input}
                                   onChange={(e) => handleRateChange(modelId, 'input', e.target.value)}
-                                  className="w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  className="w-24 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-xs"
                                 />
                               </div>
                             </td>
 
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-slate-400 dark:text-slate-500">$</span>
+                                <span className="text-slate-400 dark:text-slate-500 font-mono text-xs">$</span>
                                 <input
                                   type="number"
                                   step="0.001"
                                   min="0"
                                   value={item.output}
                                   onChange={(e) => handleRateChange(modelId, 'output', e.target.value)}
-                                  className="w-24 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                  className="w-24 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-xs"
                                 />
                               </div>
                             </td>
@@ -1102,7 +1146,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   <select
                     value={calcModel}
                     onChange={(e) => setCalcModel(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-xs"
                   >
                     {Object.keys(rates).map((m) => (
                       <option key={m} value={m}>
@@ -1309,45 +1353,68 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-mono">
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 relative">
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 relative shadow-xs">
                   <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase">Stage 1: PreFlow Auth</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">API Key Verification</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100 font-sans">API Key Verification</div>
                   <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
                     Resolves developer product, monthly budget limit attribute, and developer identity.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-emerald-50/40 dark:bg-slate-950 border border-emerald-200 dark:border-emerald-500/40 space-y-2 relative">
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-500/40 space-y-2 relative shadow-xs">
                   <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">Stage 2: Limits Check</div>
-                  <div className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Monetization Limits Check</div>
+                  <div className="text-sm font-bold text-emerald-700 dark:text-emerald-300 font-sans">Monetization Limits Check</div>
                   <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
                     Verifies active rate plan subscription and wallet balance &gt; $0. Returns HTTP 403 if exhausted.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-amber-50/40 dark:bg-slate-950 border border-amber-200 dark:border-amber-500/40 space-y-2 relative">
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/40 space-y-2 relative shadow-xs">
                   <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">Stage 3: PostFlow Rating</div>
-                  <div className="text-sm font-bold text-amber-700 dark:text-amber-300">Model Rates & Cost Engine</div>
+                  <div className="text-sm font-bold text-amber-700 dark:text-amber-300 font-sans">Model Rates & Cost Engine</div>
                   <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
                     Calculates micro-dollars from rate cards, sets unit price multiplier for rating engine.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-purple-50/40 dark:bg-slate-950 border border-purple-200 dark:border-purple-500/40 space-y-2 relative">
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-500/40 space-y-2 relative shadow-xs">
                   <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase">Stage 4: Telemetry Headers</div>
-                  <div className="text-sm font-bold text-purple-700 dark:text-purple-300">Balance & Cost Injection</div>
+                  <div className="text-sm font-bold text-purple-700 dark:text-purple-300 font-sans">Balance & Cost Injection</div>
                   <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
                     Passes prepaid balance, remaining quota, and transaction cost headers to caller.
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3 font-mono text-xs">
-                <div className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between font-sans">
-                  <span>Monetization Limits Policy Configuration</span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">apiproxy/policies/MonetizationLimits.xml</span>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+                <div className="bg-slate-100 dark:bg-slate-850 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Code className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-sans">
+                      Monetization Limits Policy Configuration
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                      apiproxy/policies/MonetizationLimits.xml
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<MonetizationLimitsCheck continueOnError="false" enabled="true" name="MLC-EnforceMonetizationLimits">\n  <DisplayName>MLC-EnforceMonetizationLimits</DisplayName>\n  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>\n  <FaultResponse>\n    <Set>\n      <Payload contentType="application/json">{"error": {"code": 403, "status": "PERMISSION_DENIED", "message": "Monetization limit exceeded or prepaid balance exhausted: {mint.limitscheck.status_message}"}}</Payload>\n      <StatusCode>403</StatusCode>\n      <ReasonPhrase>Forbidden</ReasonPhrase>\n    </Set>\n  </FaultResponse>\n</MonetizationLimitsCheck>`);
+                      setCopiedXml(true);
+                      setTimeout(() => setCopiedXml(false), 2000);
+                    }}
+                    className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer font-sans font-semibold shadow-xs"
+                  >
+                    {copiedXml ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedXml ? 'Copied' : 'Copy XML'}</span>
+                  </button>
                 </div>
-                <pre className="p-3 bg-slate-900 rounded-lg text-emerald-400 text-[11px] overflow-x-auto leading-relaxed">
+                <div 
+                  className="p-4 font-mono text-xs overflow-x-auto leading-relaxed"
+                  style={{ backgroundColor: '#0f172a', color: '#e2e8f0' }}
+                >
+                  <pre className="text-[11px] font-mono leading-relaxed text-emerald-400">
 {`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <MonetizationLimitsCheck continueOnError="false" enabled="true" name="MLC-EnforceMonetizationLimits">
   <DisplayName>MLC-EnforceMonetizationLimits</DisplayName>
@@ -1360,7 +1427,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
     </Set>
   </FaultResponse>
 </MonetizationLimitsCheck>`}
-                </pre>
+                  </pre>
+                </div>
               </div>
             </div>
           </div>
@@ -1414,11 +1482,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Credit Amount (USD)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Credit Amount (USD)
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">Instant Apigee Credit</span>
+                </div>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-mono">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-mono text-sm">$</span>
                   <input
                     type="number"
                     min="1"
@@ -1426,8 +1497,24 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     required
                     value={customTopUpAmount}
                     onChange={(e) => setCustomTopUpAmount(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-2 text-slate-900 dark:text-slate-100 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl pl-8 pr-3 py-2 text-slate-900 dark:text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 shadow-xs"
                   />
+                </div>
+                <div className="flex items-center gap-1.5 pt-2">
+                  {['10', '25', '50', '100'].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setCustomTopUpAmount(amt)}
+                      className={`flex-1 py-1 rounded-lg text-xs font-mono font-semibold transition cursor-pointer ${
+                        customTopUpAmount === amt
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      +${amt}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1481,7 +1568,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   placeholder="e.g., gemini-1.5-pro, claude-3-opus"
                   value={newModelId}
                   onChange={(e) => setNewModelId(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
                 />
               </div>
 
@@ -1491,7 +1578,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   <select
                     value={newProvider}
                     onChange={(e) => setNewProvider(e.target.value as any)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer shadow-xs"
                   >
                     <option value="google">Google Gemini</option>
                     <option value="anthropic">Anthropic Vertex</option>
@@ -1503,7 +1590,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   <select
                     value={newTier}
                     onChange={(e) => setNewTier(e.target.value as any)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer shadow-xs"
                   >
                     <option value="low">Low (Flash)</option>
                     <option value="medium">Medium</option>
@@ -1524,7 +1611,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     required
                     value={newInputRate}
                     onChange={(e) => setNewInputRate(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
                   />
                 </div>
 
@@ -1539,7 +1626,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     required
                     value={newOutputRate}
                     onChange={(e) => setNewOutputRate(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
                   />
                 </div>
               </div>
