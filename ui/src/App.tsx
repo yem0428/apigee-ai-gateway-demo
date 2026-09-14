@@ -8,7 +8,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
 import { ThemeSelector } from './components/ThemeSelector';
 import { GatewaySettings, ChatMessage, GatewayTelemetry, UserPersona, AppTab, AppTheme } from './types';
-import { DEFAULT_SETTINGS, USERS, DEFAULT_SSO_USER, createSsoUserFromEmail } from './services/defaultSettings';
+import { DEFAULT_SETTINGS, USERS, createSsoUserFromEmail } from './services/defaultSettings';
 
 export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(() => {
@@ -39,53 +39,47 @@ export function App() {
 
   // Initialize settings with localStorage persistence and sanitization
   const [settings, setSettings] = useState<GatewaySettings>(() => {
+    const base: GatewaySettings = {
+      ...DEFAULT_SETTINGS,
+      activeUser: 'admin',
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
+      model: 'auto',
+      environment: 'prod',
+      omitEmailHeader: false,
+    };
+
     try {
       const saved = localStorage.getItem('apigee_ai_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Lock environment strictly to production
         parsed.environment = 'prod';
-        const validUsers: UserPersona[] = ['admin', 'sales_agent', 'loans_agent'];
-        if (!validUsers.includes(parsed.activeUser)) {
-          parsed.activeUser = 'admin';
-        }
+        
+        // On reload, respect explicit URL query parameters if present, otherwise default to Admin persona & Auto model
         const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
         const queryUser = urlParams?.get('user') as UserPersona;
-        if (queryUser && validUsers.includes(queryUser)) {
-          parsed.activeUser = queryUser;
-        }
+        const activeUser: UserPersona = (queryUser && ['admin', 'sales_agent', 'loans_agent'].includes(queryUser))
+          ? queryUser
+          : 'admin';
 
-        const userInfo = USERS[parsed.activeUser as UserPersona] || USERS.admin;
-        parsed.apiKey = userInfo.apiKey;
+        const userInfo = USERS[activeUser] || USERS.admin;
 
         // Sanitize any invalid or empty session from localStorage
         if (!parsed.ssoUser?.isAuthenticated || !parsed.userEmail) {
           delete parsed.ssoUser;
           delete parsed.userEmail;
         }
-        parsed.ssoUser = parsed.ssoUser || DEFAULT_SSO_USER;
-        parsed.userEmail = parsed.ssoUser?.email || DEFAULT_SSO_USER.email;
 
-        const validModels = [
-          'auto',
-          'gemini-3.1-flash-lite',
-          'gemini-2.5-flash',
-          'gemini-3-flash',
-          'gemini-3.1-pro-preview',
-          'claude-opus-4-5@20251101',
-          'claude-3-5-sonnet',
-          'claude-3-5-haiku',
-          'claude-3-7-sonnet',
-        ];
-        const autoDefaultMigrated = localStorage.getItem('apigee_model_auto_default_v2');
-        if (!autoDefaultMigrated) {
-          parsed.model = 'auto';
-          localStorage.setItem('apigee_model_auto_default_v2', 'true');
-        } else if (!validModels.includes(parsed.model)) {
-          parsed.model = 'auto';
-        }
-        parsed.omitEmailHeader = false;
-        return { ...DEFAULT_SETTINGS, ...parsed, environment: 'prod', omitEmailHeader: false };
+        return {
+          ...base,
+          ...parsed,
+          activeUser,
+          keyTier: activeUser,
+          apiKey: userInfo.apiKey || base.apiKey,
+          model: parsed.model || 'auto',
+          environment: 'prod',
+          omitEmailHeader: false,
+        };
       }
     } catch (e) {
       console.error('Failed to load settings from localStorage', e);
@@ -94,12 +88,13 @@ export function App() {
     const queryUser = urlParams?.get('user') as UserPersona;
     if (queryUser && ['admin', 'sales_agent', 'loans_agent'].includes(queryUser)) {
       return {
-        ...DEFAULT_SETTINGS,
+        ...base,
         activeUser: queryUser,
-        apiKey: USERS[queryUser]?.apiKey || DEFAULT_SETTINGS.apiKey,
+        keyTier: queryUser,
+        apiKey: USERS[queryUser]?.apiKey || base.apiKey,
       };
     }
-    return DEFAULT_SETTINGS;
+    return base;
   });
 
   // Synchronize authenticated user identity & provisioned credentials from backend (/api/me)
@@ -281,6 +276,15 @@ export function App() {
   const handleResetChat = () => {
     setMessages([]);
     setActiveTelemetry(null);
+    setActiveTab('ai-gateway');
+    setSettings((prev) => ({
+      ...prev,
+      activeUser: 'admin',
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey || prev.apiKey,
+      model: 'auto',
+      omitEmailHeader: false,
+    }));
   };
 
   // Monetization tab is strictly accessible only in Admin view
