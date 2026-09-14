@@ -655,9 +655,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     ${userAttributions.reduce((acc, u) => acc + (u.currentBalanceUsd || 0), 0).toFixed(2)}{' '}
                     <span className="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">USD</span>
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Enforced by Apigee PreFlow Limits
-                  </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center shrink-0">
                   <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
