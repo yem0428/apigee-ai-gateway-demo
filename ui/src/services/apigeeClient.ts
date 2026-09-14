@@ -1,5 +1,5 @@
 import { GatewaySettings, GatewayTelemetry, ChatMessage } from '../types';
-import { getEnvironment, getUserInfo, DEFAULT_SSO_USER } from './defaultSettings';
+import { getEnvironment, getUserInfo, USERS, DEFAULT_SSO_USER } from './defaultSettings';
 
 export interface GenerateContentResult {
   success: boolean;
@@ -104,7 +104,27 @@ export async function sendPromptToApigee(
 
   // Resolve active user entitlement and dynamic SSO caller email
   const userInfo = getUserInfo(settings.activeUser);
-  const effectiveApiKey = settings.apiKey || userInfo.apiKey;
+  let effectiveApiKey = settings.apiKey || userInfo.apiKey;
+
+  if (!effectiveApiKey && typeof window !== 'undefined') {
+    try {
+      const meRes = await fetch('/api/me');
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        const apiKeys = meData.apiKeys || {};
+        if (apiKeys.admin || meData.apiKey) USERS.admin.apiKey = apiKeys.admin || meData.apiKey;
+        if (apiKeys.sales_agent) USERS.sales_agent.apiKey = apiKeys.sales_agent;
+        if (apiKeys.loans_agent) USERS.loans_agent.apiKey = apiKeys.loans_agent;
+        effectiveApiKey = apiKeys[settings.activeUser] || USERS[settings.activeUser]?.apiKey || meData.apiKey || USERS.admin.apiKey;
+      }
+    } catch (e) {
+      console.warn('[apigeeClient] Failed to auto-resolve API key from /api/me', e);
+    }
+  }
+  if (!effectiveApiKey) {
+    effectiveApiKey = USERS[settings.activeUser]?.apiKey || USERS.admin.apiKey || USERS.sales_agent.apiKey || USERS.loans_agent.apiKey;
+  }
+
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
   const effectiveIdToken = settings.ssoUser?.idToken || settings.idToken;
 
