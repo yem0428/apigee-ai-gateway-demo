@@ -408,5 +408,15 @@ export const MCP_PRESET_SCENARIOS: McpPresetScenario[] = [
     badgeText: 'Approve Loan',
     badgeColor: 'purple',
   },
+  {
+    id: 'quota-breach-test',
+    title: 'Rapid Burst (Quota 429)',
+    toolName: 'listAllDiscounts',
+    category: 'Rate Limiting',
+    description: 'Rapidly invokes listAllDiscounts (limit: 1 call / 5 sec) to trigger Apigee rate-limit quota violation (HTTP 429)',
+    arguments: {},
+    badgeText: 'Quota (429)',
+    badgeColor: 'amber',
+  },
 ];
 
