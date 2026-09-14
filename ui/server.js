@@ -951,13 +951,13 @@ const server = http.createServer(async (req, res) => {
 
       res.end(JSON.stringify({
         status: 'ok',
-        source: 'Apigee Management API (Live BigQuery DataCollector)',
+        source: 'Apigee Analytics Management API',
         org,
         env: apigeeEnv,
         timeRange: rangeParam,
         apigeeTimeRange,
         metaData: {
-          notices: statsData?.metaData?.notices || ['Source:BigQuery'],
+          notices: statsData?.metaData?.notices || ['Source:ApigeeAnalytics'],
         },
         kpis: {
           totalCalls,

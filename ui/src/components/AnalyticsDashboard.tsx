@@ -150,28 +150,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     }
   }, [registerRefresh, timeRange]);
 
-  // 100% REAL Apigee Management API data from DataCollector (BigQuery)
+  // Apigee Analytics Management API data
   const allConsumptionRecords: UserConsumptionRecord[] = useMemo(() => {
     return fleetData?.consumptionRows || [];
   }, [fleetData]);
 
-  // Authoritative user/developer list dynamically built from Apigee attributions and consumption logs
+  // Authoritative user/developer list based strictly on Apigee Developer Management API
   const userList = useMemo(() => {
     const map = new Map<string, { email: string; name?: string }>();
     attributions.forEach((a) => {
       map.set(a.userEmail.toLowerCase(), { email: a.userEmail, name: a.name });
     });
-    allConsumptionRecords.forEach((r) => {
-      const lower = r.userEmail.toLowerCase();
-      if (!map.has(lower)) {
-        map.set(lower, { email: r.userEmail, name: r.userEmail.split('@')[0] });
-      }
-    });
     if (map.size === 0 && currentUserEmail) {
       map.set(currentUserEmail.toLowerCase(), { email: currentUserEmail, name: currentUserEmail.split('@')[0] });
     }
     return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email));
-  }, [attributions, allConsumptionRecords, currentUserEmail]);
+  }, [attributions, currentUserEmail]);
 
   useEffect(() => {
     if (onUserListChange && userList.length > 0) {
