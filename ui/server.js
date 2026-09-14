@@ -362,9 +362,6 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'text/javascript');
     res.setHeader('Cache-Control', 'no-store');
     const runtimeConfig = {
-      ADMIN_API_KEY: process.env.ADMIN_API_KEY || '',
-      SALES_API_KEY: process.env.SALES_API_KEY || '',
-      LOANS_API_KEY: process.env.LOANS_API_KEY || '',
       ADMIN_USER_EMAIL: process.env.ADMIN_USER_EMAIL || 'admin.user@google.com',
       SALES_AGENT_EMAIL: process.env.SALES_AGENT_EMAIL || 'sales.agent@example.com',
       LOANS_AGENT_EMAIL: process.env.LOANS_AGENT_EMAIL || 'loans.agent@example.com',

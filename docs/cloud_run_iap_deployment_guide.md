@@ -89,8 +89,7 @@ All resources are provisioned in Google Cloud project **`bap-apac-demo2`**:
 | :--- | :--- | :--- |
 | **Static External IP** | `apigee-ai-ui-ip` | **`136.68.103.117`** (Global IPv4) |
 | **Cloud Run Service** | `apigee-ai-gateway-ui` | Region: `asia-southeast1`<br>Port: `8080`<br>Ingress: `internal-and-cloud-load-balancing`<br>Auth: `--no-allow-unauthenticated` |
-| **Cloud Run Runtime SA** | `1058667481809-compute@developer.gserviceaccount.com` | Granted `roles/secretmanager.secretAccessor` |
-| **Secret Manager Secrets** | `apigee-admin-api-key`<br>`apigee-sales-agent-api-key`<br>`apigee-ui-mgmt-sa-key` | Mounted as container environment variables:<br>`ADMIN_API_KEY`, `SALES_API_KEY`, `APIGEE_SA_KEY_PATH` |
+| **Cloud Run Management SA** | `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` | Directly queries Apigee Management API via Metadata Server (no static API key env vars required) |
 | **Artifact Registry** | `cloud-run-source-deploy` | `asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest` |
 | **Serverless NEG** | `apigee-ai-ui-neg` | Region: `asia-southeast1`<br>Target: Cloud Run `apigee-ai-gateway-ui` |
 | **Backend Service** | `apigee-ai-ui-backend` | Scheme: `EXTERNAL_MANAGED`<br>Backend: `apigee-ai-ui-neg`<br>IAP: **Enabled** |

@@ -141,11 +141,11 @@ classDiagram
 ```
 
 ### Unified Persona & Credential Registry
-| Unified Persona | Active SSO Caller (`X-User-Email`) | Injected `x-apikey` (from `.env`) | Bound Products (Production) | Expected AI & MCP Gateway Behavior |
+| Unified Persona | Active SSO Caller (`X-User-Email`) | Key Provisioning Model | Bound Products (Production) | Expected AI & MCP Gateway Behavior |
 | :--- | :--- | :--- | :--- | :--- |
-| **👑 Admin** *(Default)* | Signed-in SSO User (`X-User-Email`) | `$VITE_ADMIN_API_KEY` | `Enterprise AI Tier`<br>`Enterprise Tools MCP` | **Full 200 OK**: Access to all models (Flash, Pro, Preview) and all MCP tools (Sales & Banking). |
-| **💼 Sales Agent** | Signed-in SSO User (`X-User-Email`) | `$VITE_SALES_API_KEY` | `Standard AI Tier`<br>`Sales Tools MCP` | **Selective 401**: Flash inference OK; Pro blocked (401). Sales tools OK; Banking tools blocked (401). |
-| **🏦 Loans Agent** | Signed-in SSO User (`X-User-Email`) | `$VITE_LOANS_API_KEY` | `Standard AI Tier`<br>`Loans Tools MCP` | **Selective 401**: Flash inference OK; Pro blocked (401). Banking tools OK; Sales tools blocked (401). |
+| **👑 Admin** *(Default)* | Signed-in SSO User (`X-User-Email`) | Dynamic (`Unified Admin <USERNAME> App`) | `Enterprise AI Tier`<br>`Enterprise Tools MCP` | **Full 200 OK**: Access to all models (Flash, Pro, Preview) and all MCP tools (Sales & Banking). |
+| **💼 Sales Agent** | Signed-in SSO User (`X-User-Email`) | Shared Global (`Unified Sales App`) | `Standard AI Tier`<br>`Sales Tools MCP` | **Selective 401**: Flash inference OK; Pro blocked (401). Sales tools OK; Banking tools blocked (401). |
+| **🏦 Loans Agent** | Signed-in SSO User (`X-User-Email`) | Shared Global (`Unified Loans App`) | `Standard AI Tier`<br>`Loans Tools MCP` | **Selective 401**: Flash inference OK; Pro blocked (401). Banking tools OK; Sales tools blocked (401). |
 
 ### Mandatory Headers
 Every request to the gateway includes:
