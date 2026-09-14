@@ -13,7 +13,7 @@ export interface DonutSlice {
 }
 
 export interface DonutPieChartProps {
-  title: string;
+  title?: string;
   subtitle?: string;
   icon?: React.ReactNode;
   data: DonutSlice[];
@@ -21,6 +21,7 @@ export interface DonutPieChartProps {
   totalLabel: string;
   unitLabel?: string;
   centerBadgeColor?: string;
+  borderless?: boolean;
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angleInDegrees: number) {
@@ -60,14 +61,17 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
   totalLabel,
   unitLabel,
   centerBadgeColor = 'text-slate-900 dark:text-white',
+  borderless = false,
 }) => {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const total = data.reduce((acc, d) => acc + d.value, 0);
+  // Only consider items with positive value
+  const validData = data.filter((d) => d.value > 0);
+  const total = validData.reduce((acc, d) => acc + d.value, 0);
 
   // Compute start and end angles for each slice
   let currentAngle = 0;
-  const slicesWithAngles = data.map((item) => {
+  const slicesWithAngles = validData.map((item) => {
     const fraction = total > 0 ? item.value / total : 0;
     const sweepAngle = fraction * 360;
     const startAngle = currentAngle;
@@ -85,17 +89,19 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
   const activeSlice = slicesWithAngles.find((s) => s.id === hoveredId);
 
   return (
-    <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
-      {/* Header with Semrush-inspired purple underline accent */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="border-b-2 border-purple-500 inline-flex items-center gap-1.5 pb-0.5 font-bold text-sm text-slate-900 dark:text-white">
-            {icon}
-            <span>{title}</span>
+    <div className={borderless ? "w-full space-y-3" : "bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between"}>
+      {/* Optional Header */}
+      {title && (
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <div className="border-b-2 border-purple-500 inline-flex items-center gap-1.5 pb-0.5 font-bold text-sm text-slate-900 dark:text-white">
+              {icon}
+              <span>{title}</span>
+            </div>
+            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>}
           </div>
-          {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>}
         </div>
-      </div>
+      )}
 
       {/* Chart & Categorized Legend (Inspired by Semrush On Page SEO Checker) */}
       <div className="flex flex-col sm:flex-row items-center gap-6 pt-1">
@@ -154,7 +160,7 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
 
         {/* Categorized List with 2-Letter Badges (Semrush Reference Pattern) */}
         <div className="flex-1 w-full space-y-2 text-xs">
-          {slicesWithAngles.map((item) => {
+          {slicesWithAngles.filter((item) => item.value > 0 && item.percentage >= 0.1).map((item) => {
             const isHovered = item.id === hoveredId;
             const badgeText = item.badge || item.label.slice(0, 2).toUpperCase();
 

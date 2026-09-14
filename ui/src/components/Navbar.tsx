@@ -13,10 +13,23 @@ import {
   Coins,
   BarChart3,
   Key,
+  Users,
+  User,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { GatewaySettings, UserPersona, AppTab, AppTheme } from '../types';
 import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER } from '../services/defaultSettings';
 import { ApigeeLogo } from './ApigeeLogo';
+
+export interface AnalyticsNavControls {
+  viewMode: 'admin' | 'user';
+  setViewMode: (mode: 'admin' | 'user') => void;
+  timeRange: '24h' | '7d' | '30d';
+  setTimeRange: (range: '24h' | '7d' | '30d') => void;
+  loading: boolean;
+  onRefresh: () => void;
+}
 
 interface NavbarProps {
   settings: GatewaySettings;
@@ -27,6 +40,7 @@ interface NavbarProps {
   onResetChat?: () => void;
   theme?: AppTheme;
   onThemeChange?: (theme: AppTheme) => void;
+  analyticsControls?: AnalyticsNavControls;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -34,6 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSettings,
   activeTab,
   onTabChange,
+  analyticsControls,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [ssoPopoverOpen, setSsoPopoverOpen] = useState(false);
@@ -93,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <ApigeeLogo />
 
-          {/* Primary Gateway Tabs Switcher */}
+          {/* Primary Gateway Tabs Switcher - Analytics is 3rd Tab */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
             <button
               type="button"
@@ -121,19 +136,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Terminal className="w-3.5 h-3.5" />
               <span>MCP Gateway</span>
             </button>
-            <button
-              type="button"
-              onClick={() => onTabChange('monetization')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
-                activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
-              }`}
-              title="Apigee Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
-            >
-              <Coins className="w-3.5 h-3.5" />
-              <span>Monetization</span>
-            </button>
+            {/* 3rd Tab: Analytics & Cost */}
             <button
               type="button"
               onClick={() => onTabChange('analytics')}
@@ -147,6 +150,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <BarChart3 className="w-3.5 h-3.5" />
               <span>Analytics & Cost</span>
             </button>
+            {/* 4th Tab: Monetization */}
+            <button
+              type="button"
+              onClick={() => onTabChange('monetization')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
+                activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+              }`}
+              title="Apigee Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
+            >
+              <Coins className="w-3.5 h-3.5" />
+              <span>Monetization</span>
+            </button>
           </div>
         </div>
 
@@ -154,80 +171,149 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex lg:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-850 shrink-0"
+          className="flex lg:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-855 shrink-0"
           title="Toggle Gateway Controls"
         >
           <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
           <span className="font-mono text-[11px] text-slate-700 dark:text-slate-200">
-            {activeUser.badge}
+            {activeTab === 'analytics' ? (analyticsControls?.viewMode === 'admin' ? 'Admin View' : 'User View') : activeUser.badge}
           </span>
           {mobileMenuOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
 
         {/* Middle Desktop Controls (lg: and above) */}
-        <div className="hidden lg:flex items-center gap-1.5 text-xs">
-          {/* User Persona / Entitlement Tier Segmented Control */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shrink-0">
-            <button
-              type="button"
-              onClick={() => handleUserChange('admin')}
-              className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                settings.activeUser === 'admin'
-                  ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-              title="Admin Persona (Enterprise Tier: All Models + All MCP Tools)"
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'admin' ? 'bg-purple-500' : 'bg-slate-400'}`} />
-              <span>Admin</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleUserChange('sales_agent')}
-              className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                settings.activeUser === 'sales_agent'
-                  ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-              title="Sales Agent Persona (Standard Tier: Flash Models + Sales MCP Tools)"
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'sales_agent' ? 'bg-blue-500' : 'bg-slate-400'}`} />
-              <span>Sales</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleUserChange('loans_agent')}
-              className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                settings.activeUser === 'loans_agent'
-                  ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-              title="Loans Agent Persona (Standard Tier: Flash Models + Loans MCP Tools)"
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'loans_agent' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-              <span>Loans</span>
-            </button>
-          </div>
-
-          {/* Model Selector */}
-          {activeTab === 'ai-gateway' && (
-            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
-              <div className="flex items-center gap-1.5 pl-2.5 pr-1.5 text-slate-600 dark:text-slate-400 text-xs font-medium">
-                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                <span className="font-semibold">Model:</span>
+        <div className="hidden lg:flex items-center gap-2 text-xs">
+          {activeTab === 'analytics' && analyticsControls ? (
+            <>
+              {/* Analytics View Mode Toggle (Admin Fleet vs My User View) */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-300 dark:border-slate-700 shrink-0 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => analyticsControls.setViewMode('admin')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                    analyticsControls.viewMode === 'admin'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  }`}
+                  title="Admin Fleet View (Enterprise overview across all models & users)"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Admin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => analyticsControls.setViewMode('user')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                    analyticsControls.viewMode === 'user'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  }`}
+                  title="My User View (Filter consumption records to active authenticated email)"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>User</span>
+                </button>
               </div>
-              <select
-                value={settings.model}
-                onChange={(e) => handleModelChange(e.target.value)}
-                className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-semibold rounded-lg px-2.5 py-1 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer shadow-xs min-w-[210px] max-w-[260px]"
-              >
-                {AVAILABLE_MODELS.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                    {m.id === 'auto' ? 'Auto (Intelligent Routing)' : `${m.name} (${m.tag})`}
-                  </option>
+
+              {/* Time Range Selector (24H, 7D, 30D) - Ultra crisp contrast in light & dark */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-300 dark:border-slate-700 shrink-0 shadow-xs">
+                {(['24h', '7d', '30d'] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => analyticsControls.setTimeRange(r)}
+                    className={`px-2.5 py-1 rounded transition cursor-pointer uppercase text-[11px] font-bold ${
+                      analyticsControls.timeRange === r
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-700 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                    }`}
+                  >
+                    {r}
+                  </button>
                 ))}
-              </select>
-            </div>
+              </div>
+
+              {/* Refresh Button */}
+              <button
+                type="button"
+                onClick={analyticsControls.onRefresh}
+                disabled={analyticsControls.loading}
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-purple-600 transition cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
+                title="Refresh live metrics from Apigee Management API"
+              >
+                {analyticsControls.loading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                ) : (
+                  <RotateCcw className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </>
+          ) : (
+            <>
+              {/* User Persona / Entitlement Tier Segmented Control */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleUserChange('admin')}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                    settings.activeUser === 'admin'
+                      ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                  title="Admin Persona (Enterprise Tier: All Models + All MCP Tools)"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'admin' ? 'bg-purple-500' : 'bg-slate-400'}`} />
+                  <span>Admin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserChange('sales_agent')}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                    settings.activeUser === 'sales_agent'
+                      ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                  title="Sales Agent Persona (Standard Tier: Flash Models + Sales MCP Tools)"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'sales_agent' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                  <span>Sales</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUserChange('loans_agent')}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                    settings.activeUser === 'loans_agent'
+                      ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                  title="Loans Agent Persona (Standard Tier: Flash Models + Loans MCP Tools)"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'loans_agent' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                  <span>Loans</span>
+                </button>
+              </div>
+
+              {/* Model Selector */}
+              {activeTab === 'ai-gateway' && (
+                <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
+                  <div className="flex items-center gap-1.5 pl-2.5 pr-1.5 text-slate-600 dark:text-slate-400 text-xs font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="font-semibold">Model:</span>
+                  </div>
+                  <select
+                    value={settings.model}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-semibold rounded-lg px-2.5 py-1 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer shadow-xs min-w-[210px] max-w-[260px]"
+                  >
+                    {AVAILABLE_MODELS.map((m) => (
+                      <option key={m.id} value={m.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                        {m.id === 'auto' ? 'Auto (Intelligent Routing)' : `${m.name} (${m.tag})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -393,73 +479,138 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="font-mono font-semibold">Production (Global)</span>
           </div>
 
-          {/* Entitlement Tiers */}
-          <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Entitlement Tier (API Key)</div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  handleUserChange('admin');
-                  setMobileMenuOpen(false);
-                }}
-                className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                  settings.activeUser === 'admin'
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'bg-slate-800 text-slate-300'
-                }`}
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleUserChange('sales_agent');
-                  setMobileMenuOpen(false);
-                }}
-                className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                  settings.activeUser === 'sales_agent'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-slate-800 text-slate-300'
-                }`}
-              >
-                Sales Agent
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleUserChange('loans_agent');
-                  setMobileMenuOpen(false);
-                }}
-                className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                  settings.activeUser === 'loans_agent'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-slate-800 text-slate-300'
-                }`}
-              >
-                Loans Agent
-              </button>
-            </div>
-          </div>
+          {/* Controls based on active tab */}
+          {activeTab === 'analytics' && analyticsControls ? (
+            <>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Analytics View</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      analyticsControls.setViewMode('admin');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition ${
+                      analyticsControls.viewMode === 'admin'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    Admin Fleet View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      analyticsControls.setViewMode('user');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition ${
+                      analyticsControls.viewMode === 'user'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    My User View
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Time Range</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['24h', '7d', '30d'] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        analyticsControls.setTimeRange(r);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold uppercase transition ${
+                        analyticsControls.timeRange === r
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Entitlement Tiers */}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Entitlement Tier (API Key)</div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUserChange('admin');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
+                      settings.activeUser === 'admin'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUserChange('sales_agent');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
+                      settings.activeUser === 'sales_agent'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    Sales Agent
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUserChange('loans_agent');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
+                      settings.activeUser === 'loans_agent'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    Loans Agent
+                  </button>
+                </div>
+              </div>
 
-          {/* Model Selection */}
-          <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Vertex AI Model</div>
-            <select
-              value={settings.model}
-              onChange={(e) => {
-                handleModelChange(e.target.value);
-                setMobileMenuOpen(false);
-              }}
-              className="w-full bg-slate-800 text-slate-100 text-xs font-medium rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            >
-              {AVAILABLE_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.id === 'auto' ? 'Auto (Intelligent Routing)' : `${m.name} (${m.tag})`}
-                </option>
-              ))}
-            </select>
-          </div>
+              {/* Model Selection */}
+              {activeTab === 'ai-gateway' && (
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Vertex AI Model</div>
+                  <select
+                    value={settings.model}
+                    onChange={(e) => {
+                      handleModelChange(e.target.value);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full bg-slate-800 text-slate-100 text-xs font-medium rounded-lg px-3 py-2 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    {AVAILABLE_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id === 'auto' ? 'Auto (Intelligent Routing)' : `${m.name} (${m.tag})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </header>

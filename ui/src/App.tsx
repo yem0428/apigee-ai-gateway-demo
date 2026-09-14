@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Settings2 } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { ChatPlayground } from './components/ChatPlayground';
@@ -227,6 +227,12 @@ export function App() {
     return null;
   });
 
+  // Analytics Dashboard Controls State (hoisted to Navbar)
+  const [analyticsViewMode, setAnalyticsViewMode] = useState<'admin' | 'user'>('admin');
+  const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const analyticsRefreshRef = useRef<() => void>(() => {});
+
   const handleResetChat = () => {
     setMessages([]);
     setActiveTelemetry(null);
@@ -244,6 +250,18 @@ export function App() {
         onResetChat={handleResetChat}
         theme={theme}
         onThemeChange={setTheme}
+        analyticsControls={{
+          viewMode: analyticsViewMode,
+          setViewMode: setAnalyticsViewMode,
+          timeRange: analyticsTimeRange,
+          setTimeRange: setAnalyticsTimeRange,
+          loading: analyticsLoading,
+          onRefresh: () => {
+            if (analyticsRefreshRef.current) {
+              analyticsRefreshRef.current();
+            }
+          },
+        }}
       />
 
       {/* Main Dual-Pane Studio Body */}
@@ -263,7 +281,15 @@ export function App() {
         ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
           <MonetizationManager currentEnv="prod" settings={settings} />
         ) : (
-          <AnalyticsDashboard settings={settings} />
+          <AnalyticsDashboard
+            settings={settings}
+            viewMode={analyticsViewMode}
+            timeRange={analyticsTimeRange}
+            setLoading={setAnalyticsLoading}
+            registerRefresh={(fn) => {
+              analyticsRefreshRef.current = fn;
+            }}
+          />
         )}
       </main>
 
