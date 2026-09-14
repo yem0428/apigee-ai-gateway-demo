@@ -250,28 +250,31 @@ The platform supports 4 model options in the Navbar dropdown:
 
 ## 8. Frontend UI Architecture & Multi-Gateway Studio
 
-The UI is built using **React 18 + TypeScript + Vite + Tailwind CSS**, providing a top-level tabbed console for both the AI Gateway and MCP Tools Gateway:
+The UI is built using **React 18 + TypeScript + Vite + Tailwind CSS**, providing a top-level tabbed console for AI Gateway, MCP Gateway, Analytics & Cost, and Monetization Management:
 
 ```
 ui/
 ├── src/
 │   ├── components/
-│   │   ├── Navbar.tsx                # Sticky top bar: Brand, Gateway Tabs Switcher ([AI Gateway] | [MCP Gateway]), SSO profile chip (top-right), Dev/Prod pills, Tier pills
-│   │   ├── ChatPlayground.tsx        # Tab 1: AI Gateway Chat thread, inline telemetry badges, mobile view-switch tab bar ([💬 Chat] | [📊 Gateway Trace]), quick chips, status footer
+│   │   ├── Navbar.tsx                # Sticky top bar: Brand, Gateway Tabs Switcher ([AI Gateway] | [MCP Gateway] | [Analytics] | [Monetization]), SSO profile chip (top-right), Reset button
+│   │   ├── ChatPlayground.tsx        # Tab 1: AI Gateway Chat thread, inline telemetry badges, quick scenario chips, status footer
 │   │   ├── GatewayTraceViewer.tsx    # Tab 1: AI Gateway telemetry inspection pane: SSO caller identity, token counters, technical accordion
 │   │   ├── McpPlayground.tsx         # Tab 2: MCP Tools Gateway: Live tool discovery, dynamic schema form, enterprise scenario presets, one-click execution
-│   │   ├── McpTraceViewer.tsx        # Tab 2: MCP Protocol & Telemetry Inspector: JSON-RPC 2.0 response/request viewer, latency telemetry, headers inspection
+│   │   ├── McpTraceViewer.tsx        # Tab 2: MCP Protocol & Telemetry Inspector: JSON-RPC 2.0 response/request viewer, latency telemetry
+│   │   ├── AnalyticsDashboard.tsx    # Tab 3: Apigee Analytics Fleet KPIs, token usage, cost distribution, and active developer filters
+│   │   ├── MonetizationManager.tsx   # Tab 4: Monetization Management (3 subtabs: Prepaid Wallets & Balances, KVM Rate Cards, Rate Plans & Subscriptions)
 │   │   └── GatewaySettingsModal.tsx  # Modal: Persona/Tier selector, SSO user configuration, custom endpoints, missing email simulation toggle
 │   ├── services/
 │   │   ├── apigeeClient.ts           # REST dispatcher for Vertex AI Gemini model routing
 │   │   ├── mcpClient.ts              # JSON-RPC 2.0 dispatcher for tools/list and tools/call on /mcp
-│   │   └── defaultSettings.ts       # Central dictionary of SSO defaults, environments, entitlement tiers, models, and scenario presets
+│   │   ├── api.ts                    # Management API client endpoints (/api/me, /api/monetization/*, /api/analytics/*)
+│   │   └── defaultSettings.ts        # Central dictionary of SSO defaults, environments, entitlement tiers, and scenarios
 │   ├── types/
-│   │   └── index.ts                  # TypeScript interfaces (AppTab, McpTool, McpTelemetry, SsoUser, GatewaySettings, GatewayTelemetry)
-│   ├── App.tsx                       # Root container, activeAppTab state, localStorage persistence, IAP session auto-sync (/api/me)
+│   │   └── index.ts                  # TypeScript interfaces (AppTab, McpTool, SsoUser, GatewaySettings, GatewayTelemetry, UserMonetizationAttribution)
+│   ├── App.tsx                       # Root container, activeTab state, defaults on reset/reload (AI Gateway + Admin persona), IAP auto-provisioning (/api/me)
 │   └── main.tsx                      # Vite React entrypoint
-├── vite.config.ts                    # Local proxy routes (/api/vertexai-*, /api/mcp-*, /api/me)
-├── nginx.conf.template               # Cloud Run NGINX reverse proxy template with IAP headers extraction
+├── server.js                         # Production Node server serving static dist assets, /env-config.js, OAuth SA token management, and reverse proxies
+├── vite.config.ts                    # Vite dev server middleware (/api/me, /api/monetization/*, /api/analytics/*)
 ├── package.json                      # Dependencies and build scripts
 └── tailwind.config.js                # Tailwind theme configuration
 ```

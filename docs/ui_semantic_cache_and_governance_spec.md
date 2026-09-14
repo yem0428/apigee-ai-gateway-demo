@@ -95,26 +95,28 @@ The local Vite server (`ui/vite.config.ts`) provides authenticated backend proxy
 
 ## 3. UI Component Architecture
 
+## 3. UI Component Architecture
+
 ```mermaid
 flowchart TD
     App["App.tsx"]
-    Navbar["Navbar.tsx\n[Tabs: ai-gateway | mcp-gateway | rate-cards | semantic-cache]"]
+    Navbar["Navbar.tsx\n[Tabs: ai-gateway | mcp-gateway | analytics | monetization]"]
     ChatPlayground["ChatPlayground.tsx\n[Dual-Pane Chat + TraceViewer]"]
     McpPlayground["McpPlayground.tsx\n[MCP Tools Governance]"]
-    ModelRateCardView["ModelRateCardView.tsx\n[Apigee KVM Rate Card Editor]"]
-    SemanticCacheView["SemanticCacheView.tsx (NEW)\n[KPIs + Interactive Cache Playground + Query Table]"]
+    AnalyticsDashboard["AnalyticsDashboard.tsx\n[Apigee Analytics Fleet KPIs + Active Developer Filter]"]
+    MonetizationManager["MonetizationManager.tsx\n[Subtabs: wallets | rate-cards | rate-plans]"]
 
     App --> Navbar
     App --> ChatPlayground
     App --> McpPlayground
-    App --> ModelRateCardView
-    App --> SemanticCacheView
+    App --> AnalyticsDashboard
+    App --> MonetizationManager
 ```
 
 ### 3.1 `AppTab` Type Definition (`ui/src/types/index.ts`)
-Update `AppTab` to include `'semantic-cache'`:
+The top-level `AppTab` type:
 ```typescript
-export type AppTab = 'ai-gateway' | 'mcp-gateway' | 'rate-cards' | 'semantic-cache';
+export type AppTab = 'ai-gateway' | 'mcp-gateway' | 'analytics' | 'monetization';
 ```
 
 ### 3.2 Navbar Integration (`ui/src/components/Navbar.tsx`)
