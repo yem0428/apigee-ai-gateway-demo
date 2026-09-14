@@ -1,10 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  ShieldCheck,
-  RotateCcw,
-  Settings2,
   Sparkles,
-  User,
   SlidersHorizontal,
   ChevronDown,
   ChevronUp,
@@ -14,17 +10,23 @@ import {
   Shield,
   X,
   Terminal,
+  Coins,
+  BarChart3,
+  Key,
 } from 'lucide-react';
-import { GatewaySettings, GatewayEnvironment, UserPersona, AppTab } from '../types';
+import { GatewaySettings, UserPersona, AppTab, AppTheme } from '../types';
 import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER } from '../services/defaultSettings';
+import { ApigeeLogo } from './ApigeeLogo';
 
 interface NavbarProps {
   settings: GatewaySettings;
   setSettings: React.Dispatch<React.SetStateAction<GatewaySettings>>;
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
-  onOpenSettings: () => void;
-  onResetChat: () => void;
+  onOpenSettings?: () => void;
+  onResetChat?: () => void;
+  theme?: AppTheme;
+  onThemeChange?: (theme: AppTheme) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,15 +34,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSettings,
   activeTab,
   onTabChange,
-  onOpenSettings,
-  onResetChat,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [ssoPopoverOpen, setSsoPopoverOpen] = useState(false);
   const ssoPopoverRef = useRef<HTMLDivElement>(null);
 
   const ssoUser = settings.ssoUser || DEFAULT_SSO_USER;
-  const activeUser = USERS[settings.activeUser] || USERS.bronze_user;
+  const activeUser = USERS[settings.activeUser] || USERS.admin;
+  const effectiveEmail = ssoUser.email || settings.userEmail || DEFAULT_SSO_USER.email;
 
   // Close SSO popover on outside click
   useEffect(() => {
@@ -57,10 +58,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     };
   }, [ssoPopoverOpen]);
 
-  const handleEnvChange = (env: GatewayEnvironment) => {
-    setSettings((prev) => ({ ...prev, environment: env }));
-  };
-
   const handleUserChange = (userPersona: UserPersona) => {
     const user = USERS[userPersona];
     setSettings((prev) => ({
@@ -74,52 +71,41 @@ export const Navbar: React.FC<NavbarProps> = ({
     setSettings((prev) => ({ ...prev, model: modelId }));
   };
 
-  const handleEmailUpdate = (newEmail: string) => {
+  const handleEmailUpdate = (newEmail: string, newIdToken?: string) => {
     const cleanEmail = newEmail.trim() || DEFAULT_SSO_USER.email;
     setSettings((prev) => ({
       ...prev,
       userEmail: cleanEmail,
+      idToken: newIdToken !== undefined ? newIdToken : prev.idToken,
       ssoUser: {
         ...(prev.ssoUser || DEFAULT_SSO_USER),
         email: cleanEmail,
+        idToken: newIdToken !== undefined ? newIdToken : prev.ssoUser?.idToken,
       },
     }));
   };
 
-  const isDev = settings.environment === 'dev' || (settings.environment as string) === 'bap';
-  const isProd = settings.environment === 'prod';
-
   return (
-    <header className="bg-slate-950/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur">
-      {/* Primary Bar */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
-        {/* Left: Brand & Gateway Tabs */}
+    <header className="bg-white/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 backdrop-blur w-full">
+      {/* Primary Bar - Full viewport width */}
+      <div className="w-full px-3 sm:px-6 py-2 flex items-center justify-between gap-2 sm:gap-3">
+        {/* Left: Official Apigee Brand & Gateway Tabs */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-500/25">
-              <ShieldCheck className="w-4 h-4 text-white" />
-            </div>
-            <div className="hidden xl:flex items-center gap-1.5">
-              <span className="font-bold text-sm text-white tracking-tight">Apigee</span>
-              <span className="text-[10px] bg-blue-500/15 text-blue-400 font-mono font-medium px-1.5 py-0.5 rounded border border-blue-500/25">
-                Studio
-              </span>
-            </div>
-          </div>
+          <ApigeeLogo />
 
           {/* Primary Gateway Tabs Switcher */}
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
             <button
               type="button"
               onClick={() => onTabChange('ai-gateway')}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                 activeTab === 'ai-gateway'
-                  ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400/40'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
-              title="Apigee AI Gateway (Gemini Model Routing & Guardrails)"
+              title="Apigee AI Gateway (Model Routing, Guardrails, Cache & Auto-Routing)"
             >
-              <Sparkles className="w-3.5 h-3.5 text-blue-300" />
+              <Sparkles className="w-3.5 h-3.5" />
               <span>AI Gateway</span>
             </button>
             <button
@@ -127,190 +113,157 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => onTabChange('mcp-gateway')}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                 activeTab === 'mcp-gateway'
-                  ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400/40'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-cyan-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
               title="Apigee Native MCP Tools Server (/mcp)"
             >
-              <Terminal className="w-3.5 h-3.5 text-cyan-300" />
+              <Terminal className="w-3.5 h-3.5" />
               <span>MCP Gateway</span>
-              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30 hidden sm:inline-block">
-                /mcp
-              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onTabChange('monetization')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
+                activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+              }`}
+              title="Apigee Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
+            >
+              <Coins className="w-3.5 h-3.5" />
+              <span>Monetization</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onTabChange('analytics')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
+                activeTab === 'analytics'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+              }`}
+              title="Enterprise Model Consumption & Cost Tracking Dashboard"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Analytics & Cost</span>
             </button>
           </div>
         </div>
 
-        {/* Mobile Quick Config Toggle (< md) */}
+        {/* Mobile Quick Config Toggle (< lg) */}
         <button
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex md:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-850"
+          className="flex lg:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-850 shrink-0"
           title="Toggle Gateway Controls"
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-          <span className="font-mono text-[11px] text-slate-200">
-            {settings.environment.toUpperCase()} • {activeUser.badge}
+          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
+          <span className="font-mono text-[11px] text-slate-700 dark:text-slate-200">
+            {activeUser.badge}
           </span>
           {mobileMenuOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
 
-        {/* Desktop Controls (md: and above) */}
-        <div className="hidden md:flex items-center gap-2 text-xs">
-          {/* Environment Segmented Control */}
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800">
-            <button
-              type="button"
-              onClick={() => handleEnvChange('dev')}
-              className={`px-3 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
-                isDev
-                  ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
-            >
-              Dev
-            </button>
-            <button
-              type="button"
-              onClick={() => handleEnvChange('prod')}
-              className={`px-3 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
-                isProd
-                  ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
-            >
-              Prod
-            </button>
-          </div>
-
+        {/* Middle Desktop Controls (lg: and above) */}
+        <div className="hidden lg:flex items-center gap-1.5 text-xs">
           {/* User Persona / Entitlement Tier Segmented Control */}
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shrink-0">
             <button
               type="button"
-              onClick={() => handleUserChange('bronze_user')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                settings.activeUser === 'bronze_user'
-                  ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              onClick={() => handleUserChange('admin')}
+              className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                settings.activeUser === 'admin'
+                  ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
-              title="Bronze Quota Tier (Standard Developer Key)"
+              title="Admin Persona (Enterprise Tier: All Models + All MCP Tools)"
             >
-              <User className="w-3 h-3" />
-              <span>Bronze User</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleUserChange('silver_user')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                settings.activeUser === 'silver_user'
-                  ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
-              title="Silver Quota Tier (Demonstrates 401 Product Boundary)"
-            >
-              <User className="w-3 h-3" />
-              <span>Silver User</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'admin' ? 'bg-purple-500' : 'bg-slate-400'}`} />
+              <span>Admin</span>
             </button>
             <button
               type="button"
               onClick={() => handleUserChange('sales_agent')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
                 settings.activeUser === 'sales_agent'
-                  ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
-              title="Sales Agent Quota Tier"
+              title="Sales Agent Persona (Standard Tier: Flash Models + Sales MCP Tools)"
             >
-              <User className="w-3 h-3" />
-              <span>Sales Agent</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'sales_agent' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+              <span>Sales</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleUserChange('loans_agent')}
+              className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                settings.activeUser === 'loans_agent'
+                  ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+              title="Loans Agent Persona (Standard Tier: Flash Models + Loans MCP Tools)"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'loans_agent' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+              <span>Loans</span>
             </button>
           </div>
 
-          {/* Model Selector Pill / Dropdown (AI Gateway only) */}
-          {activeTab === 'ai-gateway' ? (
-            <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800">
-              <div className="flex items-center gap-1 pl-2 pr-1 text-slate-400 text-[11px]">
-                <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Model:</span>
+          {/* Model Selector */}
+          {activeTab === 'ai-gateway' && (
+            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-1.5 pl-2.5 pr-1.5 text-slate-600 dark:text-slate-400 text-xs font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                <span className="font-semibold">Model:</span>
               </div>
               <select
                 value={settings.model}
                 onChange={(e) => handleModelChange(e.target.value)}
-                className="bg-slate-800 text-slate-100 text-[11px] font-medium rounded-md px-2 py-1 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-semibold rounded-lg px-2.5 py-1 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer shadow-xs min-w-[210px] max-w-[260px]"
               >
                 {AVAILABLE_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
+                  <option key={m.id} value={m.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                    {m.id === 'auto' ? 'Auto (Intelligent Routing)' : `${m.name} (${m.tag})`}
                   </option>
                 ))}
               </select>
             </div>
-          ) : (
-            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-cyan-400">
-              <Terminal className="w-3.5 h-3.5" />
-              <span>Target: /mcp</span>
-            </div>
           )}
         </div>
 
-        {/* Right: Actions & Top-Right SSO Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* New Chat / Reset (AI Gateway only) */}
-          {activeTab === 'ai-gateway' && (
-            <button
-              type="button"
-              onClick={onResetChat}
-              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition text-xs cursor-pointer"
-              title="Clear Chat & Reset Session"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset</span>
-            </button>
-          )}
-
-          {/* Settings Modal */}
+        {/* Right: Top-Right SSO User Profile */}
+        <div className="flex items-center shrink-0 ml-auto" ref={ssoPopoverRef}>
           <button
             type="button"
-            onClick={onOpenSettings}
-            className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-blue-400 transition cursor-pointer"
-            title="Gateway Configuration"
+            onClick={() => setSsoPopoverOpen(!ssoPopoverOpen)}
+            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200/80 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer text-left group shadow-xs shrink-0"
+            title={`Logged in via Google Cloud Identity SSO: ${effectiveEmail}`}
           >
-            <Settings2 className="w-4 h-4" />
-          </button>
-
-          {/* TOP-RIGHT LOGGED IN SSO USER CHIP */}
-          <div className="relative" ref={ssoPopoverRef}>
-            <button
-              type="button"
-              onClick={() => setSsoPopoverOpen(!ssoPopoverOpen)}
-              className="flex items-center gap-2 pl-1.5 pr-2 py-1 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 transition cursor-pointer text-left group"
-              title={`Logged in as ${ssoUser.name} (${ssoUser.email}) via SSO`}
-            >
-              {/* Avatar Circle with Status Indicator */}
-              <div className="relative">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm ring-1 ring-emerald-400/50">
-                  {ssoUser.avatarText || 'SSO'}
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-950 rounded-full animate-pulse" />
+            {/* Avatar Circle with Status Indicator */}
+            <div className="relative shrink-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                {ssoUser.avatarText || 'SSO'}
               </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full animate-pulse" />
+            </div>
 
-              {/* User Identity Info (Hidden on mobile, visible on lg+) */}
-              <div className="hidden lg:flex flex-col leading-tight pr-1">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-slate-200 group-hover:text-white truncate max-w-[110px]">
-                    {ssoUser.name}
-                  </span>
-                  <span className="text-[9px] bg-emerald-950 text-emerald-300 font-mono font-bold px-1 rounded border border-emerald-500/30">
-                    SSO
-                  </span>
-                </div>
-                <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]">
-                  {ssoUser.email || 'Authenticating...'}
+            {/* User Identity Info - Full visibility without artificial truncation */}
+            <div className="flex flex-col leading-tight min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white whitespace-nowrap">
+                  {ssoUser.name || 'SSO User'}
+                </span>
+                <span className="text-[9px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-mono font-bold px-1 rounded border border-blue-200 dark:border-blue-800 shrink-0">
+                  SSO
                 </span>
               </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-normal whitespace-nowrap">
+                {effectiveEmail}
+              </span>
+            </div>
 
-              <ChevronDown className="w-3 h-3 text-slate-500 group-hover:text-slate-300 transition hidden sm:block" />
-            </button>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition shrink-0 ml-1" />
+          </button>
 
             {/* SSO Profile Popover */}
             {ssoPopoverOpen && (
@@ -353,6 +306,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span className="text-slate-200 font-mono">{ssoUser.organization}</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-400">
+                    <span className="flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-amber-400" />
+                      OIDC Identity Token:
+                    </span>
+                    <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${
+                      ssoUser.idToken
+                        ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
+                        : 'text-slate-400 bg-slate-900 border-slate-700'
+                    }`}>
+                      {ssoUser.idToken ? 'Bearer Active (gcloud)' : 'Header Fallback'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-400">
                     <span>Session Status:</span>
                     <span className="text-emerald-400 font-semibold flex items-center gap-1">
                       <Check className="w-3 h-3" /> Active / Authenticated
@@ -362,7 +328,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <div className="pt-3">
                   <div className="text-[10px] text-slate-400 mb-1.5">
-                    Attribution Header (<code className="font-mono text-emerald-400">X-User-Email</code>):
+                    User Identity (<code className="font-mono text-emerald-400">Authorization: Bearer</code>):
                   </div>
                   <div className="flex gap-1.5">
                     <input
@@ -382,12 +348,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                       type="button"
                       onClick={async () => {
                         try {
-                          const res = await fetch('/api/me');
+                          const res = await fetch('/api/me?refresh=true');
                           if (res.ok) {
                             const data = await res.json();
                             const clean = (data.email || '').replace(/^accounts\.google\.com:/, '').trim();
                             if (clean) {
-                              handleEmailUpdate(clean);
+                              handleEmailUpdate(clean, data.token);
                               setSsoPopoverOpen(false);
                               return;
                             }
@@ -399,53 +365,32 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setSsoPopoverOpen(false);
                       }}
                       className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] transition cursor-pointer"
-                      title="Re-sync from active SSO session"
+                      title="Re-generate and sync SSO token from gcloud"
                     >
                       Re-sync
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-                    This email is dynamically passed in the <code className="font-mono text-slate-400">X-User-Email</code> header to Apigee on every request for custom label attribution.
+                    {ssoUser.idToken
+                      ? 'Authenticated via Google SSO Bearer token. Identity is validated by Apigee on every request for zero-trust governance.'
+                      : 'Authenticated user email associated with the active session token.'}
                   </p>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div>
 
       {/* Collapsible Mobile Controls Drawer (< md) */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-800/80 bg-slate-900/95 px-4 py-3 space-y-3 animate-in slide-in-from-top-2 duration-150">
-          {/* Target Environment */}
-          <div>
-            <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Gateway Environment</div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  handleEnvChange('dev');
-                  setMobileMenuOpen(false);
-                }}
-                className={`py-1.5 rounded-lg text-xs font-semibold transition ${
-                  isDev ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-300'
-                }`}
-              >
-                Dev Gateway
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleEnvChange('prod');
-                  setMobileMenuOpen(false);
-                }}
-                className={`py-1.5 rounded-lg text-xs font-semibold transition ${
-                  isProd ? 'bg-purple-600 text-white shadow-sm' : 'bg-slate-800 text-slate-300'
-                }`}
-              >
-                Prod Gateway
-              </button>
-            </div>
+          {/* Production Status */}
+          <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs">
+            <span className="flex items-center gap-2 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Gateway Environment
+            </span>
+            <span className="font-mono font-semibold">Production (Global)</span>
           </div>
 
           {/* Entitlement Tiers */}
@@ -455,30 +400,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  handleUserChange('bronze_user');
+                  handleUserChange('admin');
                   setMobileMenuOpen(false);
                 }}
                 className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                  settings.activeUser === 'bronze_user'
-                    ? 'bg-amber-600 text-white shadow-sm'
+                  settings.activeUser === 'admin'
+                    ? 'bg-purple-600 text-white shadow-sm'
                     : 'bg-slate-800 text-slate-300'
                 }`}
               >
-                Bronze Tier
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleUserChange('silver_user');
-                  setMobileMenuOpen(false);
-                }}
-                className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                  settings.activeUser === 'silver_user'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'bg-slate-800 text-slate-300'
-                }`}
-              >
-                Silver Tier
+                Admin
               </button>
               <button
                 type="button"
@@ -493,6 +424,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 Sales Agent
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleUserChange('loans_agent');
+                  setMobileMenuOpen(false);
+                }}
+                className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
+                  settings.activeUser === 'loans_agent'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800 text-slate-300'
+                }`}
+              >
+                Loans Agent
               </button>
             </div>
           </div>
@@ -510,7 +455,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {AVAILABLE_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name} ({m.tag})
+                  {m.id === 'auto' ? 'Auto (Intelligent Routing)' : `${m.name} (${m.tag})`}
                 </option>
               ))}
             </select>

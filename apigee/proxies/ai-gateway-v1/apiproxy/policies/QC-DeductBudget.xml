@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Quota async="false" continueOnError="true" enabled="true" name="QC-DeductBudget">
+  <DisplayName>QC-DeductBudget</DisplayName>
+  <Identifier ref="verifyapikey.VA-VerifyAPIKey.developer.id"/>
+  <Allow count="100000000" countRef="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.limit"/>
+  <Interval ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.interval">1</Interval>
+  <TimeUnit ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.timeunit">month</TimeUnit>
+  <Weight ref="flow.tx_cost_micros"/>
+  <Distributed>true</Distributed>
+  <Synchronous>true</Synchronous>
+  <SharedName>developer-budget-counter</SharedName>
+</Quota>

@@ -8,6 +8,19 @@ export interface GenerateContentResult {
   error?: string;
 }
 
+export function getGatewayTargetUrl(settings: GatewaySettings, modelOverride?: string): string {
+  const envInfo = getEnvironment(settings.environment);
+  const targetModel = modelOverride || settings.model || 'auto';
+  if (targetModel.startsWith('claude')) {
+    return envInfo.claudeUpstreamUrl || 'https://api.maloosatyam.demo.altostrat.com/v1/messages';
+  }
+  const base = envInfo.upstreamUrl || 'https://api.maloosatyam.demo.altostrat.com/ai/v1';
+  if (targetModel === 'auto') {
+    return `${base}/auto`;
+  }
+  return `${base}/models/${targetModel}:generateContent`;
+}
+
 export async function sendPromptToApigee(
   userMessage: string,
   settings: GatewaySettings,
@@ -21,13 +34,16 @@ export async function sendPromptToApigee(
     baseUrl = (settings.customBaseUrl || '').replace(/\/$/, '');
   } else {
     const envInfo = getEnvironment(settings.environment);
-    baseUrl = envInfo.proxyPath || '/api/vertexai-dev';
+    baseUrl = envInfo.proxyPath || '/api/ai-prod';
   }
 
-  // Handle 'auto' intelligent model routing
+  // Handle model selection and auto-routing
   let targetModel = settings.model || 'gemini-3.1-flash-lite';
   const isAuto = settings.model === 'auto';
-  if (isAuto) {
+  const isAgnosticAi = baseUrl.includes('/ai') || !baseUrl.includes('vertexai');
+
+  // If using legacy Vertex AI proxy and auto was selected, resolve client-side
+  if (isAuto && !isAgnosticAi) {
     const isComplex =
       userMessage.length > 150 ||
       /compare|architect|deep|reasoning|evaluate|analysis|trade-off|complex|multi-step/i.test(
@@ -36,43 +52,80 @@ export async function sendPromptToApigee(
     targetModel = isComplex ? 'gemini-3.1-pro-preview' : 'gemini-3.1-flash-lite';
   }
 
-  const endpointUrl = `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/${targetModel}:generateContent`;
+  const isClaude = targetModel.startsWith('claude');
+  let endpointUrl = '';
+  let requestBody: any = null;
+
+  if (isClaude) {
+    if (settings.environment === 'custom') {
+      endpointUrl = `${baseUrl}/v1/messages`;
+    } else {
+      const envInfo = getEnvironment(settings.environment);
+      endpointUrl = envInfo.claudeProxyPath || '/api/claude-prod';
+    }
+    requestBody = {
+      model: targetModel,
+      max_tokens: 1024,
+      messages: history
+        .filter((msg) => !msg.isError && (msg.sender === 'user' || msg.sender === 'agent'))
+        .map((msg) => ({
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.text,
+        })),
+    };
+    requestBody.messages.push({
+      role: 'user',
+      content: userMessage,
+    });
+  } else {
+    endpointUrl = (isAuto && isAgnosticAi)
+      ? `${baseUrl}/auto`
+      : isAgnosticAi
+      ? `${baseUrl}/models/${targetModel}:generateContent`
+      : `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/${targetModel}:generateContent`;
+
+    // Build contents payload matching Vertex AI generateContent spec
+    const contentsPayload = history
+      .filter((msg) => !msg.isError && (msg.sender === 'user' || msg.sender === 'agent'))
+      .map((msg) => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }],
+      }));
+
+    contentsPayload.push({
+      role: 'user',
+      parts: [{ text: userMessage }],
+    });
+
+    requestBody = {
+      contents: contentsPayload,
+    };
+  }
 
   // Resolve active user entitlement and dynamic SSO caller email
   const userInfo = getUserInfo(settings.activeUser);
   const effectiveApiKey = settings.apiKey || userInfo.apiKey;
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
+  const effectiveIdToken = settings.ssoUser?.idToken || settings.idToken;
 
   const headersSent: Record<string, string> = {
     'Content-Type': 'application/json',
     'x-apikey': effectiveApiKey,
-    'X-User-Email': effectiveEmail,
   };
 
-  if (settings.omitEmailHeader) {
-    delete headersSent['X-User-Email'];
+  // Attach caller identity headers unless intentionally omitted for 401 test scenario
+  if (!settings.omitEmailHeader) {
+    if (effectiveIdToken) {
+      headersSent['Authorization'] = `Bearer ${effectiveIdToken}`;
+    }
+    if (effectiveEmail) {
+      headersSent['X-User-Email'] = effectiveEmail;
+    }
   }
 
   if (settings.useCache) {
     headersSent['use-cache'] = 'true';
   }
-
-  // Build contents payload matching Vertex AI generateContent spec
-  const contentsPayload = history
-    .filter((msg) => !msg.isError && (msg.sender === 'user' || msg.sender === 'agent'))
-    .map((msg) => ({
-      role: msg.sender === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.text }],
-    }));
-
-  contentsPayload.push({
-    role: 'user',
-    parts: [{ text: userMessage }],
-  });
-
-  const requestBody = {
-    contents: contentsPayload,
-  };
 
   let responseStatus = 0;
   let responseStatusText = '';
@@ -112,16 +165,18 @@ export async function sendPromptToApigee(
         JSON.stringify(rawResponseBody).toLowerCase().includes('blocked') ||
         JSON.stringify(rawResponseBody).toLowerCase().includes('sup-userprompt'));
 
-    // Check token counts
-    const usage = rawResponseBody?.usageMetadata || {};
-    const promptTokens = usage.promptTokenCount;
-    const candidatesTokens = usage.candidatesTokenCount;
-    const totalTokens = usage.totalTokenCount;
+    // Check token counts (Vertex AI, Anthropic Claude, or OpenAI format)
+    const usage = rawResponseBody?.usageMetadata || rawResponseBody?.usage || {};
+    const promptTokens = usage.promptTokenCount ?? usage.input_tokens ?? usage.prompt_tokens;
+    const candidatesTokens = usage.candidatesTokenCount ?? usage.output_tokens ?? usage.completion_tokens;
+    const totalTokens = usage.totalTokenCount ?? usage.total_tokens ?? ((promptTokens || 0) + (candidatesTokens || 0));
 
-    // Determine cache status
+    // Determine cache status from Apigee response headers
     let cacheStatus: 'HIT' | 'MISS' | 'DISABLED' = 'DISABLED';
-    if (settings.useCache) {
-      if (headersReceived['x-gateway-cached'] === 'true' || headersReceived['x-cache'] === 'HIT' || durationMs < 160) {
+    if (headersReceived['x-gateway-cache-status']) {
+      cacheStatus = headersReceived['x-gateway-cache-status'] as 'HIT' | 'MISS' | 'DISABLED';
+    } else if (settings.useCache) {
+      if (headersReceived['x-gateway-cached'] === 'true') {
         cacheStatus = 'HIT';
       } else {
         cacheStatus = 'MISS';
@@ -137,12 +192,12 @@ export async function sendPromptToApigee(
       guardrailMessage =
         fault?.faultstring ||
         fault?.message ||
-        'Request blocked by Apigee SUP-UserPrompt (Model Armor) policy due to potential safety violation.';
+        'Request blocked by Apigee Model Armor guardrail due to potential safety violation.';
     } else if (responseStatus >= 200 && responseStatus < 300) {
       guardrailStatus = 'PASSED';
     }
 
-    // Extract text from Vertex AI candidates
+    // Extract text from Vertex AI candidates, Claude content, or OpenAI choices
     let assistantText = '';
     const candidates = rawResponseBody?.candidates;
     if (Array.isArray(candidates) && candidates.length > 0) {
@@ -150,23 +205,57 @@ export async function sendPromptToApigee(
       if (Array.isArray(parts)) {
         assistantText = parts.map((p: any) => p.text || '').join('\n');
       }
+    } else if (Array.isArray(rawResponseBody?.content)) {
+      assistantText = rawResponseBody.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text || '')
+        .join('\n');
+    } else if (typeof rawResponseBody?.content === 'string') {
+      assistantText = rawResponseBody.content;
+    } else if (Array.isArray(rawResponseBody?.choices)) {
+      assistantText = rawResponseBody.choices.map((c: any) => c.message?.content || '').join('\n');
+    }
+
+    const effectivePromptTokens = promptTokens ?? (headersReceived['x-gateway-prompt-tokens'] ? parseInt(headersReceived['x-gateway-prompt-tokens'], 10) : undefined);
+    const effectiveCandidatesTokens = candidatesTokens ?? (headersReceived['x-gateway-completion-tokens'] ? parseInt(headersReceived['x-gateway-completion-tokens'], 10) : undefined);
+    const effectiveTotalTokens = totalTokens ?? (headersReceived['x-gateway-total-tokens'] ? parseInt(headersReceived['x-gateway-total-tokens'], 10) : undefined);
+    const effectiveProvider = headersReceived['x-gateway-provider'] || (targetModel.startsWith('claude') ? 'anthropic' : 'google');
+    const effectiveCostUsd = headersReceived['x-gateway-cost-usd'] || (effectiveTotalTokens ? ((effectiveTotalTokens / 1000000) * 0.20).toFixed(6) : '0.000000');
+    const effectiveCostTier = headersReceived['x-gateway-cost-tier'] || (targetModel.includes('pro') || targetModel.includes('opus') ? 'high' : targetModel.includes('flash-lite') ? 'low' : 'medium');
+    const effectiveCategory = headersReceived['x-gateway-category'] || headersReceived['x-gateway-intent'];
+    let effectiveIntent: string | undefined = effectiveCategory;
+    if (!effectiveIntent && (headersReceived['x-auto-routed'] === 'true' || isAuto)) {
+      if (targetModel.includes('flash') || (headersReceived['x-gateway-model'] && headersReceived['x-gateway-model'].includes('flash'))) {
+        effectiveIntent = 'General / Fast';
+      } else if (targetModel.includes('pro') || (headersReceived['x-gateway-model'] && headersReceived['x-gateway-model'].includes('pro'))) {
+        effectiveIntent = 'Deep Reasoning';
+      } else if (targetModel.includes('claude') || targetModel.includes('opus') || (headersReceived['x-gateway-model'] && (headersReceived['x-gateway-model'].includes('claude') || headersReceived['x-gateway-model'].includes('opus')))) {
+        effectiveIntent = 'Coding';
+      } else {
+        effectiveIntent = 'General / Fast';
+      }
     }
 
     const telemetry: GatewayTelemetry = {
       status: responseStatus,
       statusText: responseStatusText || (responseStatus === 200 ? 'OK' : 'Error'),
       endpointUrl,
-      model: targetModel,
+      targetUrl: getGatewayTargetUrl(settings, targetModel),
+      model: headersReceived['x-gateway-model'] || targetModel,
       requestedModel: settings.model,
-      autoRouted: isAuto,
+      autoRouted: headersReceived['x-auto-routed'] === 'true' || isAuto,
+      intent: effectiveIntent,
       environment: settings.environment,
       user: userInfo.name,
       userEmail: effectiveEmail,
       ssoUser: settings.ssoUser || DEFAULT_SSO_USER,
       latencyMs: durationMs,
-      promptTokens,
-      candidatesTokens,
-      totalTokens,
+      promptTokens: effectivePromptTokens,
+      candidatesTokens: effectiveCandidatesTokens,
+      totalTokens: effectiveTotalTokens,
+      provider: effectiveProvider,
+      costUsd: effectiveCostUsd,
+      costTier: effectiveCostTier,
       cacheStatus,
       guardrailStatus,
       guardrailMessage,
@@ -175,10 +264,14 @@ export async function sendPromptToApigee(
       rawRequest: requestBody,
       rawResponse: rawResponseBody,
       // Backwards compatibility aliases
-      'x-gateway-model': targetModel,
-      'x-prompt-tokens': promptTokens ? String(promptTokens) : undefined,
-      'x-candidate-tokens': candidatesTokens ? String(candidatesTokens) : undefined,
-      'x-total-tokens': totalTokens ? String(totalTokens) : undefined,
+      'x-gateway-model': headersReceived['x-gateway-model'] || targetModel,
+      'x-gateway-provider': effectiveProvider,
+      'x-auto-routed': headersReceived['x-auto-routed'] || (isAuto ? 'true' : 'false'),
+      'x-gateway-cost-usd': effectiveCostUsd,
+      'x-gateway-cost-tier': effectiveCostTier,
+      'x-prompt-tokens': effectivePromptTokens ? String(effectivePromptTokens) : undefined,
+      'x-candidate-tokens': effectiveCandidatesTokens ? String(effectiveCandidatesTokens) : undefined,
+      'x-total-tokens': effectiveTotalTokens ? String(effectiveTotalTokens) : undefined,
       'x-gateway-cached': cacheStatus === 'HIT' ? 'true' : 'false',
       'x-gateway-latency-ms': String(durationMs),
       total_e2e_latency_ms: durationMs,
@@ -218,6 +311,7 @@ export async function sendPromptToApigee(
       status: 0,
       statusText: 'Network / Connection Failure',
       endpointUrl,
+      targetUrl: getGatewayTargetUrl(settings, settings.model),
       model: settings.model,
       environment: settings.environment,
       user: userInfo.name,
@@ -243,18 +337,21 @@ export async function sendPromptToApigee(
 }
 
 /**
- * Generates sufficient output tokens on Bronze Vertex AI tier to breach
+ * Generates sufficient output tokens on Standard tier to breach
  * the 200 token/min quota, demonstrating Apigee's LTQ-TokenEnforce (HTTP 429).
  */
 export async function exhaustLlmQuota(settings: GatewaySettings): Promise<void> {
-  let baseUrl = '/api/vertexai-dev';
+  let baseUrl = '/api/ai-prod';
   if (settings.environment === 'custom') {
     baseUrl = (settings.customBaseUrl || '').replace(/\/$/, '');
   } else {
-    baseUrl = getEnvironment(settings.environment).proxyPath || '/api/vertexai-dev';
+    baseUrl = getEnvironment(settings.environment).proxyPath || '/api/ai-prod';
   }
 
-  const endpointUrl = `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/gemini-3.1-flash-lite:generateContent`;
+  const isAgnosticAi = baseUrl.includes('/ai') || !baseUrl.includes('vertexai');
+  const endpointUrl = isAgnosticAi
+    ? `${baseUrl}/models/gemini-3.1-flash-lite:generateContent`
+    : `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/gemini-3.1-flash-lite:generateContent`;
   const userInfo = getUserInfo(settings.activeUser);
   const effectiveApiKey = settings.apiKey || userInfo.apiKey;
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;

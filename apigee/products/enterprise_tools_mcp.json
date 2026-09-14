@@ -1,0 +1,105 @@
+{
+  "name": "Enterprise Tools MCP",
+  "displayName": "Enterprise Tools MCP",
+  "approvalType": "auto",
+  "attributes": [
+    {
+      "name": "access",
+      "value": "private"
+    },
+    {
+      "name": "domain",
+      "value": "enterprise"
+    },
+    {
+      "name": "description",
+      "value": "Universal enterprise MCP tool suite granting access to all integrated business systems"
+    }
+  ],
+  "environments": [
+    "dev",
+    "prod"
+  ],
+  "payloadOperationGroup": {
+    "operationConfigs": [
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/list"
+          }
+        ],
+        "quota": {
+          "limit": "10",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/call/listAllDiscounts"
+          }
+        ],
+        "quota": {
+          "limit": "2",
+          "interval": "5",
+          "timeUnit": "second"
+        }
+      },
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/call/getDiscountForSku"
+          }
+        ],
+        "quota": {
+          "limit": "5",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/call/getLoanApplication"
+          }
+        ],
+        "quota": {
+          "limit": "2",
+          "interval": "5",
+          "timeUnit": "second"
+        }
+      },
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/call/patchLoanApplication"
+          }
+        ],
+        "quota": {
+          "limit": "5",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/call/submitLoanApplication"
+          }
+        ],
+        "quota": {
+          "limit": "5",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      }
+    ]
+  }
+}

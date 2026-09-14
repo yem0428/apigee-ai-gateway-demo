@@ -4,28 +4,33 @@ set -e
 
 # Default variables
 ORG=""
-ENV=""
+ENV="dev"
 PROXY_NAME=""
+SERVICE_ACCOUNT="ai-client@bap-apac-demo2.iam.gserviceaccount.com"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --org) ORG="$2"; shift ;;
         --env) ENV="$2"; shift ;;
         --proxy) PROXY_NAME="$2"; shift ;;
+        --service-account) SERVICE_ACCOUNT="$2"; shift ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
     shift
 done
 
-if [ -z "$ORG" ] || [ -z "$ENV" ] || [ -z "$PROXY_NAME" ]; then
-    echo "Usage: $0 --org <APIGEE_ORG> --env <APIGEE_ENV> --proxy <PROXY_NAME>"
+if [ -z "$ORG" ] || [ -z "$PROXY_NAME" ]; then
+    echo "Usage: $0 --org <APIGEE_ORG> [--env <APIGEE_ENV>] --proxy <PROXY_NAME> [--service-account <SA_EMAIL>]"
     exit 1
 fi
 
-echo "=== Packaging Proxy: $PROXY_NAME ==="
-bash apigee/scripts/package_bundle.sh "$PROXY_NAME"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-BUNDLE_ZIP="apigee/dist/${PROXY_NAME}.zip"
+echo "=== Packaging Proxy: $PROXY_NAME ==="
+bash "${SCRIPT_DIR}/package_bundle.sh" "$PROXY_NAME"
+
+BUNDLE_ZIP="${ROOT_DIR}/apigee/dist/${PROXY_NAME}.zip"
 
 echo "=== Deploying $PROXY_NAME to Org: $ORG, Env: $ENV ==="
 TOKEN=$(gcloud auth print-access-token)
@@ -48,8 +53,13 @@ fi
 echo "Imported Revision: $REVISION"
 
 # 2. Deploy revision to environment
-echo "Deploying Revision $REVISION to environment $ENV..."
-DEPLOY_RES=$(curl -s -X POST "https://apigee.googleapis.com/v1/organizations/${ORG}/environments/${ENV}/apis/${PROXY_NAME}/revisions/${REVISION}/deployments?override=true" \
+echo "Deploying Revision $REVISION to environment $ENV with Service Account $SERVICE_ACCOUNT..."
+DEPLOY_URL="https://apigee.googleapis.com/v1/organizations/${ORG}/environments/${ENV}/apis/${PROXY_NAME}/revisions/${REVISION}/deployments?override=true"
+if [ -n "$SERVICE_ACCOUNT" ]; then
+  DEPLOY_URL="${DEPLOY_URL}&serviceAccount=${SERVICE_ACCOUNT}"
+fi
+
+DEPLOY_RES=$(curl -s -X POST "${DEPLOY_URL}" \
   -H "Authorization: Bearer ${TOKEN}")
 
 echo "$DEPLOY_RES"

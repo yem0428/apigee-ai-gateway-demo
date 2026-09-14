@@ -7,14 +7,50 @@ import sys
 import os
 import xml.etree.ElementTree as ET
 
-def validate_proxy(proxy_name: str, base_dir: str = "apigee/proxies") -> bool:
+def validate_proxy(proxy_name: str, base_dir: str = "apigee/proxies", dist_dir: str = "apigee/dist") -> bool:
     proxy_path = os.path.join(base_dir, proxy_name)
     apiproxy_dir = os.path.join(proxy_path, "apiproxy")
+    zip_path = os.path.join(dist_dir, f"{proxy_name}.zip")
     
     print(f"[*] Validating Apigee proxy bundle: {proxy_name}")
     
+    # If zip bundle exists, validate directly from ZIP archive
+    if os.path.isfile(zip_path):
+        import zipfile
+        print(f"[*] Inspecting packaged archive: {zip_path}")
+        errors = []
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            namelist = zf.namelist()
+            root_candidates = [n for n in namelist if n in [f"apiproxy/{proxy_name}.xml", "apiproxy/ai-gateway.xml", "apiproxy/ai-gateway-v1.xml"]]
+            if not root_candidates:
+                errors.append(f"Missing root proxy XML in zip: apiproxy/{proxy_name}.xml")
+            else:
+                try:
+                    root = ET.fromstring(zf.read(root_candidates[0]))
+                    if root.tag != "APIProxy":
+                        errors.append(f"Root XML element must be <APIProxy>, got <{root.tag}>")
+                except ET.ParseError as e:
+                    errors.append(f"Malformed XML in root proxy XML: {e}")
+            
+            # Check all other XMLs
+            for item in namelist:
+                if item.endswith(".xml") and not item.endswith(f"{proxy_name}.xml"):
+                    try:
+                        ET.fromstring(zf.read(item))
+                    except ET.ParseError as e:
+                        errors.append(f"Malformed XML in {item}: {e}")
+        
+        if errors:
+            print(f"\n❌ Validation FAILED for {proxy_name} with {len(errors)} error(s):")
+            for err in errors:
+                print(f"  - {err}")
+            return False
+
+        print(f"✅ Bundle '{proxy_name}' passed all structural and XML validation checks in {zip_path}!")
+        return True
+
     if not os.path.isdir(apiproxy_dir):
-        print(f"[!] Error: {apiproxy_dir} does not exist.")
+        print(f"[!] Error: Neither {zip_path} nor directory {apiproxy_dir} exists.")
         return False
 
     errors = []

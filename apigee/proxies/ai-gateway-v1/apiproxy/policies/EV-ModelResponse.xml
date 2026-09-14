@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ExtractVariables continueOnError="true" enabled="true" name="EV-ModelResponse">
+  <DisplayName>EV-ModelResponse</DisplayName>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+  <JSONPayload>
+    <Variable name="model">
+      <JSONPath>$.modelVersion</JSONPath>
+    </Variable>
+    <Variable name="promptTokenCount">
+      <JSONPath>$.usageMetadata.promptTokenCount</JSONPath>
+    </Variable>
+    <Variable name="candidatesTokenCount">
+      <JSONPath>$.usageMetadata.candidatesTokenCount</JSONPath>
+    </Variable>
+    <Variable name="totalTokenCount">
+      <JSONPath>$.usageMetadata.totalTokenCount</JSONPath>
+    </Variable>
+    <Variable name="claudePromptTokens">
+      <JSONPath>$.usage.input_tokens</JSONPath>
+    </Variable>
+    <Variable name="claudeCandidatesTokens">
+      <JSONPath>$.usage.output_tokens</JSONPath>
+    </Variable>
+  </JSONPayload>
+  <Source clearPayload="false">response</Source>
+  <VariablePrefix>flow</VariablePrefix>
+</ExtractVariables>

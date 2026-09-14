@@ -49,3 +49,215 @@ export async function executeToolDirect(toolId: string, args: Record<string, any
   });
   return response.json();
 }
+
+export async function fetchModelRates(env: 'dev' | 'prod' = 'prod'): Promise<{
+  status: string;
+  env: string;
+  org: string;
+  map: string;
+  rates: import('../types').RateCardDictionary;
+  updatedAt: string;
+}> {
+  const response = await fetch(`/api/kvm/rates?env=${env}`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch model rates (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateModelRates(env: 'dev' | 'prod', rates: import('../types').RateCardDictionary): Promise<{
+  status: string;
+  env: string;
+  message: string;
+  rates: import('../types').RateCardDictionary;
+  updatedAt: string;
+}> {
+  const response = await fetch('/api/kvm/rates', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ env, rates }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to update model rates (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchDeveloperBalance(dev?: string): Promise<{
+  status: string;
+  developer: string;
+  org: string;
+  data: {
+    wallets?: Array<{
+      balance: {
+        currencyCode: string;
+        units: string;
+        nanos: number;
+      };
+      lastCreditTime?: string;
+    }>;
+  };
+}> {
+  const query = dev ? `?dev=${encodeURIComponent(dev)}` : '';
+  const response = await fetch(`/api/monetization/balance${query}`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch developer balance (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function creditDeveloperBalance(units: number | string, dev?: string): Promise<{
+  status: string;
+  developer: string;
+  credited: string;
+  transactionId: string;
+  data: any;
+}> {
+  const response = await fetch('/api/monetization/credit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ units: String(units), developer: dev }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to credit developer balance (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchRatePlans(): Promise<{
+  status: string;
+  ratePlans: import('../types').RatePlanInfo[];
+}> {
+  const response = await fetch('/api/monetization/rateplans');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch rate plans (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchDeveloperSubscriptions(dev?: string): Promise<{
+  status: string;
+  developer: string;
+  subscriptions: import('../types').DeveloperSubscription[];
+}> {
+  const query = dev ? `?dev=${encodeURIComponent(dev)}` : '';
+  const response = await fetch(`/api/monetization/subscriptions${query}`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch developer subscriptions (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function subscribeDeveloper(apiproduct: string, dev?: string): Promise<{
+  status: string;
+  data: any;
+}> {
+  const response = await fetch('/api/monetization/subscriptions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiproduct, developer: dev }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to subscribe developer (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchDeveloperMonetizationConfig(dev?: string): Promise<{
+  status: string;
+  developer: string;
+  config: import('../types').DeveloperMonetizationConfig;
+}> {
+  const query = dev ? `?dev=${encodeURIComponent(dev)}` : '';
+  const response = await fetch(`/api/monetization/config${query}`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch developer monetization config (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateDeveloperMonetizationConfig(
+  billingType: 'PREPAID' | 'POSTPAID',
+  dev?: string
+): Promise<{
+  status: string;
+  developer: string;
+  config: import('../types').DeveloperMonetizationConfig;
+}> {
+  const response = await fetch('/api/monetization/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billingType, developer: dev }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to update developer monetization config (${response.status})`);
+  }
+  return response.json();
+}
+
+export interface FleetAnalyticsResponse {
+  status: string;
+  source: string;
+  org: string;
+  env: string;
+  timeRange: string;
+  apigeeTimeRange: string;
+  metaData?: {
+    notices?: string[];
+  };
+  kpis: {
+    totalCalls: number;
+    totalTokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalSpendUsd: number;
+    cacheCostSavingsUsd: number;
+    cacheHitRate: number;
+    slaHealth: number;
+    avgLatencyMs: number;
+    isErrorCount: number;
+  };
+  routing: {
+    flashCalls: number;
+    flashPercent: number;
+    proOpusCalls: number;
+    proOpusPercent: number;
+  };
+  consumptionRows: import('../types').UserConsumptionRecord[];
+}
+
+export async function fetchFleetAnalytics(
+  timeRange: '24h' | '7d' | '30d' = '7d',
+  env: 'dev' | 'prod' = 'prod'
+): Promise<FleetAnalyticsResponse> {
+  const response = await fetch(`/api/analytics/fleet-stats?timeRange=${timeRange}&env=${env}`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch fleet analytics (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchDeveloperAttributions(): Promise<{
+  status: string;
+  attributions: import('../types').UserMonetizationAttribution[];
+}> {
+  const response = await fetch('/api/monetization/attributions');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch developer attributions (${response.status})`);
+  }
+  return response.json();
+}
+

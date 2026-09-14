@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<DataCapture name="DC-ModelAnalytics" continueOnError="true" enabled="true">
+  <DisplayName>DC-ModelAnalytics</DisplayName>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+  <Capture>
+    <Collect ref="flow.emailId" default=""/>
+    <DataCollector>dc_user_email</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.target_model" default="{flow.model}"/>
+    <DataCollector>dc_model_name</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.candidatesTokenCount" default="0"/>
+    <DataCollector>dc_candidates_token_count</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.promptTokenCount" default="0"/>
+    <DataCollector>dc_prompt_token_count</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.totalTokenCount" default="0"/>
+    <DataCollector>dc_total_token_count</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="perUnitPriceMultiplier" default="1.0"/>
+    <DataCollector scope="monetization">perUnitPriceMultiplier</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="currency" default="USD"/>
+    <DataCollector scope="monetization">currency</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="transactionSuccess" default="true"/>
+    <DataCollector scope="monetization">transactionSuccess</DataCollector>
+  </Capture>
+</DataCapture>

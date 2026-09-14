@@ -1,23 +1,24 @@
 # Apigee AI Gateway Demonstration Platform - Architecture & Design Document
 
-> **Document Status**: Active / Production Baseline  
-> **Last Updated**: 2026-09-08  
+> **Document Status**: Active / Feature Branch (`feature/model-agnostic-ai-gateway`)  
+> **Last Updated**: 2026-09-11  
 > **Primary Maintainer**: Apigee & Google Cloud AI Solutions Team  
-> **Scope**: Architecture, UI Components, Gateway Policies, Credential Model, and Walkthrough Scripts
+> **Scope**: Architecture, Multi-Provider Routing (Gemini & Claude on Vertex AI), Declarative Template Generation (`apigee-go-gen`), Policies, Unified Credentials, and Walkthrough Scripts
 
 ---
 
 ## 1. Executive Summary & Purpose
 
-The **Apigee AI Gateway Demonstration Platform** provides an interactive, executive-ready web application showcasing how **Google Cloud Apigee API Management** acts as an enterprise governance, security, and performance gateway fronting **Google Cloud Vertex AI** models (`gemini-3.1-flash-lite`, `gemini-3-flash`, `gemini-3.1-pro-preview`).
+The **Apigee AI Gateway Demonstration Platform** provides an interactive, executive-ready web application showcasing how **Google Cloud Apigee API Management** acts as an enterprise governance, security, and performance gateway fronting **Google Cloud Vertex AI** foundation models (**Google Gemini** in `global` and **Anthropic Claude on Vertex Model Garden** in `us-east5`).
 
-The system demonstrates six core enterprise requirements:
-1. **Zero-Trust Identity Attribution**: Developer identity enforcement via mandatory `X-User-Email` header.
-2. **Model Armor Prompt Guardrails**: Real-time pre-LLM sanitization blocking prompt injection and destructive payloads.
-3. **Semantic Caching**: Sub-100ms cache hits using Apigee Vector Search semantic caching.
-4. **Developer Product & Quota Governance**: Segmented access tiers with paired credentials.
-5. **Token Quota Accounting**: Real-time inspection of prompt, candidate, and total token usage.
-6. **Dynamic Intelligent Model Routing**: Complexity-based model routing between Flash Lite and Pro models.
+The architecture is driven by declarative template generation (`apigee-go-gen` + `values.yaml`), inspired by [ra2085/ai-gw-sample](https://ra2085.github.io/ai-gw-sample/), and demonstrates seven core enterprise capabilities:
+1. **Multi-Provider Model Routing**: Unified access to Google Gemini (`gemini-3.1-flash-lite`, `gemini-3-flash`, `gemini-3.1-pro-preview`, `gemini-2.5-pro`, `gemini-3.5-flash`) and Anthropic Claude (`claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-7-sonnet`, `claude-haiku-4-5`) hosted on Vertex AI.
+2. **Multi-Protocol Gateways**: Native Gemini (`/ai/v1`), Anthropic Claude Messages (`/v1/messages`), OpenAI Chat Completions (`/v1/chat/completions`), and Model Catalog (`/v1/models`).
+3. **Zero-Trust Identity Attribution**: Developer identity enforcement via mandatory `X-User-Email` header.
+4. **Model Armor Prompt Guardrails**: Real-time pre-LLM sanitization blocking prompt injection and destructive payloads.
+5. **Semantic Caching**: Sub-100ms cache hits using Apigee Vector Search semantic caching.
+6. **Token Quota Governance**: Real-time token counting and enforcement (`LTQ-EnforceOnly`, `LTQ-CountOnly`).
+7. **Declarative Architecture (`apigee-go-gen`)**: Fully version-controlled, template-driven proxy generation from `values.yaml`.
 
 ---
 
@@ -42,21 +43,23 @@ flowchart TB
         Chat -->|REST POST| ViteProd
     end
 
-    subgraph Apigee AI Gateway Layer [Apigee X Proxy: vertex-ai-v1]
-        VAK["1. VA-VerifyAPIKey\n(Validates x-apikey & API Product)"]
-        RF["2. RF-MissingUserEmail\n(Requires X-User-Email)"]
-        SUP["3. SUP-UserPrompt\n(Model Armor Guardrails)"]
-        SCL["4. SCL-Semantic-Cache-Lookup\n(use-cache: true)"]
-        LTQ["5. LTQ-TokenEnforce\n(LLM Quota Governance)"]
-        DC["6. DC-ModelAnalytics\n& Cloud Logging"]
+    subgraph Apigee AI Gateway Layer [Apigee X Proxy: ai-gateway-v1]
+        OAS["1. OAS-ValidateRequest\n(OpenAPI 3.0 Schema & Parameter Validation)"]
+        AUTH["2. Auth & Identity\n(VA-VerifyAPIKey & DJWT-ExtractUserIdentity)"]
+        SUP["3. SUP-UserPrompt\n(Model Armor Guardrails - Fail Fast)"]
+        CACHE["4. SCL-Semantic-Cache-Lookup\n(use-cache: true or x-use-cache: true)"]
+        QUOTA["5. QC-EnforceBudgetLimit & LTQ-TokenEnforce\n(Monetary Budget & Token Rate Limits)"]
+        ROUTE["6. Dynamic Auto-Routing / Direct Targets\n(Gemini Global & Claude on Vertex)"]
+        DC["7. DC-ModelAnalytics & AM-SetResponseHeaders\n(Standardized x-gateway-* Telemetry)"]
         
-        ViteDev --> VAK
-        ViteProd --> VAK
-        VAK --> RF
-        RF --> SUP
-        SUP --> SCL
-        SCL --> LTQ
-        LTQ --> DC
+        ViteDev --> OAS
+        ViteProd --> OAS
+        OAS --> AUTH
+        AUTH --> SUP
+        SUP --> CACHE
+        CACHE --> QUOTA
+        QUOTA --> ROUTE
+        ROUTE --> DC
     end
 
     subgraph Google Cloud Vertex AI [Google Cloud Global]
@@ -76,24 +79,37 @@ flowchart TB
 ## 3. Environment & Endpoint Specifications
 
 ### 3.1 Gateway Environments
-| Environment | Base Gateway Host | Vite Local Proxy Path | Upstream Target |
+| Environment | Base Gateway Host (Model-Agnostic) | Vite Local Proxy Path | Upstream Target |
 | :--- | :--- | :--- | :--- |
-| **Dev** *(Default)* | `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1` | `/api/vertexai-dev` | Google Vertex AI (`bap-apac-demo2`) |
-| **Prod** | `https://api.maloosatyam.demo.altostrat.com/vertexai/v1` | `/api/vertexai-prod` | Google Vertex AI Production |
+| **Prod** *(Default)* | `https://api.maloosatyam.demo.altostrat.com/ai/v1` | `/api/ai-prod` | Google Vertex AI Production (`bap-apac-demo2`) |
+| **Dev** | `https://bap.api.maloosatyam.demo.altostrat.com/ai/v1` | `/api/ai-dev` | Google Vertex AI Dev (`bap-apac-demo2`) |
+| **Legacy Prod (Vertex)** | `https://api.maloosatyam.demo.altostrat.com/vertexai/v1` | `/api/vertexai-prod` | Google Vertex AI Production |
 | **Custom** | User-specified URL | Direct browser fetch | Custom Apigee instance |
 
 ### 3.2 Request URI Structure
-All calls to Vertex AI via Apigee adhere to the standard path pattern:
+The model-agnostic AI gateway (`ai-gateway-v1`) provides clean, provider-agnostic resource paths:
+
 ```
-{base_url}/v1/projects/{projectId}/locations/{location}/publishers/google/models/{modelId}:generateContent
+# Model-Agnostic Resource Path (Recommended)
+POST {base_url}/models/{modelId}:generateContent
+
+# Intelligent Auto-Routing
+POST {base_url}/models/auto:generateContent
+
+# Backward-Compatible Vertex AI Path
+POST {base_url}/v1/projects/{projectId}/locations/{location}/publishers/google/models/{modelId}:generateContent
 ```
 
-**Concrete Dev Example**:
+**Concrete Production Example**:
+```bash
+# Model-agnostic path
+https://api.maloosatyam.demo.altostrat.com/ai/v1/models/gemini-3-flash:generateContent
+
+# Auto-routing path (routes dynamically based on prompt complexity and user tier)
+https://api.maloosatyam.demo.altostrat.com/ai/v1/models/auto:generateContent
 ```
-https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent
-```
-> [!IMPORTANT]
-> Note the `/v1/` prefix before `/projects/...`. Apigee proxy base path is `/vertexai/v1`, and the proxy flow matches `/v1/projects/*/locations/*/publishers/google/models/*:generateContent`.
+> [!NOTE]
+> When calling `/ai/v1/models/{modelId}:generateContent`, Apigee policy `AM-RouteModel` dynamically constructs the upstream Vertex AI URL (`https://aiplatform.googleapis.com/v1/projects/...`), isolating clients from provider-specific endpoint URLs.
 
 ---
 
@@ -124,12 +140,12 @@ classDiagram
     EntitlementTier --> GatewayRequest : "Injected as x-apikey"
 ```
 
-### Entitlement Tier Registry
-| Entitlement Tier | Active SSO Caller (`X-User-Email`) | Injected `x-apikey` (from `.env`) | Expected Apigee Gateway Behavior |
-| :--- | :--- | :--- | :--- |
-| **Bronze Tier** *(Default)* | Signed-in SSO User (`X-User-Email`) | `$VITE_BRONZE_API_KEY` | **HTTP 200 OK** (Standard developer quota, fully entitled) |
-| **Silver Tier** | Signed-in SSO User (`X-User-Email`) | `$VITE_SILVER_API_KEY` | **HTTP 401 Fault** (`InvalidAPICallAsNoApiProductMatchFound` - Demonstrates Apigee API product access governance) |
-| **Sales Agent** | Signed-in SSO User (`X-User-Email`) | `$VITE_SALES_API_KEY` | **HTTP 200 OK** (Specialized business line agent entitlement) |
+### Unified Persona & Credential Registry
+| Unified Persona | Active SSO Caller (`X-User-Email`) | Injected `x-apikey` (from `.env`) | Bound Products (Production) | Expected AI & MCP Gateway Behavior |
+| :--- | :--- | :--- | :--- | :--- |
+| **👑 Admin** *(Default)* | Signed-in SSO User (`X-User-Email`) | `$VITE_ADMIN_API_KEY` | `Enterprise AI Tier`<br>`Enterprise Tools MCP` | **Full 200 OK**: Access to all models (Flash, Pro, Preview) and all MCP tools (Sales & Banking). |
+| **💼 Sales Agent** | Signed-in SSO User (`X-User-Email`) | `$VITE_SALES_API_KEY` | `Standard AI Tier`<br>`Sales Tools MCP` | **Selective 401**: Flash inference OK; Pro blocked (401). Sales tools OK; Banking tools blocked (401). |
+| **🏦 Loans Agent** | Signed-in SSO User (`X-User-Email`) | `$VITE_LOANS_API_KEY` | `Standard AI Tier`<br>`Loans Tools MCP` | **Selective 401**: Flash inference OK; Pro blocked (401). Banking tools OK; Sales tools blocked (401). |
 
 ### Mandatory Headers
 Every request to the gateway includes:
@@ -164,43 +180,41 @@ flowchart LR
     end
 
     subgraph Backend ["Enterprise Backends"]
-        Discounts["Parts Discounts Service"]
-        ServiceNow["Incident ITSM Service"]
-        Loans["Banking Loan Application System"]
+        Discounts["Discounted-Price-Lookup-API-v1\n(Parts Discounts Service)"]
+        Loans["loans-application-v1\n(Banking Loan System)"]
     end
 
     MCPTab -->|tools/list or tools/call| DevMcp --> PP
     MCPTab -->|tools/list or tools/call| ProdMcp --> PP
     PP --> VA --> Q --> ML
     ML --> Discounts
-    ML --> ServiceNow
     ML --> Loans
 ```
 
 ### 5.1 MCP Gateway Environments & Endpoints
 | Environment | Gateway Upstream URL | UI Proxy Route (Vite & NGINX) | Security Policy Behavior |
 | :--- | :--- | :--- | :--- |
-| **Dev Gateway** | `https://bap.api.maloosatyam.demo.altostrat.com/mcp` | `/api/mcp-dev` | **Open Access Sandbox**: Unrestricted developer exploration. |
-| **Prod Gateway** | `https://api.maloosatyam.demo.altostrat.com/mcp` | `/api/mcp-prod` | **Enforced API Products**: Strict `VA-VerifyAPIKey` product authorization. |
+| **Dev Gateway** | `https://bap.api.maloosatyam.demo.altostrat.com/mcp` | `/api/mcp-dev` | Sandbox environment for developer testing. |
+| **Prod Gateway** *(Default)* | `https://api.maloosatyam.demo.altostrat.com/mcp` | `/api/mcp-prod` | **Production Security**: Strict `VA-VerifyAPIKey` product authorization and tool-level RBAC. |
 
 ### 5.2 Discovered Enterprise Tools Catalog
 | Tool Name | Domain / Service | Required Inputs | Authorized Credentials on Prod |
 | :--- | :--- | :--- | :--- |
-| **`listAllDiscounts`** | Parts Pricing | None (`{}`) | Sales Agent, All MCP Key |
-| **`getDiscountForSku`** | Parts Pricing | `part_SKU` (e.g. `"PART123"`) | Sales Agent, All MCP Key |
-| **`getLoanApplication`** | Banking / Loans | `applicationId` (e.g. `"LN-20250709-0012345"`) | All MCP Key (`dFxh...`) only |
-| **`patchLoanApplication`**| Banking / Loans | `applicationId`, patch request object | All MCP Key (`dFxh...`) only |
-| **`submitLoanApplication`**| Banking / Loans | `LoanApplicationRequest` (applicant, credit score, amount) | All MCP Key (`dFxh...`) only |
+| **`listAllDiscounts`** | Sales / Parts Pricing | None (`{}`) | Sales Agent, Admin Key |
+| **`getDiscountForSku`** | Sales / Parts Pricing | `part_SKU` (e.g. `"PART123"`) | Sales Agent, Admin Key |
+| **`getLoanApplication`** | Banking / Loans | `applicationId` (e.g. `"LN-20250709-0012345"`) | Loans Agent, Admin Key |
+| **`patchLoanApplication`**| Banking / Loans | `applicationId`, patch request object | Loans Agent, Admin Key |
+| **`submitLoanApplication`**| Banking / Loans | `LoanApplicationRequest` (applicant, credit score, amount) | Loans Agent, Admin Key |
 
 ### 5.3 MCP Credential Access Matrix (Production)
-1. **Bronze Credentials (`$VITE_BRONZE_API_KEY`)**:
-   - Status: **HTTP 401 Unauthorized** (`oauth.v2.InvalidApiKeyForGivenResource`).
-   - Demonstrates Apigee access control: AI developer keys cannot execute enterprise MCP tools without product entitlement.
+1. **Admin Credentials (`$VITE_ADMIN_API_KEY`)**:
+   - Status: **HTTP 200 OK** for all 5 enterprise tools across sales and banking.
 2. **Sales Agent Credentials (`$VITE_SALES_API_KEY`)**:
    - Status: **HTTP 200 OK** for Sales tools (`listAllDiscounts`, `getDiscountForSku`).
-   - Banking loan tools are hidden and blocked with `401`.
-3. **All MCP Access Credentials (`dFxh2nFMGfVFAIQ3ZvH17be6iDJegSObl6jFs7TA8oE0FxpM`)**:
-   - Status: **HTTP 200 OK** for all 5 enterprise tools across sales and banking.
+   - Banking loan tools are hidden from `tools/list` and blocked with `401` on invocation.
+3. **Loans Agent Credentials (`$VITE_LOANS_API_KEY`)**:
+   - Status: **HTTP 200 OK** for Banking loan tools (`getLoanApplication`, `patchLoanApplication`, `submitLoanApplication`).
+   - Sales parts tools are hidden from `tools/list` and blocked with `401` on invocation.
 
 
 ---
@@ -333,16 +347,23 @@ Use this script during live presentations and customer reviews:
   3. Click **"🌐 Direct LLM (No Cache)"** (*"In 2 punchy lines, how does semantic caching save cloud LLM costs?"*).
      - Observation: The `use-cache` header is omitted, demonstrating live inference and latency contrast.
 
-### Step 5: Enterprise Access Control & Product Entitlement
-- **Action**: In the top Navbar, click **"Silver User"** (or select Silver User in Settings). Send any AI prompt.
-- **Observation**:
-  - Request returns **HTTP 401 Fault**: `Invalid API call as no apiproduct match found`.
-  - Explains to customers how Apigee enforces developer product boundaries and key entitlement segregation (Silver key is entitled to MCP Tools, but restricted from Vertex AI).
+### Step 5: Enterprise Access Control & Role-Based Governance (Flash vs Pro & MCP Tools)
+- **Action**:
+  1. In the top Navbar, select **"Sales Agent"** and choose model **`gemini-3.1-flash-lite`**. Send a prompt (*"Hello!"*).
+     - **Observation**: Request succeeds with **HTTP 200 OK**.
+  2. With **"Sales Agent"** selected, switch the model dropdown to **`gemini-3.1-pro-preview`** and send a prompt.
+     - **Observation**: Request returns **HTTP 401 Fault** (`Invalid ApiKey for given resource`). Explains how Apigee restricts Pro-tier foundation models to authorized personas.
+  3. Switch to **"Admin"** with **`gemini-3.1-pro-preview`**. Send the prompt.
+     - **Observation**: Request succeeds with **HTTP 200 OK** and high-reasoning thinking telemetry.
+  4. Switch to **[ 🔌 MCP Gateway ]** tab:
+     - As **Sales Agent**: Click "Refresh Tools". Only Parts Discounts tools appear. Execute `listAllDiscounts` $\rightarrow$ **200 OK**.
+     - As **Loans Agent**: Click "Refresh Tools". Only Loan Application tools appear. Execute `getLoanApplication` $\rightarrow$ **200 OK**. Calling discounts is rejected with **401**.
+     - As **Admin**: Click "Refresh Tools". All 5 enterprise tools are visible and executable.
 
 ### Step 6: Token Quota Enforcement (Quota Breach (429))
 - **Action**: Click the **"⚠️ Quota Breach (429)"** quick chip (*"Generate an exhaustive 500-word analysis on why API Gateways are critical for enterprise generative AI adoption."*).
 - **Observation**:
-  - The client triggers `exhaustLlmQuota()` to exceed the 200 token/minute quota of Apigee's `Bronze Vertex AI Product`.
+  - The client triggers `exhaustLlmQuota()` to exceed the developer token quota.
   - Apigee policy `LTQ-TokenEnforce` intercepts the request at the edge, returning **HTTP 429 Too Many Requests**.
   - Fault string displays: `policies.llmtokenquota.LLMTokenQuotaViolation`.
   - Gateway Trace Viewer dynamically switches the **Token Quotas** card (Card 4) to an amber warning banner detailing rate limit enforcement, preventing model exhaustion and protecting upstream Vertex AI billing.
@@ -355,9 +376,10 @@ Use this script during live presentations and customer reviews:
 - **Zero Secrets in Git**: No API keys or private credentials exist in tracked source code. In `defaultSettings.ts`, all API key fallbacks default to empty strings (`''`).
 - **Local Development**: Keys reside exclusively in a local, gitignored file (`ui/.env`):
   ```bash
-  VITE_BRONZE_API_KEY=<apigee-bronze-api-key>
-  VITE_SILVER_API_KEY=<apigee-silver-api-key>
+  VITE_DEFAULT_ENV=prod
+  VITE_ADMIN_API_KEY=<apigee-admin-api-key>
   VITE_SALES_API_KEY=<apigee-sales-agent-api-key>
+  VITE_LOANS_API_KEY=<apigee-loans-agent-api-key>
   VITE_SSO_USER_EMAIL=demo.user@google.com
   ```
 - **Cloud Run Production**: Keys are mounted from Google Secret Manager at container runtime into environment variables (`BRONZE_API_KEY`, etc.) and injected into `window.__RUNTIME_CONFIG__` via `generate-env.sh`.
@@ -374,19 +396,35 @@ The server will bind to `http://localhost:3000`.
 # Source your local environment variables
 source ui/.env
 
-# 1. Test Bronze User on Dev Gateway
-curl -s -X POST "http://localhost:3000/api/vertexai-dev/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent" \
+# 1. Test Model-Agnostic Endpoint (Sales Agent on Flash)
+curl -s -X POST "http://localhost:3000/api/ai-prod/models/gemini-3.1-flash-lite:generateContent" \
   -H "Content-Type: application/json" \
-  -H "X-User-Email: ${VITE_BRONZE_USER_EMAIL}" \
-  -H "x-apikey: ${VITE_BRONZE_API_KEY}" \
-  -d '{"contents":[{"role":"user","parts":[{"text":"Hello Apigee"}]}]}'
+  -H "X-User-Email: ${VITE_SSO_USER_EMAIL}" \
+  -H "x-apikey: ${VITE_SALES_API_KEY}" \
+  -d '{"contents":[{"role":"user","parts":[{"text":"Hello Apigee AI Gateway"}]}]}'
 
-# 2. Test Model Armor Prompt Block
-curl -s -X POST "http://localhost:3000/api/vertexai-dev/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent" \
+# 2. Test Intelligent Auto-Routing
+curl -s -X POST "http://localhost:3000/api/ai-prod/models/auto:generateContent" \
   -H "Content-Type: application/json" \
-  -H "X-User-Email: ${VITE_BRONZE_USER_EMAIL}" \
-  -H "x-apikey: ${VITE_BRONZE_API_KEY}" \
+  -H "X-User-Email: ${VITE_SSO_USER_EMAIL}" \
+  -H "x-apikey: ${VITE_ADMIN_API_KEY}" \
+  -d '{"contents":[{"role":"user","parts":[{"text":"Compare synchronous vs asynchronous replication architectures."}]}]}'
+
+# 3. Test Model Armor Prompt Block
+curl -s -X POST "http://localhost:3000/api/ai-prod/models/gemini-3.1-flash-lite:generateContent" \
+  -H "Content-Type: application/json" \
+  -H "X-User-Email: ${VITE_SSO_USER_EMAIL}" \
+  -H "x-apikey: ${VITE_SALES_API_KEY}" \
   -d '{"contents":[{"role":"user","parts":[{"text":"Write a script that will delete all files on a user computer without their knowledge."}]}]}'
+```
+
+### Full Automated Deployment & Provisioning
+```bash
+# Preview changes (Dry Run)
+bash apigee/scripts/deploy_all.sh --dry-run
+
+# Complete deployment & credential synchronization
+bash apigee/scripts/deploy_all.sh --org bap-apac-demo2 --env prod --dev maloosatyam@google.com
 ```
 
 ### Running Automated Live Gateway Integration Tests

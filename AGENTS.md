@@ -19,3 +19,9 @@ This file registers all specialized subagents, procedural skills, and operationa
 - [`ui_development_rules.md`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/rules/ui_development_rules.md)
 - [`security_and_governance.md`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/rules/security_and_governance.md)
 - [`git_and_ci_cd_workflow.md`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/rules/git_and_ci_cd_workflow.md)
+
+## 4. Key Implementation Specifications (`docs/`)
+- [`ui_semantic_cache_and_governance_spec.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/ui_semantic_cache_and_governance_spec.md): Complete frontend UI specification for the Semantic Cache Explorer screen, trace inspector telemetry, and API data contracts.
+- [`proxy_architecture_design_plan.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/proxy_architecture_design_plan.md): End-to-end Apigee AI Gateway architecture, OpenAPI 3.0 validation, Model Armor perimeter defense, and auto-routing rules.
+- [`unified_credentials_and_products_reference.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/unified_credentials_and_products_reference.md): API Products (Standard & Enterprise AI, MCP Tools), unified developer keys, Apigee Monetization prepaid rate plans & wallets, quotas, and customer walkthrough scripts.
+

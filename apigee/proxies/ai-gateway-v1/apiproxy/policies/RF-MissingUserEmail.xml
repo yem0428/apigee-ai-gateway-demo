@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RaiseFault continueOnError="false" enabled="true" name="RF-MissingUserEmail">
+  <DisplayName>RF-MissingUserEmail</DisplayName>
+  <Properties/>
+  <FaultResponse>
+    <Set>
+      <Payload contentType="application/json">
+{
+  "error": {
+    "code": 401,
+    "status": "UNAUTHENTICATED",
+    "message": "Missing required caller identity. Provide a valid Bearer JWT in Authorization header, an X-Identity-Token with an email claim, or an X-User-Email header."
+  }
+}
+      </Payload>
+      <StatusCode>401</StatusCode>
+      <ReasonPhrase>Unauthorized</ReasonPhrase>
+    </Set>
+  </FaultResponse>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</RaiseFault>

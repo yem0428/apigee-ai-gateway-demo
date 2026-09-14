@@ -1,0 +1,66 @@
+{
+  "name": "Sales Tools MCP",
+  "displayName": "Sales Tools MCP",
+  "approvalType": "auto",
+  "attributes": [
+    {
+      "name": "access",
+      "value": "private"
+    },
+    {
+      "name": "domain",
+      "value": "sales"
+    },
+    {
+      "name": "description",
+      "value": "MCP tools product for sales and commerce operations (parts pricing and discounts)"
+    }
+  ],
+  "environments": [
+    "dev",
+    "prod"
+  ],
+  "payloadOperationGroup": {
+    "operationConfigs": [
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/list"
+          }
+        ],
+        "quota": {
+          "limit": "5",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/call/listAllDiscounts"
+          }
+        ],
+        "quota": {
+          "limit": "1",
+          "interval": "5",
+          "timeUnit": "second"
+        }
+      },
+      {
+        "apiSource": "mcp",
+        "operations": [
+          {
+            "operation": "tools/call/getDiscountForSku"
+          }
+        ],
+        "quota": {
+          "limit": "2",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      }
+    ]
+  }
+}

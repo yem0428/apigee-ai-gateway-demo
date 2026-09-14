@@ -1,0 +1,17 @@
+{
+  "name": "Unified Sales App",
+  "apiProducts": [
+    "Standard AI Tier",
+    "Sales Tools MCP"
+  ],
+  "attributes": [
+    {
+      "name": "persona",
+      "value": "sales_agent"
+    },
+    {
+      "name": "description",
+      "value": "Unified Sales Agent persona credential restricted to standard/flash models and sales MCP tools"
+    }
+  ]
+}

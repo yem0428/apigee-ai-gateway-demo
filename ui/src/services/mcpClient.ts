@@ -28,14 +28,20 @@ function buildMcpHeaders(settings: GatewaySettings): Record<string, string> {
   const userInfo = getUserInfo(settings.activeUser);
   const effectiveApiKey = settings.apiKey || userInfo.apiKey;
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
+  const effectiveIdToken = settings.ssoUser?.idToken || settings.idToken;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'x-apikey': effectiveApiKey,
   };
 
-  if (!settings.omitEmailHeader && effectiveEmail) {
-    headers['X-User-Email'] = effectiveEmail;
+  if (!settings.omitEmailHeader) {
+    if (effectiveIdToken) {
+      headers['Authorization'] = `Bearer ${effectiveIdToken}`;
+    }
+    if (effectiveEmail) {
+      headers['X-User-Email'] = effectiveEmail;
+    }
   }
 
   return headers;

@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ProxyEndpoint name="default">
+  <PreFlow name="PreFlow">
+    <Request>
+      <Step>
+        <Name>CORS-Headers</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>OAS-ValidateRequest</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>EV-RequestDetails</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>EV-ExtractBearerToken</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>DJWT-ExtractUserIdentity</Name>
+        <Condition>request.verb != "OPTIONS" and flow.rawToken != null</Condition>
+      </Step>
+      <Step>
+        <Name>AM-SetUserIdentity</Name>
+        <Condition>request.verb != "OPTIONS" and (jwt.DJWT-ExtractUserIdentity.decoded.claim.email != null or jwt.DJWT-ExtractUserIdentity.claim.email != null)</Condition>
+      </Step>
+      <Step>
+        <Name>AM-SetUserEmailFromHeader</Name>
+        <Condition>request.verb != "OPTIONS" and flow.emailId = null and request.header.x-user-email != null</Condition>
+      </Step>
+      <Step>
+        <Name>RF-MissingUserEmail</Name>
+        <Condition>request.verb != "OPTIONS" and flow.emailId = null</Condition>
+      </Step>
+      <Step>
+        <Name>JS-ExtractPromptAndModel</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>SUP-UserPrompt</Name>
+        <Condition>request.verb != "OPTIONS" and flow.userPrompt != null and flow.userPrompt != ""</Condition>
+      </Step>
+      <Step>
+        <Name>VA-VerifyAPIKey</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>MLC-EnforceMonetizationLimits</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>QC-EnforceBudgetLimit</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>LTQ-TokenEnforce</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>AM-RemoveAuthorization</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>AM-InitCacheStatus</Name>
+        <Condition>request.verb != "OPTIONS"</Condition>
+      </Step>
+      <Step>
+        <Name>JS-AutoRouting</Name>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*"))</Condition>
+      </Step>
+      <Step>
+        <Name>AM-PrepGeminiDirect</Name>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/gemini*") or (proxy.pathsuffix JavaRegex "^/models/gemini.*") or (proxy.pathsuffix MatchesPath "/v1/projects/**"))</Condition>
+      </Step>
+      <Step>
+        <Name>AM-PrepClaudeDirect</Name>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages/**"))</Condition>
+      </Step>
+      <Step>
+        <Name>AM-SetCacheHitExpected</Name>
+        <Condition>request.verb != "OPTIONS" and ((request.header.use-cache is true) or (request.header.use-cache = "true") or (request.header.x-use-cache is true) or (request.header.x-use-cache = "true"))</Condition>
+      </Step>
+      <Step>
+        <Name>SCL-Semantic-Cache-Lookup</Name>
+        <Condition>request.verb != "OPTIONS" and ((request.header.use-cache is true) or (request.header.use-cache = "true") or (request.header.x-use-cache is true) or (request.header.x-use-cache = "true"))</Condition>
+      </Step>
+    </Request>
+    <Response/>
+  </PreFlow>
+  <Flows>
+    <Flow name="OptionsPreFlight">
+      <Request>
+        <Step>
+          <Name>CORS-Headers</Name>
+        </Step>
+      </Request>
+      <Response/>
+      <Condition>request.verb == "OPTIONS" AND request.header.origin != null AND request.header.Access-Control-Request-Method != null</Condition>
+    </Flow>
+    <Flow name="AutoRoutingFlow">
+      <Description>Dedicated intelligent auto-routing flow</Description>
+      <Request/>
+      <Response/>
+      <Condition>(proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")</Condition>
+    </Flow>
+    <Flow name="GeminiDirectFlow">
+      <Description>Direct Google Gemini routing flow</Description>
+      <Request/>
+      <Response/>
+      <Condition>(proxy.pathsuffix MatchesPath "/models/gemini*") or (proxy.pathsuffix JavaRegex "^/models/gemini.*")</Condition>
+    </Flow>
+    <Flow name="AnthropicDirectFlow">
+      <Description>Direct Anthropic Claude routing flow</Description>
+      <Request/>
+      <Response/>
+      <Condition>(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages/**")</Condition>
+    </Flow>
+    <Flow name="VertexPassthroughFlow">
+      <Description>Direct Vertex AI native passthrough</Description>
+      <Request/>
+      <Response/>
+      <Condition>(proxy.pathsuffix MatchesPath "/v1/projects/**")</Condition>
+    </Flow>
+  </Flows>
+  <PostFlow name="PostFlow">
+    <Request>
+      <Step>
+        <Name>CORS-Headers</Name>
+      </Step>
+    </Request>
+    <Response>
+      <Step>
+        <Name>EV-ModelResponse</Name>
+      </Step>
+      <Step>
+        <Name>KVM-GetModelRates</Name>
+        <Condition>response.status.code = 200 and flow.cached != "true"</Condition>
+      </Step>
+      <Step>
+        <Name>JS-CalculateCost</Name>
+        <Condition>response.status.code = 200 and flow.cached != "true"</Condition>
+      </Step>
+      <Step>
+        <Name>QC-DeductBudget</Name>
+        <Condition>flow.tx_cost_micros != null and flow.cached != "true"</Condition>
+      </Step>
+      <Step>
+        <Name>LTQ-TokenCount</Name>
+        <Condition>response.status.code = 200 and flow.cached != "true"</Condition>
+      </Step>
+      <Step>
+        <Name>DC-ModelAnalytics</Name>
+        <Condition>response.status.code = 200</Condition>
+      </Step>
+      <Step>
+        <Name>SCP-Semantic-Cache-Populate</Name>
+        <Condition>response.status.code = 200 and ((request.header.use-cache is true) or (request.header.use-cache = "true") or (request.header.x-use-cache is true) or (request.header.x-use-cache = "true")) and flow.cached != "true"</Condition>
+      </Step>
+      <Step>
+        <Name>SMR-SanitizeModelResponse</Name>
+        <Condition>response.status.code = 200 and (flow.target_provider != "anthropic" or flow.convert_claude_to_gemini_resp == "true")</Condition>
+      </Step>
+      <Step>
+        <Name>AM-SetResponseHeaders</Name>
+      </Step>
+    </Response>
+  </PostFlow>
+  <PostClientFlow>
+    <Response>
+      <Step>
+        <Name>ML-CloudLogging</Name>
+      </Step>
+    </Response>
+  </PostClientFlow>
+  <HTTPProxyConnection>
+    <BasePath>/ai/v1</BasePath>
+    <Properties/>
+  </HTTPProxyConnection>
+  <RouteRule name="claude-target">
+    <Condition>flow.target_provider == "anthropic"</Condition>
+    <TargetEndpoint>claude-vertex-target</TargetEndpoint>
+  </RouteRule>
+  <RouteRule name="gemini-target">
+    <TargetEndpoint>gemini-vertex-target</TargetEndpoint>
+  </RouteRule>
+</ProxyEndpoint>

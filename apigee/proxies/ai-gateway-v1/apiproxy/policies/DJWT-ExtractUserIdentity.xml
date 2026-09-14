@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<DecodeJWT async="false" continueOnError="true" enabled="true" name="DJWT-ExtractUserIdentity">
+  <DisplayName>DJWT-ExtractUserIdentity</DisplayName>
+  <Source>flow.rawToken</Source>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</DecodeJWT>

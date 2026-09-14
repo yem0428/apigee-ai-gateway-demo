@@ -1,0 +1,347 @@
+#!/usr/bin/env python3
+"""
+Provision and Synchronize Unified Apigee Products and Apps
+Usage: python3 apigee/scripts/provision_unified_credentials.py [--org <ORG>] [--dev <DEVELOPER_EMAIL>]
+"""
+
+import os
+import sys
+import json
+import argparse
+import subprocess
+from urllib.parse import quote
+
+def get_access_token():
+    try:
+        return subprocess.check_output(["gcloud", "auth", "print-access-token"]).decode().strip()
+    except Exception as e:
+        print(f"Error obtaining gcloud token: {e}")
+        sys.exit(1)
+
+def run_curl(url, method="GET", data=None, token=None):
+    headers = ["-H", f"Authorization: Bearer {token}"]
+    if data is not None:
+        headers.extend(["-H", "Content-Type: application/json"])
+    cmd = ["curl", "-s", "-X", method] + headers + [url]
+    if data is not None:
+        cmd.extend(["-d", json.dumps(data)])
+    res = subprocess.check_output(cmd).decode()
+    try:
+        return json.loads(res)
+    except Exception:
+        return res
+
+def sync_product(org, token, filepath):
+    with open(filepath) as f:
+        prod_data = json.load(f)
+    name = prod_data["name"]
+    enc_name = quote(name)
+    url = f"https://apigee.googleapis.com/v1/organizations/{org}/apiproducts/{enc_name}"
+    
+    # Check if exists
+    chk_cmd = ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-H", f"Authorization: Bearer {token}", url]
+    status = subprocess.check_output(chk_cmd).decode().strip()
+    
+    if status == "200":
+        # Remove read-only metadata
+        for k in ["createdAt", "lastModifiedAt"]:
+            prod_data.pop(k, None)
+        put_url = f"https://apigee.googleapis.com/v1/organizations/{org}/apiproducts/{enc_name}"
+        res = run_curl(put_url, method="PUT", data=prod_data, token=token)
+        print(f"  [UPDATED] API Product: {name}")
+    else:
+        post_url = f"https://apigee.googleapis.com/v1/organizations/{org}/apiproducts"
+        res = run_curl(post_url, method="POST", data=prod_data, token=token)
+        print(f"  [CREATED] API Product: {name}")
+    return name
+
+def sync_app(org, dev, token, filepath):
+    with open(filepath) as f:
+        app_data = json.load(f)
+    app_name = app_data["name"]
+    enc_name = quote(app_name)
+    enc_dev = quote(dev)
+    
+    url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/apps/{enc_name}"
+    chk_cmd = ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-H", f"Authorization: Bearer {token}", url]
+    status = subprocess.check_output(chk_cmd).decode().strip()
+    
+    if status != "200":
+        post_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/apps"
+        res = run_curl(post_url, method="POST", data=app_data, token=token)
+        print(f"  [CREATED] Developer App: {app_name}")
+    else:
+        # Fetch current app
+        res = run_curl(url, method="GET", token=token)
+        # Update products if needed
+        put_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/apps/{enc_name}"
+        update_payload = {
+            "name": app_name,
+            "apiProducts": app_data.get("apiProducts", []),
+            "attributes": app_data.get("attributes", [])
+        }
+        res = run_curl(put_url, method="PUT", data=update_payload, token=token)
+        print(f"  [UPDATED] Developer App: {app_name}")
+    
+    # Extract API key (consumerKey)
+    credentials = res.get("credentials", [])
+    if credentials:
+        key = credentials[0].get("consumerKey", "")
+        return app_name, key
+    return app_name, ""
+
+def main():
+    parser = argparse.ArgumentParser(description="Provision Apigee Unified Products and Apps")
+    parser.add_argument("--org", default="bap-apac-demo2", help="Apigee Organization name")
+    parser.add_argument("--dev", default="maloosatyam@google.com", help="Developer email")
+    args = parser.parse_args()
+
+    print(f"=== Apigee Unified Credential Provisioning ===")
+    print(f"Organization: {args.org}")
+    print(f"Developer:    {args.dev}\n")
+
+    token = get_access_token()
+
+    target_products = [
+        "standard_ai_tier.json",
+        "enterprise_ai_tier.json",
+        "sales_tools_mcp.json",
+        "loans_tools_mcp.json",
+        "enterprise_tools_mcp.json"
+    ]
+
+    print("1. Synchronizing API Products...")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    prod_dir = os.path.join(base_dir, "products")
+    
+    for pfile in target_products:
+        path = os.path.join(prod_dir, pfile)
+        if os.path.exists(path):
+            sync_product(args.org, token, path)
+        else:
+            print(f"  [WARN] File not found: {path}")
+
+    print("\n2. Synchronizing Developer Apps & Keys...")
+    app_dir = os.path.join(base_dir, "apps")
+    target_apps = [
+        ("unified_admin_app.json", "VITE_ADMIN_API_KEY"),
+        ("unified_sales_app.json", "VITE_SALES_API_KEY"),
+        ("unified_loans_app.json", "VITE_LOANS_API_KEY")
+    ]
+
+    keys = {}
+    for afile, env_var in target_apps:
+        path = os.path.join(app_dir, afile)
+        if os.path.exists(path):
+            app_name, key = sync_app(args.org, args.dev, token, path)
+            keys[env_var] = key
+            print(f"     => {env_var}={key}")
+        else:
+            print(f"  [WARN] File not found: {path}")
+
+    # Update ui/.env
+    ui_env_path = os.path.join(os.path.dirname(base_dir), "ui", ".env")
+    if os.path.exists(ui_env_path):
+        with open(ui_env_path) as f:
+            lines = f.readlines()
+        
+        env_dict = {}
+        for line in lines:
+            line_str = line.strip()
+            if line_str and not line_str.startswith("#") and "=" in line_str:
+                k, v = line_str.split("=", 1)
+                env_dict[k.strip()] = v.strip()
+        
+        # Update with new keys
+        for k, v in keys.items():
+            if v:
+                env_dict[k] = v
+        env_dict["VITE_DEFAULT_ENV"] = "prod"
+        
+        with open(ui_env_path, "w") as f:
+            f.write("# Local development & production demo configuration\n")
+            for k, v in sorted(env_dict.items()):
+                f.write(f"{k}={v}\n")
+def sync_monetization(org, dev, token):
+    import time
+    print("\n3. Synchronizing Apigee Monetization Configuration...")
+    enc_dev = quote(dev)
+
+    # 1. Set Developer to PREPAID
+    monetization_cfg_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/monetizationConfig"
+    cfg_res = run_curl(monetization_cfg_url, method="PUT", data={"billingType": "PREPAID"}, token=token)
+    print(f"  [CONFIGURED] Developer {dev} billingType => PREPAID")
+
+    # 2. Rate Plans and Subscriptions for AI Products
+    ai_products = ["Standard AI Tier", "Enterprise AI Tier"]
+    now_ms = str(int(time.time() * 1000))
+
+    # Fetch active subscriptions
+    sub_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/subscriptions"
+    curr_subs = run_curl(sub_url, method="GET", token=token)
+    subscribed_products = set()
+    if isinstance(curr_subs, list):
+        for s in curr_subs:
+            subscribed_products.add(s.get("apiproduct", ""))
+
+    for prod_name in ai_products:
+        enc_prod = quote(prod_name)
+        rp_url = f"https://apigee.googleapis.com/v1/organizations/{org}/apiproducts/{enc_prod}/rateplans"
+        rp_list = run_curl(rp_url, method="GET", token=token)
+        
+        has_published = False
+        rateplan_id = None
+        if isinstance(rp_list, list):
+            for rp in rp_list:
+                if rp.get("state") == "PUBLISHED":
+                    has_published = True
+                    rateplan_id = rp.get("name")
+                    break
+
+        if not has_published:
+            # Create and publish rate plan
+            create_rp_payload = {
+                "apiproduct": prod_name,
+                "displayName": f"{prod_name} PayAsYouGo",
+                "billingPeriod": "MONTHLY",
+                "currencyCode": "USD",
+                "consumptionPricingType": "FIXED_PER_UNIT",
+                "consumptionPricingRates": [{
+                    "fee": {
+                        "currencyCode": "USD",
+                        "units": "0",
+                        "nanos": 1000000
+                    }
+                }],
+                "state": "DRAFT"
+            }
+            create_res = run_curl(rp_url, method="POST", data=create_rp_payload, token=token)
+            rateplan_id = create_res.get("name")
+            if rateplan_id:
+                pub_url = f"{rp_url}/{rateplan_id}"
+                pub_payload = dict(create_rp_payload)
+                pub_payload["state"] = "PUBLISHED"
+                pub_payload["startTime"] = now_ms
+                run_curl(pub_url, method="PUT", data=pub_payload, token=token)
+                print(f"  [PUBLISHED] Rate Plan for {prod_name}: {rateplan_id}")
+        else:
+            print(f"  [EXISTS] Published Rate Plan for {prod_name}: {rateplan_id}")
+
+        # Subscribe developer if not yet subscribed
+        if prod_name not in subscribed_products:
+            sub_payload = {
+                "apiproduct": prod_name,
+                "startTime": now_ms
+            }
+            sub_res = run_curl(sub_url, method="POST", data=sub_payload, token=token)
+            print(f"  [SUBSCRIBED] Developer {dev} to {prod_name}")
+        else:
+            print(f"  [EXISTS] Subscription for {prod_name}")
+
+    # 3. Check / Top-Up Developer Wallet
+    bal_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/balance"
+    bal_res = run_curl(bal_url, method="GET", token=token)
+    wallets = bal_res.get("wallets", []) if isinstance(bal_res, dict) else []
+    
+    needs_credit = True
+    if wallets:
+        units = int(wallets[0].get("balance", {}).get("units", "0"))
+        if units > 0:
+            needs_credit = False
+            print(f"  [WALLET] Active Prepaid Wallet Balance: ${units}.{wallets[0].get('balance', {}).get('nanos', 0)} USD")
+
+    if needs_credit:
+        credit_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/balance:credit"
+        tx_id = f"init-topup-{int(time.time())}"
+        credit_payload = {
+            "transactionAmount": {
+                "currencyCode": "USD",
+                "units": "100",
+                "nanos": 0
+            },
+            "transactionId": tx_id
+        }
+        credit_res = run_curl(credit_url, method="POST", data=credit_payload, token=token)
+        print(f"  [WALLET] Initialized Prepaid Wallet with $100.00 USD (Tx: {tx_id})")
+
+def main():
+    parser = argparse.ArgumentParser(description="Provision Apigee Unified Products and Apps")
+    parser.add_argument("--org", default="bap-apac-demo2", help="Apigee Organization name")
+    parser.add_argument("--dev", default="maloosatyam@google.com", help="Developer email")
+    args = parser.parse_args()
+
+    print(f"=== Apigee Unified Credential Provisioning ===")
+    print(f"Organization: {args.org}")
+    print(f"Developer:    {args.dev}\n")
+
+    token = get_access_token()
+
+    target_products = [
+        "standard_ai_tier.json",
+        "enterprise_ai_tier.json",
+        "sales_tools_mcp.json",
+        "loans_tools_mcp.json",
+        "enterprise_tools_mcp.json"
+    ]
+
+    print("1. Synchronizing API Products...")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    prod_dir = os.path.join(base_dir, "products")
+    
+    for pfile in target_products:
+        path = os.path.join(prod_dir, pfile)
+        if os.path.exists(path):
+            sync_product(args.org, token, path)
+        else:
+            print(f"  [WARN] File not found: {path}")
+
+    print("\n2. Synchronizing Developer Apps & Keys...")
+    app_dir = os.path.join(base_dir, "apps")
+    target_apps = [
+        ("unified_admin_app.json", "VITE_ADMIN_API_KEY"),
+        ("unified_sales_app.json", "VITE_SALES_API_KEY"),
+        ("unified_loans_app.json", "VITE_LOANS_API_KEY")
+    ]
+
+    keys = {}
+    for afile, env_var in target_apps:
+        path = os.path.join(app_dir, afile)
+        if os.path.exists(path):
+            app_name, key = sync_app(args.org, args.dev, token, path)
+            keys[env_var] = key
+            print(f"     => {env_var}={key}")
+        else:
+            print(f"  [WARN] File not found: {path}")
+
+    # Synchronize Monetization
+    sync_monetization(args.org, args.dev, token)
+
+    # Update ui/.env
+    ui_env_path = os.path.join(os.path.dirname(base_dir), "ui", ".env")
+    if os.path.exists(ui_env_path):
+        with open(ui_env_path) as f:
+            lines = f.readlines()
+        
+        env_dict = {}
+        for line in lines:
+            line_str = line.strip()
+            if line_str and not line_str.startswith("#") and "=" in line_str:
+                k, v = line_str.split("=", 1)
+                env_dict[k.strip()] = v.strip()
+        
+        # Update with new keys
+        for k, v in keys.items():
+            if v:
+                env_dict[k] = v
+        env_dict["VITE_DEFAULT_ENV"] = "prod"
+        
+        with open(ui_env_path, "w") as f:
+            f.write("# Local development & production demo configuration\n")
+            for k, v in sorted(env_dict.items()):
+                f.write(f"{k}={v}\n")
+        print(f"\n4. Updated ui/.env with new unified keys and VITE_DEFAULT_ENV=prod")
+
+    print("\n=== Provisioning Complete ===")
+
+if __name__ == "__main__":
+    main()

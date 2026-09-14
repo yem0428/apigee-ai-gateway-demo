@@ -15,3 +15,256 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* ==========================================================================
+   THEME STYLES (Light, Apigee Sunset, Cyber Matrix)
+   ========================================================================== */
+
+/* 1. Cloud Light Theme */
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="light"] body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+
+html[data-theme="light"] .bg-slate-950\/95,
+html[data-theme="light"] .bg-slate-950\/90,
+html[data-theme="light"] .bg-slate-950\/80,
+html[data-theme="light"] .bg-slate-950\/70,
+html[data-theme="light"] .bg-slate-950\/60,
+html[data-theme="light"] .bg-slate-950\/50,
+html[data-theme="light"] .bg-slate-950\/40,
+html[data-theme="light"] .bg-slate-950\/30,
+html[data-theme="light"] .bg-slate-950\/20 {
+  background-color: #f8fafc !important;
+}
+
+html[data-theme="light"] .bg-slate-900 {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="light"] .bg-slate-900\/95,
+html[data-theme="light"] .bg-slate-900\/90,
+html[data-theme="light"] .bg-slate-900\/80,
+html[data-theme="light"] .bg-slate-900\/70,
+html[data-theme="light"] .bg-slate-900\/60 {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="light"] .bg-slate-850,
+html[data-theme="light"] .bg-slate-850\/90,
+html[data-theme="light"] .bg-slate-850\/50,
+html[data-theme="light"] .hover\:bg-slate-850:hover,
+html[data-theme="light"] .hover\:bg-slate-850\/50:hover,
+html[data-theme="light"] .hover\:bg-slate-850\/40:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] .hover\:bg-slate-800:hover,
+html[data-theme="light"] .hover\:bg-slate-800\/80:hover,
+html[data-theme="light"] .hover\:bg-slate-800\/60:hover,
+html[data-theme="light"] .hover\:bg-slate-800\/40:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .border-slate-800,
+html[data-theme="light"] .border-slate-800\/90,
+html[data-theme="light"] .border-slate-800\/80,
+html[data-theme="light"] .border-slate-800\/60,
+html[data-theme="light"] .border-slate-850,
+html[data-theme="light"] .border-slate-750,
+html[data-theme="light"] .border-slate-650 {
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .border-slate-700,
+html[data-theme="light"] .border-slate-700\/80,
+html[data-theme="light"] .border-slate-700\/60 {
+  border-color: #cbd5e1 !important;
+}
+
+html[data-theme="light"] .text-slate-100,
+html[data-theme="light"] .text-slate-200 {
+  color: #0f172a !important;
+}
+
+/* Headings and labels that were text-white should become dark, but NOT buttons or badges with colored backgrounds */
+html[data-theme="light"] h1.text-white,
+html[data-theme="light"] h2.text-white,
+html[data-theme="light"] h3.text-white,
+html[data-theme="light"] h4.text-white,
+html[data-theme="light"] span.text-white:not([class*="bg-"]):not([class*="rounded-full"]):not([class*="from-"]),
+html[data-theme="light"] p.text-white {
+  color: #0f172a !important;
+}
+
+/* Ensure colored buttons, gradients, and badges always retain crisp white text */
+html[data-theme="light"] [class*="bg-blue-600"],
+html[data-theme="light"] [class*="bg-purple-600"],
+html[data-theme="light"] [class*="bg-indigo-600"],
+html[data-theme="light"] [class*="bg-emerald-600"],
+html[data-theme="light"] [class*="bg-rose-600"],
+html[data-theme="light"] [class*="bg-cyan-600"],
+html[data-theme="light"] [class*="bg-amber-600"],
+html[data-theme="light"] [class*="from-"],
+html[data-theme="light"] button[type="submit"] {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .text-slate-300 {
+  color: #1e293b !important;
+}
+
+html[data-theme="light"] .text-slate-400 {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Ensure dark tint pill backgrounds convert to elegant accessible pastels in light mode */
+html[data-theme="light"] [class*="bg-emerald-950"] {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+html[data-theme="light"] [class*="bg-indigo-950"] {
+  background-color: #eef2ff !important;
+  color: #4338ca !important;
+  border-color: #c7d2fe !important;
+}
+
+html[data-theme="light"] [class*="bg-purple-950"] {
+  background-color: #faf5ff !important;
+  color: #7e22ce !important;
+  border-color: #e9d5ff !important;
+}
+
+html[data-theme="light"] [class*="bg-rose-950"] {
+  background-color: #fff1f2 !important;
+  color: #be123c !important;
+  border-color: #fecdd3 !important;
+}
+
+html[data-theme="light"] [class*="bg-amber-950"] {
+  background-color: #fffbeb !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+html[data-theme="light"] [class*="bg-orange-950"] {
+  background-color: #fff7ed !important;
+  color: #c2410c !important;
+  border-color: #fed7aa !important;
+}
+
+html[data-theme="light"] [class*="bg-blue-950"] {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-color: #bfdbfe !important;
+}
+
+html[data-theme="light"] pre,
+html[data-theme="light"] .code-editor-dark,
+html[data-theme="light"] pre.code-editor-dark {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+/* Ensure JSON syntax highlight spans inside dark code blocks are razor-sharp in light mode */
+html[data-theme="light"] .code-editor-dark .text-cyan-400 {
+  color: #22d3ee !important;
+}
+html[data-theme="light"] .code-editor-dark .text-emerald-400 {
+  color: #34d399 !important;
+}
+html[data-theme="light"] .code-editor-dark .text-amber-400 {
+  color: #fbbf24 !important;
+}
+html[data-theme="light"] .code-editor-dark .text-purple-400 {
+  color: #c084fc !important;
+}
+html[data-theme="light"] .code-editor-dark .text-rose-400 {
+  color: #fb7185 !important;
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 2. Apigee Sunset Theme */
+html[data-theme="sunset"] body {
+  background-color: #0c0a09 !important;
+}
+
+html[data-theme="sunset"] .bg-slate-950 {
+  background-color: #0c0a09 !important;
+}
+
+html[data-theme="sunset"] .bg-slate-900 {
+  background-color: #1c1917 !important;
+}
+
+html[data-theme="sunset"] .bg-slate-900\/90,
+html[data-theme="sunset"] .bg-slate-900\/80,
+html[data-theme="sunset"] .bg-slate-900\/60 {
+  background-color: rgba(28, 25, 23, 0.95) !important;
+}
+
+html[data-theme="sunset"] .bg-slate-800,
+html[data-theme="sunset"] .bg-slate-850 {
+  background-color: #292524 !important;
+}
+
+html[data-theme="sunset"] .border-slate-800,
+html[data-theme="sunset"] .border-slate-800\/80 {
+  border-color: #292524 !important;
+}
+
+html[data-theme="sunset"] .border-slate-700 {
+  border-color: #44403c !important;
+}
+
+/* 3. Cyber Matrix Theme */
+html[data-theme="cyber"] body {
+  background-color: #000000 !important;
+}
+
+html[data-theme="cyber"] .bg-slate-950 {
+  background-color: #000000 !important;
+}
+
+html[data-theme="cyber"] .bg-slate-900 {
+  background-color: #040810 !important;
+}
+
+html[data-theme="cyber"] .bg-slate-900\/90,
+html[data-theme="cyber"] .bg-slate-900\/80 {
+  background-color: rgba(4, 8, 16, 0.95) !important;
+}
+
+html[data-theme="cyber"] .border-slate-800 {
+  border-color: #064e3b !important;
+}
+
+html[data-theme="cyber"] .border-slate-700 {
+  border-color: #047857 !important;
+}
+

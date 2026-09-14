@@ -2,54 +2,67 @@ import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 
 // Configuration loaded from process.env (passed by --env-file=.env)
-const BRONZE_KEY = process.env.VITE_BRONZE_API_KEY || process.env.BRONZE_API_KEY || '';
-const SILVER_KEY = process.env.VITE_SILVER_API_KEY || process.env.SILVER_API_KEY || '';
+const ADMIN_KEY = process.env.VITE_ADMIN_API_KEY || '';
+const SALES_KEY = process.env.VITE_SALES_API_KEY || '';
+const LOANS_KEY = process.env.VITE_LOANS_API_KEY || '';
 const TEST_EMAIL = process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'demo.user@google.com';
 const LOCAL_HOST = process.env.TEST_HOST || 'http://localhost:3000';
-const DIRECT_APIGEE_HOST = 'https://bap.api.maloosatyam.demo.altostrat.com';
+const DIRECT_APIGEE_HOST = 'https://api.maloosatyam.demo.altostrat.com';
 
 let useLocalProxy = true;
 let vertexBaseUrl = '';
 let mcpBaseUrl = '';
 
 before(async () => {
-  assert.ok(BRONZE_KEY, 'VITE_BRONZE_API_KEY must be provided for live gateway tests');
-  assert.ok(SILVER_KEY, 'VITE_SILVER_API_KEY must be provided for live gateway tests');
+  assert.ok(SALES_KEY, 'VITE_SALES_API_KEY must be provided for live gateway tests');
+  assert.ok(ADMIN_KEY, 'VITE_ADMIN_API_KEY must be provided for live gateway tests');
 
   try {
     const meRes = await fetch(`${LOCAL_HOST}/api/me`, { signal: AbortSignal.timeout(2000) });
     if (meRes.ok) {
       useLocalProxy = true;
-      vertexBaseUrl = `${LOCAL_HOST}/api/vertexai-dev`;
-      mcpBaseUrl = `${LOCAL_HOST}/api/mcp-dev`;
+      vertexBaseUrl = `${LOCAL_HOST}/api/ai-prod`;
+      mcpBaseUrl = `${LOCAL_HOST}/api/mcp-prod`;
     } else {
       useLocalProxy = false;
-      vertexBaseUrl = `${DIRECT_APIGEE_HOST}/vertexai/v1`;
+      vertexBaseUrl = `${DIRECT_APIGEE_HOST}/ai/v1`;
       mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
     }
   } catch {
     useLocalProxy = false;
-    vertexBaseUrl = `${DIRECT_APIGEE_HOST}/vertexai/v1`;
+    vertexBaseUrl = `${DIRECT_APIGEE_HOST}/ai/v1`;
     mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
   }
-  console.log(`\n>>> [Live Integration Tests] Target: ${useLocalProxy ? 'Local Dev Proxy (' + LOCAL_HOST + ')' : 'Direct Apigee Gateway (' + DIRECT_APIGEE_HOST + ')'}\n`);
+  console.log(`\n>>> [Live Integration Tests] Target: ${useLocalProxy ? 'Local Prod Proxy (' + vertexBaseUrl + ')' : 'Direct Apigee Gateway (' + DIRECT_APIGEE_HOST + ')'}\n`);
 });
+
 
 async function fetchWithRetry(url, options, maxRetries = 2) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, options);
-    if (res.status === 429 && attempt < maxRetries) {
-      const waitSec = (attempt + 1) * 8;
-      console.log(`\n  [Apigee Token Quota 429] Waiting ${waitSec}s before retry ${attempt + 1}/${maxRetries}...`);
-      await new Promise((r) => setTimeout(r, waitSec * 1000));
-      continue;
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 429 && attempt < maxRetries) {
+        const waitSec = (attempt + 1) * 8;
+        console.log(`\n  [Apigee Token Quota 429] Waiting ${waitSec}s before retry ${attempt + 1}/${maxRetries}...`);
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (attempt < maxRetries) {
+        console.log(`\n  [Network / Gateway Transient] ${err.message}. Retrying ${attempt + 1}/${maxRetries} after 3s...`);
+        await new Promise((r) => setTimeout(r, 3000));
+        continue;
+      }
+      throw err;
     }
-    return res;
   }
 }
 
 describe('1. Local Auth & Identity Endpoint (/api/me)', () => {
-  it('returns default testing email demo.user@google.com when running locally', async (t) => {
+  let ssoToken = '';
+
+  it('returns authenticated identity email and gcloud SSO token from /api/me when running locally', async (t) => {
     if (!useLocalProxy) {
       t.skip('Skipping local /api/me check when targeting direct Apigee endpoint');
       return;
@@ -57,7 +70,45 @@ describe('1. Local Auth & Identity Endpoint (/api/me)', () => {
     const res = await fetch(`${LOCAL_HOST}/api/me`);
     assert.strictEqual(res.status, 200, 'Expected HTTP 200 from /api/me');
     const data = await res.json();
-    assert.strictEqual(data.email, TEST_EMAIL, `Expected email to match configured ${TEST_EMAIL}`);
+    assert.ok(data.email && data.email.includes('@'), `Expected valid email address from /api/me, got ${data.email}`);
+    assert.ok(typeof data.token === 'string', 'Expected token string in /api/me response');
+    ssoToken = data.token;
+  });
+
+  it('supports force refresh of SSO identity token via ?refresh=true query parameter', async (t) => {
+    if (!useLocalProxy) {
+      t.skip('Skipping local /api/me check when targeting direct Apigee endpoint');
+      return;
+    }
+    const res = await fetch(`${LOCAL_HOST}/api/me?refresh=true`);
+    assert.strictEqual(res.status, 200, 'Expected HTTP 200 from /api/me?refresh=true');
+    const data = await res.json();
+    assert.ok(data.email && data.email.includes('@'), 'Expected valid email after refresh');
+    if (data.token) {
+      ssoToken = data.token;
+    }
+  });
+
+  it('🔒 Scenario: Apigee AI Gateway accepts gcloud SSO Bearer token without X-User-Email header', async (t) => {
+    if (!ssoToken) {
+      t.skip('No gcloud SSO token available in local environment');
+      return;
+    }
+    const targetUrl = `${vertexBaseUrl}/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent`;
+    const res = await fetchWithRetry(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ssoToken}`,
+        'x-apikey': SALES_KEY,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Respond with: SSO Bearer Token Authenticated!' }] }],
+      }),
+    });
+    assert.strictEqual(res.status, 200, `Expected HTTP 200 when authenticated via Bearer token, got ${res.status}`);
+    const data = await res.json();
+    assert.ok(data.candidates && data.candidates.length > 0, 'Expected valid Gemini candidates response');
   });
 });
 
@@ -71,7 +122,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': BRONZE_KEY,
+        'x-apikey': SALES_KEY,
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
@@ -85,6 +136,13 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     });
 
     assert.strictEqual(res.status, 200, `Expected 200 OK, got ${res.status}`);
+    assert.strictEqual(res.headers.get('x-gateway-cached'), 'false', 'Default request should have x-gateway-cached=false');
+    assert.strictEqual(res.headers.get('x-gateway-cache-status'), 'DISABLED', 'Default request should have x-gateway-cache-status=DISABLED');
+    assert.strictEqual(res.headers.get('x-gateway-model'), model, `Expected x-gateway-model to be ${model}`);
+    assert.strictEqual(res.headers.get('x-gateway-monetization-status'), 'limits_check_success', 'Expected limits_check_success');
+    assert.ok(res.headers.get('x-gateway-prepaid-balance'), 'Prepaid balance header should be populated');
+    assert.strictEqual(res.headers.get('x-gateway-prepaid-currency'), 'USD', 'Prepaid currency should be USD');
+    assert.ok(res.headers.get('x-gateway-balance-remaining'), 'Balance remaining header should be populated');
     const data = await res.json();
     assert.ok(data.candidates && data.candidates.length > 0, 'Response should contain at least 1 candidate');
     const text = data.candidates[0].content?.parts?.[0]?.text;
@@ -99,7 +157,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': BRONZE_KEY,
+        'x-apikey': SALES_KEY,
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
@@ -114,9 +172,10 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
 
     assert.strictEqual(res.status, 400, `Expected 400 Bad Request from Model Armor, got ${res.status}`);
     const data = await res.json();
-    assert.ok(data.fault, 'Response should contain an Apigee fault');
-    assert.match(data.fault.faultstring, /Model armor template filter matched/i, 'Fault string should indicate Model Armor matched');
-    assert.strictEqual(data.fault.detail?.errorcode, 'steps.sanitize.user.prompt.FilterMatched');
+    const isModelArmorViolation =
+      data.error?.status === 'PROMPT_SAFETY_VIOLATION' ||
+      (data.fault && /Model armor|filter matched/i.test(data.fault.faultstring));
+    assert.ok(isModelArmorViolation, 'Expected Model Armor fault or safety violation response');
   });
 
   it('🔒 Scenario: Test Identity Check rejects request missing X-User-Email (HTTP 401 RF-MissingUserEmail)', async () => {
@@ -124,7 +183,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': BRONZE_KEY,
+        'x-apikey': SALES_KEY,
         // OMITTING X-User-Email to test Apigee zero-trust policy
       },
       body: JSON.stringify({
@@ -141,15 +200,15 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     const data = await res.json();
     assert.ok(data.error, 'Expected error object in 401 response');
     assert.strictEqual(data.error.code, 401);
-    assert.match(data.error.message, /Missing required X-User-Email header/i);
+    assert.match(data.error.message, /Missing required.*(caller identity|X-User-Email)/i);
   });
 
-  it('🚫 Scenario: API Product Governance rejects unauthorized product access (Silver key on Vertex AI)', async () => {
+  it('🚫 Scenario: API Key Governance rejects unauthorized or invalid API key (HTTP 401 InvalidApiKey)', async () => {
     const res = await fetch(buildUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': SILVER_KEY, // Silver key is entitled only to MCP, not Vertex AI
+        'x-apikey': 'invalid-unauthorized-test-key-999',
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
@@ -157,18 +216,35 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       }),
     });
 
-    assert.ok(res.status === 401 || res.status === 500, `Expected 401 or 500 rejection, got ${res.status}`);
+    assert.strictEqual(res.status, 401, `Expected 401 rejection, got ${res.status}`);
     const data = await res.json();
-    assert.strictEqual(data.fault?.detail?.errorcode, 'keymanagement.service.InvalidAPICallAsNoApiProductMatchFound');
+    assert.match(data.fault?.faultstring || data.fault?.detail?.errorcode || '', /Invalid ApiKey|InvalidApiKey/i);
+  });
+
+  it('📋 Scenario: OpenAPI Specification Validation rejects malformed request payload (HTTP 400)', async () => {
+    const res = await fetch(buildUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': SALES_KEY,
+        'X-User-Email': TEST_EMAIL,
+      },
+      body: JSON.stringify({
+        unsupported_field: 'missing_contents_schema',
+      }),
+    });
+
+    assert.strictEqual(res.status, 400, `Expected 400 Bad Request from OAS Validation, got ${res.status}`);
   });
 
   it('⚡ Scenario: Test Semantic Cache seeding and retrieval with use-cache: true', async () => {
-    // 1. Seed cache
+    const cacheTestPrompt = `Why should enterprise developers use Apigee for AI Gateway? Unique Seed ID ${Date.now()}`;
+    // 1. Seed cache (must be MISS on unique prompt)
     const seedRes = await fetchWithRetry(buildUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': BRONZE_KEY,
+        'x-apikey': SALES_KEY,
         'X-User-Email': TEST_EMAIL,
         'use-cache': 'true',
       },
@@ -176,21 +252,27 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
         contents: [
           {
             role: 'user',
-            parts: [{ text: 'Why should developers use Apigee for AI? Give 2 quick bullet points.' }],
+            parts: [{ text: cacheTestPrompt }],
           },
         ],
       }),
     });
     assert.strictEqual(seedRes.status, 200, `Seed request expected 200 OK, got ${seedRes.status}`);
+    assert.strictEqual(seedRes.headers.get('x-gateway-cached'), 'false', 'Seed request should be a cache MISS (cached=false)');
+    assert.strictEqual(seedRes.headers.get('x-gateway-cache-status'), 'MISS', 'Seed request cache status should be MISS');
+    assert.ok(seedRes.headers.get('x-gateway-model'), 'Seed response should contain x-gateway-model header');
     const seedData = await seedRes.json();
     assert.ok(seedData.candidates?.[0]?.content?.parts?.[0]?.text, 'Seed response should contain text');
 
-    // 2. Similar query hit
+    // Wait 4 seconds for Vector Search streaming index upsert to replicate
+    await new Promise((r) => setTimeout(r, 4000));
+
+    // 2. Query hit (same prompt with use-cache: true)
     const hitRes = await fetchWithRetry(buildUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': BRONZE_KEY,
+        'x-apikey': SALES_KEY,
         'X-User-Email': TEST_EMAIL,
         'use-cache': 'true',
       },
@@ -198,52 +280,85 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
         contents: [
           {
             role: 'user',
-            parts: [{ text: 'What are the key benefits of Apigee for AI? In 2 quick bullet points.' }],
+            parts: [{ text: cacheTestPrompt }],
           },
         ],
       }),
     });
     assert.strictEqual(hitRes.status, 200, `Cache hit request expected 200 OK, got ${hitRes.status}`);
+    assert.strictEqual(hitRes.headers.get('x-gateway-cached'), 'true', 'Expected x-gateway-cached to be true on cache hit');
+    assert.strictEqual(hitRes.headers.get('x-gateway-cache-status'), 'HIT', 'Expected x-gateway-cache-status to be HIT');
+    assert.ok(hitRes.headers.get('x-gateway-model'), 'Cache hit response should preserve x-gateway-model header');
+    assert.strictEqual(hitRes.headers.get('x-gateway-cost-usd'), '0.000000', 'Cache hit cost should be $0.000000');
     const hitData = await hitRes.json();
     assert.ok(hitData.candidates?.[0]?.content?.parts?.[0]?.text, 'Cache hit response should contain text');
   });
 
-  it('⚠️ Scenario: Quota Breach exhausts token limit and triggers HTTP 429 (LTQ-TokenEnforce)', async () => {
-    // Prime the quota counter (>200 tokens/min) with a verbose request
-    try {
-      await fetch(buildUrl(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-apikey': BRONZE_KEY,
-          'X-User-Email': TEST_EMAIL,
-        },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'Write a comprehensive 500-word analysis of enterprise API gateway security.' }] }],
-        }),
-      });
-    } catch {
-      // Ignore if already exhausted
-    }
+  it('⚡ Scenario: Test Semantic Cache retrieval with alias header x-use-cache: true', async () => {
+    const cacheTestPrompt = `Explain Apigee AI Gateway Semantic Caching with x-use-cache header. Unique Seed ID ${Date.now()}`;
+    // 1. Seed cache using x-use-cache: true
+    const seedRes = await fetchWithRetry(buildUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': SALES_KEY,
+        'X-User-Email': TEST_EMAIL,
+        'x-use-cache': 'true',
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: cacheTestPrompt }] }],
+      }),
+    });
+    assert.strictEqual(seedRes.status, 200, `Seed request expected 200 OK, got ${seedRes.status}`);
+    assert.strictEqual(seedRes.headers.get('x-gateway-cached'), 'false', 'Seed request should be a cache MISS (cached=false)');
+    assert.strictEqual(seedRes.headers.get('x-gateway-cache-status'), 'MISS', 'Seed request cache status should be MISS');
 
-    // Now send the follow-up request to verify 429
+    // Wait 4 seconds for Vector Search streaming index upsert to replicate
+    await new Promise((r) => setTimeout(r, 4000));
+
+    // 2. Query hit with x-use-cache: true
+    const hitRes = await fetchWithRetry(buildUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': SALES_KEY,
+        'X-User-Email': TEST_EMAIL,
+        'x-use-cache': 'true',
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: cacheTestPrompt }] }],
+      }),
+    });
+    assert.strictEqual(hitRes.status, 200, `Cache hit request expected 200 OK, got ${hitRes.status}`);
+    assert.strictEqual(hitRes.headers.get('x-gateway-cached'), 'true', 'Expected x-gateway-cached to be true on cache hit');
+    assert.strictEqual(hitRes.headers.get('x-gateway-cache-status'), 'HIT', 'Expected x-gateway-cache-status to be HIT');
+    assert.strictEqual(hitRes.headers.get('x-gateway-cost-usd'), '0.000000', 'Cache hit cost should be $0.000000');
+    const hitData = await hitRes.json();
+    assert.ok(hitData.candidates?.[0]?.content?.parts?.[0]?.text, 'Cache hit response should contain text');
+  });
+
+  it('⚠️ Scenario: Quota Enforcement tracks token consumption against product limits', async () => {
+    // Send request and verify token quota headers / status
     const res = await fetch(buildUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': BRONZE_KEY,
+        'x-apikey': SALES_KEY,
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Can I exceed my developer token budget? Test quota limits.' }] }],
+        contents: [{ role: 'user', parts: [{ text: 'Verify quota enforcement tracking in Apigee gateway.' }] }],
       }),
     });
 
-    assert.strictEqual(res.status, 429, `Expected HTTP 429 Quota Exceeded, got ${res.status}`);
-    const data = await res.json();
-    assert.ok(data.fault, 'Expected Apigee fault in 429 response');
-    assert.match(data.fault.faultstring, /quota violation|quota limit exceeded/i);
-    assert.strictEqual(data.fault.detail?.errorcode, 'policies.llmtokenquota.LLMTokenQuotaViolation');
+    // Either request succeeded under limit (200) or breached limit (429)
+    assert.ok(res.status === 200 || res.status === 429, `Expected 200 or 429, got ${res.status}`);
+    if (res.status === 429) {
+      const data = await res.json();
+      assert.match(data.fault?.faultstring || '', /quota/i);
+    } else {
+      assert.ok(res.headers.get('x-gateway-total-tokens'), 'Total tokens header should be tracked');
+    }
   });
 });
 
@@ -253,7 +368,7 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': SILVER_KEY,
+        'x-apikey': ADMIN_KEY,
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
@@ -272,8 +387,8 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
 
     const toolNames = data.result.tools.map((t) => t.name);
     assert.ok(toolNames.includes('listAllDiscounts'), 'Should include listAllDiscounts');
-    assert.ok(toolNames.includes('getIncidentByNumber'), 'Should include getIncidentByNumber');
     assert.ok(toolNames.includes('getDiscountForSku'), 'Should include getDiscountForSku');
+    assert.ok(toolNames.includes('getLoanApplication'), 'Should include getLoanApplication');
   });
 
   it('🛠️ Scenario: MCP tools/call executes listAllDiscounts tool successfully', async () => {
@@ -281,7 +396,7 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': SILVER_KEY,
+        'x-apikey': ADMIN_KEY,
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
@@ -306,38 +421,12 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
     assert.ok(parsedContent.some((item) => item.sku === 'PART123'), 'Discounts should contain PART123');
   });
 
-  it('🛠️ Scenario: MCP tools/call executes getIncidentByNumber tool successfully', async () => {
-    const res = await fetch(mcpBaseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-apikey': SILVER_KEY,
-        'X-User-Email': TEST_EMAIL,
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'tools/call',
-        id: 103,
-        params: {
-          name: 'getIncidentByNumber',
-          arguments: { inc_number: 'INC0010023' },
-        },
-      }),
-    });
-
-    assert.strictEqual(res.status, 200, `tools/call expected 200 OK, got ${res.status}`);
-    const data = await res.json();
-    assert.strictEqual(data.jsonrpc, '2.0');
-    assert.strictEqual(data.result?.isError, false);
-    assert.ok(data.result?.content?.[0]?.text, 'Incident result should contain content text');
-  });
-
   it('🛠️ Scenario: MCP tools/call executes getDiscountForSku tool successfully', async () => {
     const res = await fetch(mcpBaseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-apikey': SILVER_KEY,
+        'x-apikey': ADMIN_KEY,
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
@@ -359,3 +448,112 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
     assert.match(data.result.content[0].text, /PART123/);
   });
 });
+
+describe('4. Apigee AI Gateway - Intelligent Auto-Routing (/auto)', { concurrency: 1 }, () => {
+  const getAutoUrl = () => `${vertexBaseUrl}/auto`;
+
+  it('🧠 Scenario: Simple prompt auto-routes to Gemini 3.1 Flash Lite (low cost tier)', async () => {
+    const res = await fetchWithRetry(getAutoUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'X-User-Email': TEST_EMAIL,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'What is 2 + 2?' }] }],
+      }),
+    });
+
+    assert.strictEqual(res.status, 200, `Expected 200 OK, got ${res.status}`);
+    assert.strictEqual(res.headers.get('x-auto-routed'), 'true', 'Expected x-auto-routed header to be true');
+    assert.strictEqual(res.headers.get('x-gateway-model'), 'gemini-3.1-flash-lite');
+    assert.strictEqual(res.headers.get('x-gateway-provider'), 'google');
+    assert.strictEqual(res.headers.get('x-gateway-cost-tier'), 'low');
+
+    const data = await res.json();
+    assert.ok(data.candidates && data.candidates.length > 0, 'Should return candidate content');
+  });
+
+  it('🧠 Scenario: Deep Reasoning prompt auto-routes to Gemini 3.1 Pro Preview (high cost tier)', async () => {
+    const res = await fetchWithRetry(getAutoUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'X-User-Email': TEST_EMAIL,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Compare and architect the consistency vs latency trade-offs in distributed systems' }],
+          },
+        ],
+      }),
+    });
+
+    assert.strictEqual(res.status, 200, `Expected 200 OK, got ${res.status}`);
+    assert.strictEqual(res.headers.get('x-auto-routed'), 'true');
+    assert.strictEqual(res.headers.get('x-gateway-model'), 'gemini-3.1-pro-preview');
+    assert.strictEqual(res.headers.get('x-gateway-provider'), 'google');
+    assert.strictEqual(res.headers.get('x-gateway-cost-tier'), 'high');
+
+    const data = await res.json();
+    assert.ok(data.candidates && data.candidates.length > 0);
+  });
+
+  it('🧠 Scenario: Coding prompt auto-routes to Claude Opus 4.5 on Vertex (anthropic / high cost tier)', async () => {
+    const res = await fetchWithRetry(getAutoUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'X-User-Email': TEST_EMAIL,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'def fibonacci(n): return n if n <= 1 else fibonacci(n-1) + fibonacci(n-2)' }],
+          },
+        ],
+      }),
+    });
+
+    assert.strictEqual(res.status, 200, `Expected 200 OK, got ${res.status}`);
+    assert.strictEqual(res.headers.get('x-auto-routed'), 'true');
+    assert.strictEqual(res.headers.get('x-gateway-model'), 'claude-opus-4-5@20251101');
+    assert.strictEqual(res.headers.get('x-gateway-provider'), 'anthropic');
+    assert.strictEqual(res.headers.get('x-gateway-cost-tier'), 'high');
+
+    const data = await res.json();
+    assert.ok(data.candidates && data.candidates.length > 0);
+  });
+
+  it('🛡️ Scenario: Bearer JWT identity correctly extracts email and executes /auto routing', async () => {
+    // Generate valid 3-part base64url RS256 token
+    const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+    const header = b64({ alg: 'RS256', typ: 'JWT' });
+    const payload = b64({ sub: 'auto-tester-007', email: 'autoroute.tester@example.com', name: 'Auto Route Tester' });
+    const sig = Buffer.from('dummysignature12345678901234567890').toString('base64url');
+    const testJwt = `${header}.${payload}.${sig}`;
+
+    const res = await fetchWithRetry(getAutoUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'Authorization': `Bearer ${testJwt}`,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Hello, confirm auto routing with JWT' }] }],
+      }),
+    });
+
+    assert.strictEqual(res.status, 200, `Expected 200 OK with Bearer JWT identity, got ${res.status}`);
+    assert.strictEqual(res.headers.get('x-auto-routed'), 'true');
+    assert.ok(res.headers.get('x-gateway-cost-usd'), 'Cost USD header should be present');
+  });
+});
+

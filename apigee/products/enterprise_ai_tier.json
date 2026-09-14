@@ -1,0 +1,96 @@
+{
+  "name": "Enterprise AI Tier",
+  "displayName": "Enterprise AI Tier",
+  "approvalType": "auto",
+  "environments": [
+    "dev",
+    "prod"
+  ],
+  "attributes": [
+    {
+      "name": "access",
+      "value": "private"
+    },
+    {
+      "name": "tier",
+      "value": "enterprise"
+    },
+    {
+      "name": "description",
+      "value": "Enterprise tier with unrestricted access to all models (Flash, Pro, Sonnet) and auto-routing"
+    }
+  ],
+  "llmOperationGroup": {
+    "operationConfigs": [
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/auto*",
+            "methods": [
+              "POST"
+            ],
+            "model": "auto"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/auto*",
+            "methods": [
+              "POST"
+            ],
+            "model": "auto"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/*",
+            "methods": [
+              "POST"
+            ],
+            "model": "*"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/*",
+            "methods": [
+              "POST",
+              "GET"
+            ],
+            "model": "*"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      }
+    ]
+  }
+}

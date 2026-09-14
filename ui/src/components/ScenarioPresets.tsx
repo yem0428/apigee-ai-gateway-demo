@@ -48,10 +48,10 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
   };
 
   return (
-    <div className="p-3 bg-slate-950/60 border-b border-slate-800/80">
+    <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800/80">
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-          <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+          <Sparkles className="w-3.5 h-3.5 text-blue-500" />
           <span>Apigee AI Demo Presets:</span>
           <span className="text-[10px] text-slate-500 font-normal ml-1">
             Click block to load, or click ▶ to test immediately
@@ -59,23 +59,23 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {SCENARIO_PRESETS.map((preset) => (
           <div
             key={preset.id}
-            className="group relative bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-lg p-2.5 transition flex flex-col justify-between cursor-pointer"
+            className="group relative bg-white dark:bg-slate-900/90 hover:bg-slate-50 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700 rounded-xl p-3 transition flex flex-col justify-between cursor-pointer shadow-xs hover:shadow-sm"
             onClick={() => onSelectPreset(preset, false)}
           >
             <div>
               <div className="flex items-center justify-between gap-1 mb-1.5">
                 <div className="flex items-center gap-1.5">
                   {getCategoryIcon(preset.category)}
-                  <span className="text-xs font-semibold text-slate-200 group-hover:text-blue-300 transition line-clamp-1">
+                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-300 transition line-clamp-1">
                     {preset.title}
                   </span>
                 </div>
                 <span
-                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${getBadgeStyle(
+                  className={`text-[9px] font-mono font-medium px-2 py-0.5 rounded-full border ${getBadgeStyle(
                     preset.badgeColor
                   )}`}
                 >
@@ -83,13 +83,13 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
                 "{preset.prompt}"
               </p>
             </div>
 
-            <div className="mt-2.5 pt-1.5 border-t border-slate-800/70 flex items-center justify-between text-[10px]">
-              <span className="text-slate-500 group-hover:text-slate-400 flex items-center gap-0.5">
+            <div className="mt-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/70 flex items-center justify-between text-[10px]">
+              <span className="text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300 flex items-center gap-0.5">
                 <ArrowUpRight className="w-3 h-3" /> Load prompt
               </span>
 
@@ -99,7 +99,7 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
                   e.stopPropagation();
                   onSelectPreset(preset, true);
                 }}
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-600/30 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 transition"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs transition"
                 title="Send immediately to Apigee Gateway"
               >
                 <Play className="w-2.5 h-2.5 fill-current" />

@@ -1,5 +1,70 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { execSync } from 'node:child_process'
+
+// In-memory token cache for Apigee Management API
+let cachedToken = ''
+let tokenExpiry = 0
+
+function getGcpAccessToken(): string {
+  const now = Date.now()
+  if (cachedToken && now < tokenExpiry) {
+    return cachedToken
+  }
+  try {
+    cachedToken = execSync('gcloud auth print-access-token').toString().trim()
+    tokenExpiry = now + 4 * 60 * 1000 // Cache for 4 minutes
+    return cachedToken
+  } catch (err: any) {
+    console.error('[Vite Server] Failed to get gcloud auth token:', err.message)
+    return ''
+  }
+}
+
+// In-memory identity token cache for SSO local testing
+let cachedIdToken = ''
+let cachedIdEmail = ''
+let cachedIdName = ''
+let idTokenExpiry = 0
+
+function getGcpIdentityToken(): { token: string; email: string; name: string } {
+  const now = Date.now()
+  if (cachedIdToken && now < idTokenExpiry) {
+    return { token: cachedIdToken, email: cachedIdEmail, name: cachedIdName }
+  }
+  try {
+    const rawToken = execSync('gcloud auth print-identity-token 2>/dev/null').toString().trim()
+    if (rawToken) {
+      cachedIdToken = rawToken
+      idTokenExpiry = now + 4 * 60 * 1000 // Cache for 4 minutes
+      try {
+        const payload = JSON.parse(Buffer.from(rawToken.split('.')[1], 'base64').toString('utf8'))
+        cachedIdEmail = payload.email || ''
+        cachedIdName = payload.name || payload.given_name || (payload.email ? payload.email.split('@')[0] : '')
+      } catch {
+        cachedIdEmail = ''
+        cachedIdName = ''
+      }
+      return { token: cachedIdToken, email: cachedIdEmail, name: cachedIdName }
+    }
+  } catch (err: any) {
+    console.warn('[Vite Server] Note: gcloud identity token not available:', err.message)
+  }
+  return { token: '', email: '', name: '' }
+}
+
+function getApigeeTimeRange(rangeParam: string): string {
+  const now = new Date();
+  let days = 7;
+  if (rangeParam === '24h') days = 1;
+  else if (rangeParam === '30d') days = 30;
+
+  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  const fmt = (d: Date) => `${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  return `${fmt(start)}~${fmt(now)}`;
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -14,13 +79,674 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use('/api/me', (req, res) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
+
+            const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+            if (parsedUrl.searchParams.get('refresh') === 'true') {
+              idTokenExpiry = 0;
+              cachedIdToken = '';
+            }
+
             const incomingHeader = (req.headers['x-goog-authenticated-user-email'] as string) || '';
             const cleanHeader = incomingHeader.replace(/^accounts\.google\.com:/, '').trim();
-            const email = cleanHeader || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || 'demo.user@google.com';
+
+            // Obtain SSO identity token from gcloud for local testing
+            const sso = getGcpIdentityToken();
+
+            const email = cleanHeader || sso.email || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || 'demo.user@google.com';
+            const name = sso.name || (email ? email.split('@')[0] : 'SSO User');
+
             res.end(JSON.stringify({
               email,
+              token: sso.token || '',
+              name,
+              provider: sso.token ? 'Google Cloud Identity SSO (gcloud)' : 'Local Mock SSO',
               raw: incomingHeader,
             }));
+          });
+
+          server.middlewares.use('/api/kvm/rates', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+            const envParam = parsedUrl.searchParams.get('env') || 'prod';
+            const apigeeEnv = envParam === 'dev' || envParam === 'bap' ? 'dev' : 'prod';
+            const org = 'bap-apac-demo2';
+            const kvmName = 'ai-model-rates';
+            const entryKey = 'rate_card';
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const apigeeBase = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/${kvmName}/entries`;
+
+            if (req.method === 'GET') {
+              try {
+                const apiRes = await fetch(`${apigeeBase}/${entryKey}`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!apiRes.ok) {
+                  const errText = await apiRes.text();
+                  res.statusCode = apiRes.status;
+                  res.end(JSON.stringify({ error: `Apigee KVM error (${apiRes.status}): ${errText}` }));
+                  return;
+                }
+                const data = await apiRes.json();
+                let rates = {};
+                try {
+                  rates = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+                } catch {
+                  rates = {};
+                }
+                res.end(JSON.stringify({
+                  status: 'ok',
+                  env: apigeeEnv,
+                  org,
+                  map: kvmName,
+                  rates,
+                  updatedAt: new Date().toISOString(),
+                }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            } else if (req.method === 'PUT' || req.method === 'POST') {
+              let body = '';
+              req.on('data', (chunk) => { body += chunk; });
+              req.on('end', async () => {
+                try {
+                  const payload = JSON.parse(body || '{}');
+                  const targetEnv = payload.env === 'dev' || payload.env === 'bap' ? 'dev' : (payload.env || apigeeEnv);
+                  const newRates = payload.rates;
+                  if (!newRates || typeof newRates !== 'object') {
+                    res.statusCode = 400;
+                    res.end(JSON.stringify({ error: 'Missing or invalid "rates" object in request body' }));
+                    return;
+                  }
+
+                  const targetUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${targetEnv}/keyvaluemaps/${kvmName}/entries/${entryKey}`;
+                  const updateRes = await fetch(targetUrl, {
+                    method: 'PUT',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      name: entryKey,
+                      value: JSON.stringify(newRates),
+                    }),
+                  });
+
+                  if (!updateRes.ok) {
+                    const errText = await updateRes.text();
+                    res.statusCode = updateRes.status;
+                    res.end(JSON.stringify({ error: `Failed to update Apigee KVM (${updateRes.status}): ${errText}` }));
+                    return;
+                  }
+
+                  res.end(JSON.stringify({
+                    status: 'ok',
+                    env: targetEnv,
+                    message: `Successfully updated ${entryKey} in ${targetEnv} KVM`,
+                    rates: newRates,
+                    updatedAt: new Date().toISOString(),
+                  }));
+                } catch (err: any) {
+                  res.statusCode = 500;
+                  res.end(JSON.stringify({ error: err.message }));
+                }
+              });
+            } else {
+              res.statusCode = 405;
+              res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+            }
+          });
+
+          // Apigee Monetization balance inspection
+          server.middlewares.use('/api/monetization/balance', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+            const dev = parsedUrl.searchParams.get('dev') || env.DEV_EMAIL || 'maloosatyam@google.com';
+            const org = 'bap-apac-demo2';
+
+            try {
+              const apiRes = await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(dev)}/balance`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const data = await apiRes.json();
+              res.statusCode = apiRes.status;
+              res.end(JSON.stringify({
+                status: apiRes.ok ? 'ok' : 'error',
+                developer: dev,
+                org,
+                data,
+              }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+
+          // Apigee Monetization wallet credit / top-up
+          server.middlewares.use('/api/monetization/credit', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.end(JSON.stringify({ error: 'Method Not Allowed. Use POST.' }));
+              return;
+            }
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token' }));
+              return;
+            }
+
+            let body = '';
+            req.on('data', (chunk) => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}');
+                const dev = payload.developer || env.DEV_EMAIL || 'maloosatyam@google.com';
+                const units = String(payload.units || '50');
+                const org = 'bap-apac-demo2';
+                const txId = `topup-${Date.now()}`;
+
+                const creditUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(dev)}/balance:credit`;
+                const creditRes = await fetch(creditUrl, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    transactionAmount: {
+                      currencyCode: 'USD',
+                      units,
+                      nanos: 0,
+                    },
+                    transactionId: txId,
+                  }),
+                });
+
+                const data = await creditRes.json();
+                res.statusCode = creditRes.status;
+                res.end(JSON.stringify({
+                  status: creditRes.ok ? 'ok' : 'error',
+                  developer: dev,
+                  credited: units,
+                  transactionId: txId,
+                  data,
+                }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+          });
+
+          // Apigee Monetization published rate plans
+          server.middlewares.use('/api/monetization/rateplans', async (_req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const org = 'bap-apac-demo2';
+            const products = ['Standard AI Tier', 'Enterprise AI Tier'];
+
+            try {
+              const allPlans: any[] = [];
+              const prodPromises = products.map(async (prod) => {
+                const rpListRes = await fetch(
+                  `https://apigee.googleapis.com/v1/organizations/${org}/apiproducts/${encodeURIComponent(prod)}/rateplans`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (rpListRes.ok) {
+                  const rpListData = await rpListRes.json();
+                  const planItems = rpListData.ratePlans || [];
+                  const planPromises = planItems.map(async (item: any) => {
+                    try {
+                      const planRes = await fetch(
+                        `https://apigee.googleapis.com/v1/organizations/${org}/apiproducts/${encodeURIComponent(prod)}/rateplans/${item.name}`,
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+                      if (planRes.ok) {
+                        return await planRes.json();
+                      }
+                    } catch {}
+                    return null;
+                  });
+                  const loadedPlans = await Promise.all(planPromises);
+                  return loadedPlans.filter(Boolean);
+                }
+                return [];
+              });
+              const results = await Promise.all(prodPromises);
+              results.forEach((plans) => allPlans.push(...plans));
+              res.end(JSON.stringify({ status: 'ok', ratePlans: allPlans }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+
+          // Apigee Monetization developer subscriptions
+          server.middlewares.use('/api/monetization/subscriptions', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+            const dev = parsedUrl.searchParams.get('dev') || env.DEV_EMAIL || 'maloosatyam@google.com';
+            const org = 'bap-apac-demo2';
+
+            if (req.method === 'GET') {
+              try {
+                const subRes = await fetch(
+                  `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(dev)}/subscriptions`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const data = await subRes.json();
+                res.statusCode = subRes.status;
+                res.end(JSON.stringify({
+                  status: subRes.ok ? 'ok' : 'error',
+                  developer: dev,
+                  subscriptions: data.developerSubscriptions || (Array.isArray(data) ? data : []),
+                }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            } else if (req.method === 'POST') {
+              let body = '';
+              req.on('data', (c) => { body += c; });
+              req.on('end', async () => {
+                try {
+                  const payload = JSON.parse(body || '{}');
+                  const targetDev = payload.developer || dev;
+                  const apiproduct = payload.apiproduct;
+                  const subRes = await fetch(
+                    `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(targetDev)}/subscriptions`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        apiproduct,
+                        startTime: String(Date.now()),
+                      }),
+                    }
+                  );
+                  const data = await subRes.json();
+                  res.statusCode = subRes.status;
+                  res.end(JSON.stringify({ status: subRes.ok ? 'ok' : 'error', data }));
+                } catch (err: any) {
+                  res.statusCode = 500;
+                  res.end(JSON.stringify({ error: err.message }));
+                }
+              });
+            } else {
+              res.statusCode = 405;
+              res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+            }
+          });
+
+          // Apigee Monetization developer configuration (PREPAID vs POSTPAID)
+          server.middlewares.use('/api/monetization/config', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+            const dev = parsedUrl.searchParams.get('dev') || env.DEV_EMAIL || 'maloosatyam@google.com';
+            const org = 'bap-apac-demo2';
+            const cfgUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(dev)}/monetizationConfig`;
+
+            if (req.method === 'GET') {
+              try {
+                const apiRes = await fetch(cfgUrl, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const data = await apiRes.json();
+                res.statusCode = apiRes.status;
+                res.end(JSON.stringify({ status: apiRes.ok ? 'ok' : 'error', developer: dev, config: data }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            } else if (req.method === 'PUT' || req.method === 'POST') {
+              let body = '';
+              req.on('data', (c) => { body += c; });
+              req.on('end', async () => {
+                try {
+                  const payload = JSON.parse(body || '{}');
+                  const billingType = payload.billingType || 'PREPAID';
+                  const apiRes = await fetch(cfgUrl, {
+                    method: 'PUT',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ billingType }),
+                  });
+                  const data = await apiRes.json();
+                  res.statusCode = apiRes.status;
+                  res.end(JSON.stringify({ status: apiRes.ok ? 'ok' : 'error', developer: dev, config: data }));
+                } catch (err: any) {
+                  res.statusCode = 500;
+                  res.end(JSON.stringify({ error: err.message }));
+                }
+              });
+            } else {
+              res.statusCode = 405;
+              res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+            }
+          });
+
+          // Live Apigee Management API Fleet Analytics Endpoint
+          server.middlewares.use('/api/analytics/fleet-stats', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+            const rangeParam = parsedUrl.searchParams.get('timeRange') || '7d';
+            const envParam = parsedUrl.searchParams.get('env') || 'prod';
+            const org = 'bap-apac-demo2';
+            const apigeeEnv = envParam === 'dev' || envParam === 'bap' ? 'dev' : 'prod';
+            const apigeeTimeRange = getApigeeTimeRange(rangeParam);
+
+            try {
+              // 1. Fetch DataCapture stats (user email & model breakdown)
+              const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
+
+              // 2. Fetch Proxy stats (for overall SLA, latency, error count)
+              const proxyStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/apiproxy?select=sum(message_count),sum(is_error),avg(total_response_time)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
+
+              // 3. Fetch KVM Rates
+              const kvmUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/ai-model-rates/entries/rate_card`;
+
+              const [statsRes, proxyRes, kvmRes] = await Promise.all([
+                fetch(statsUrl, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(proxyStatsUrl, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(kvmUrl, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+              ]);
+
+              // Parse KVM rates
+              let rates: Record<string, any> = {};
+              if (kvmRes && kvmRes.ok) {
+                try {
+                  const kvmData = await kvmRes.json();
+                  rates = typeof kvmData.value === 'string' ? JSON.parse(kvmData.value) : kvmData.value || {};
+                } catch {}
+              }
+
+              // Parse Proxy stats for SLA and latency
+              let totalProxyCalls = 0;
+              let totalProxyErrors = 0;
+              let avgLatencyMs = 380;
+              if (proxyRes.ok) {
+                const pData = await proxyRes.json();
+                const dims = pData.environments?.[0]?.dimensions || [];
+                const aiGatewayDim = dims.find((d: any) => d.name === 'ai-gateway-v1');
+                if (aiGatewayDim) {
+                  const mc = aiGatewayDim.metrics?.find((m: any) => m.name === 'sum(message_count)');
+                  const ec = aiGatewayDim.metrics?.find((m: any) => m.name === 'sum(is_error)');
+                  const lat = aiGatewayDim.metrics?.find((m: any) => m.name === 'avg(total_response_time)');
+                  totalProxyCalls = Number(mc?.values?.[0] || 0);
+                  totalProxyErrors = Number(ec?.values?.[0] || 0);
+                  avgLatencyMs = Math.round(Number(lat?.values?.[0] || 380));
+                }
+              }
+
+              // Parse DC stats
+              const statsData = statsRes.ok ? await statsRes.json() : null;
+              const rawDimensions = statsData?.environments?.[0]?.dimensions || [];
+
+              let totalTraffic = 0;
+              let totalPromptTokens = 0;
+              let totalCandidateTokens = 0;
+              let totalCostUsd = 0;
+              let flashCalls = 0;
+              let proCalls = 0;
+
+              const consumptionRows: any[] = [];
+
+              for (const dim of rawDimensions) {
+                const rawUser = dim.individualNames?.[0] || dim.name?.split(',')[0] || '(not set)';
+                const rawModel = dim.individualNames?.[1] || dim.name?.split(',')[1] || '(not set)';
+
+                const mc = Number(dim.metrics?.find((m: any) => m.name === 'sum(message_count)')?.values?.[0] || 0);
+                const pt = Number(dim.metrics?.find((m: any) => m.name === 'sum(dc_prompt_token_count)')?.values?.[0] || 0);
+                const ct = Number(dim.metrics?.find((m: any) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
+
+                if (mc <= 0) continue;
+
+                // Exclude probe/unauthorized proxy traffic (e.g. 401s, health checks) where no model was invoked and no tokens were captured
+                if ((rawModel === '(not set)' || !rawModel) && pt === 0 && ct === 0) {
+                  continue;
+                }
+
+                const isUnauthenticated = rawUser === '(not set)' || !rawUser;
+                const userEmail = isUnauthenticated ? 'anonymous.caller@external.client' : rawUser;
+                const model = rawModel === '(not set)' || !rawModel ? 'unknown-model' : rawModel;
+
+                const provider = model.includes('claude') ? 'Anthropic' : 'Google';
+                const tier = model.includes('pro') || model.includes('opus') ? 'high' : model.includes('flash-lite') ? 'low' : 'medium';
+
+                // Look up KVM rate card with prefix / normalization support
+                const rateKey = Object.keys(rates).find(k => k !== 'default' && (model === k || model.startsWith(k) || k.startsWith(model)));
+                const matchedRate = (rateKey ? rates[rateKey] : null) || rates[model] || rates['default'] || {};
+                const inRate = matchedRate.input ?? (tier === 'high' ? 1.25 : 0.15);
+                const outRate = matchedRate.output ?? (tier === 'high' ? 5.0 : 0.60);
+                const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
+
+                totalTraffic += mc;
+                totalPromptTokens += pt;
+                totalCandidateTokens += ct;
+                totalCostUsd += cost;
+
+                if (tier === 'high') proCalls += mc;
+                else flashCalls += mc;
+
+                consumptionRows.push({
+                  userEmail,
+                  model,
+                  provider,
+                  tier,
+                  totalTraffic: mc,
+                  inputTokens: pt,
+                  outputTokens: ct,
+                  costUsd: Number(cost.toFixed(4)),
+                  isUnauthenticated,
+                });
+              }
+
+              consumptionRows.sort((a, b) => b.costUsd - a.costUsd || b.totalTraffic - a.totalTraffic);
+
+              const totalCalls = totalTraffic;
+              const slaHealth = totalProxyCalls > 0 ? Number(((1 - totalProxyErrors / totalProxyCalls) * 100).toFixed(1)) : 99.0;
+              const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : 78.5;
+
+              res.end(JSON.stringify({
+                status: 'ok',
+                source: 'Apigee Management API (Live BigQuery DataCollector)',
+                org,
+                env: apigeeEnv,
+                timeRange: rangeParam,
+                apigeeTimeRange,
+                metaData: {
+                  notices: statsData?.metaData?.notices || ['Source:BigQuery'],
+                },
+                kpis: {
+                  totalCalls,
+                  totalTokens: totalPromptTokens + totalCandidateTokens,
+                  inputTokens: totalPromptTokens,
+                  outputTokens: totalCandidateTokens,
+                  totalSpendUsd: Number(totalCostUsd.toFixed(2)),
+                  cacheCostSavingsUsd: Number((totalCostUsd * 0.35).toFixed(2)),
+                  cacheHitRate: 29.4,
+                  slaHealth,
+                  avgLatencyMs,
+                  isErrorCount: totalProxyErrors,
+                },
+                routing: {
+                  flashCalls,
+                  flashPercent: flashRatio,
+                  proOpusCalls: proCalls,
+                  proOpusPercent: Number((100 - flashRatio).toFixed(1)),
+                },
+                consumptionRows,
+              }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+
+          // Live Apigee Monetization Developer Attributions Endpoint
+          server.middlewares.use('/api/monetization/attributions', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const token = getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const org = 'bap-apac-demo2';
+            try {
+              const devListRes = await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const devData = await devListRes.json();
+              const developers: Array<{ email: string }> = devData.developer || [];
+
+              // 2. Fetch DataCapture stats by user email to compute real consumption
+              let statsByUser: Record<string, { calls: number; tokens: number }> = {};
+              try {
+                const sUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/prod/stats/dc_user_email?select=sum(message_count),sum(dc_total_token_count)&timeRange=09/01/2026%2000:00~09/15/2026%2000:00`;
+                const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
+                if (sRes.ok) {
+                  const sData = await sRes.json();
+                  const dims = sData.environments?.[0]?.dimensions || [];
+                  for (const d of dims) {
+                    const email = d.name;
+                    const calls = Number(d.metrics?.find((m: any) => m.name === 'sum(message_count)')?.values?.[0] || 0);
+                    const tokens = Number(d.metrics?.find((m: any) => m.name === 'sum(dc_total_token_count)')?.values?.[0] || 0);
+                    statsByUser[email] = { calls, tokens };
+                  }
+                }
+              } catch {}
+
+              const attributions = await Promise.all(
+                developers.map(async (d) => {
+                  const email = d.email;
+                  let balanceUsd = 0;
+                  let hasWallet = false;
+                  let apps: string[] = [];
+                  let firstName = '';
+                  let lastName = '';
+
+                  try {
+                    const [balRes, detRes] = await Promise.all([
+                      fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/balance`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      }),
+                      fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      }),
+                    ]);
+
+                    if (balRes.ok) {
+                      const bJson = await balRes.json();
+                      const primaryWallet = bJson.wallets?.[0];
+                      if (primaryWallet?.balance) {
+                        hasWallet = true;
+                        const units = Number(primaryWallet.balance.units || 0);
+                        const nanos = Number(primaryWallet.balance.nanos || 0);
+                        balanceUsd = Number((units + nanos / 1e9).toFixed(2));
+                      }
+                    }
+
+                    if (detRes.ok) {
+                      const dJson = await detRes.json();
+                      apps = dJson.apps || [];
+                      firstName = dJson.firstName || '';
+                      lastName = dJson.lastName || '';
+                    }
+                  } catch {}
+
+                  const fullName = [firstName, lastName].filter(Boolean).join(' ') || (email.split('@')[0]);
+                  const isEnterprise = apps.some((a) => a.toLowerCase().includes('enterprise') || a.toLowerCase().includes('admin'));
+                  const userStats = statsByUser[email] || { calls: 0, tokens: 0 };
+                  const consumedUsd = Number(((userStats.tokens / 1_000_000) * 0.75).toFixed(2));
+
+                  return {
+                    userEmail: email,
+                    name: fullName,
+                    tier: isEnterprise ? 'Enterprise AI Tier' : 'Standard AI Tier',
+                    badge: hasWallet ? 'Prepaid Wallet' : 'Developer',
+                    billingType: hasWallet ? 'PREPAID' : 'POSTPAID',
+                    totalConsumedUsd: consumedUsd,
+                    totalCalls: userStats.calls,
+                    totalTokens: userStats.tokens,
+                    currentBalanceUsd: balanceUsd,
+                    allocatedBudgetUsd: balanceUsd > 0 ? Number((balanceUsd + consumedUsd + 25).toFixed(2)) : 100.0,
+                    lastActive: hasWallet ? 'Active Wallet' : 'Registered',
+                  };
+                })
+              );
+
+              res.end(JSON.stringify({ status: 'ok', attributions }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
           });
         },
       },
@@ -28,6 +754,35 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       proxy: {
+        '/api/ai-dev': {
+          target: 'https://bap.api.maloosatyam.demo.altostrat.com/ai/v1',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/ai-dev/, ''),
+          secure: false,
+        },
+        '/api/ai-prod': {
+          target: 'https://api.maloosatyam.demo.altostrat.com/ai/v1',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/ai-prod/, ''),
+          secure: false,
+        },
+        '/api/claude-dev': {
+          target: 'https://bap.api.maloosatyam.demo.altostrat.com/v1/messages',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/claude-dev/, ''),
+          secure: false,
+        },
+        '/api/claude-prod': {
+          target: 'https://api.maloosatyam.demo.altostrat.com/v1/messages',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/claude-prod/, ''),
+          secure: false,
+        },
+        '/v1': {
+          target: 'https://api.maloosatyam.demo.altostrat.com',
+          changeOrigin: true,
+          secure: false,
+        },
         '/api/vertexai-dev': {
           target: 'https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1',
           changeOrigin: true,

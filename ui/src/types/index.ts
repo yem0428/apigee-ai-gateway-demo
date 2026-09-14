@@ -1,6 +1,7 @@
 export type GatewayEnvironment = 'dev' | 'prod' | 'custom';
-export type UserPersona = 'bronze_user' | 'silver_user' | 'sales_agent';
-export type KeyTier = 'bronze' | 'silver' | 'custom';
+export type UserPersona = 'admin' | 'sales_agent' | 'loans_agent';
+export type KeyTier = 'admin' | 'sales' | 'loans' | 'custom';
+export type AppTheme = 'midnight' | 'sunset' | 'cyber' | 'light';
 
 export interface SsoUser {
   name: string;
@@ -9,6 +10,7 @@ export interface SsoUser {
   provider: string;
   avatarText: string;
   isAuthenticated: boolean;
+  idToken?: string;
 }
 
 export interface UserInfo {
@@ -27,6 +29,7 @@ export interface GatewaySettings {
   apiKey: string;
   ssoUser?: SsoUser;
   keyTier?: KeyTier;
+  idToken?: string;
   projectId: string;
   location: string;
   model: string;
@@ -55,10 +58,19 @@ export interface GatewayTelemetry {
   guardrailMessage?: string;
   headersSent: Record<string, string>;
   headersReceived: Record<string, string>;
+  provider?: string;
+  costUsd?: string;
+  costTier?: string;
+  targetUrl?: string;
+  intent?: string;
   rawRequest: any;
   rawResponse: any;
   // Legacy aliases for backwards compatibility
   'x-gateway-model'?: string;
+  'x-gateway-provider'?: string;
+  'x-auto-routed'?: string;
+  'x-gateway-cost-usd'?: string;
+  'x-gateway-cost-tier'?: string;
   'x-prompt-tokens'?: string;
   'x-candidate-tokens'?: string;
   'x-total-tokens'?: string;
@@ -84,6 +96,7 @@ export interface ChatMessage {
   isError?: boolean;
   toolCalls?: ToolTrace[];
   telemetry?: GatewayTelemetry;
+  targetUrl?: string;
 }
 
 export interface ScenarioPreset {
@@ -115,7 +128,113 @@ export interface PolicySettings {
   simulateSpike: boolean;
 }
 
-export type AppTab = 'ai-gateway' | 'mcp-gateway';
+export type AppTab = 'ai-gateway' | 'mcp-gateway' | 'kvm-pricing' | 'monetization' | 'analytics' | 'rate-cards';
+
+export interface DeveloperWallet {
+  currencyCode: string;
+  units: string;
+  nanos: number;
+  lastCreditTime?: string;
+  formattedBalance: string;
+}
+
+export interface RatePlanInfo {
+  name: string;
+  apiproduct: string;
+  displayName: string;
+  billingPeriod: string;
+  currencyCode: string;
+  consumptionPricingType: string;
+  consumptionPricingRates?: Array<{
+    fee: {
+      currencyCode: string;
+      units?: string;
+      nanos?: number;
+    };
+  }>;
+  state: 'PUBLISHED' | 'DRAFT' | string;
+  startTime?: string;
+  createdAt?: string;
+  lastModifiedAt?: string;
+}
+
+export interface DeveloperSubscription {
+  name: string;
+  apiproduct: string;
+  startTime?: string;
+  createdAt?: string;
+  lastModifiedAt?: string;
+}
+
+export interface DeveloperMonetizationConfig {
+  billingType: 'PREPAID' | 'POSTPAID' | string;
+}
+
+export interface PromptTransactionRecord {
+  id: string;
+  timestamp: string;
+  userEmail: string;
+  model: string;
+  provider: string;
+  promptTokens: number;
+  candidatesTokens: number;
+  totalTokens: number;
+  costUsd: number;
+  latencyMs: number;
+  cacheStatus: 'HIT' | 'MISS' | 'DISABLED';
+  status: number;
+  autoRouted?: boolean;
+}
+
+export interface UserAnalyticsSummary {
+  userEmail: string;
+  totalCalls: number;
+  totalTokens: number;
+  totalSpendUsd: number;
+  avgLatencyMs: number;
+  lastActive: string;
+}
+
+export interface UserConsumptionRecord {
+  userEmail: string;
+  model: string;
+  provider: string;
+  tier: string;
+  totalTraffic: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  isUnauthenticated?: boolean;
+}
+
+export interface UserMonetizationAttribution {
+  userEmail: string;
+  name: string;
+  tier: string;
+  badge: string;
+  billingType: 'PREPAID' | 'POSTPAID';
+  totalConsumedUsd: number;
+  totalCalls: number;
+  totalTokens: number;
+  currentBalanceUsd: number;
+  allocatedBudgetUsd: number;
+  lastActive: string;
+}
+
+export interface ModelRateItem {
+  id: string;
+  input: number;
+  output: number;
+  provider: 'google' | 'anthropic' | string;
+  tier: 'low' | 'medium' | 'high' | string;
+}
+
+export type RateCardDictionary = Record<string, {
+  input: number;
+  output: number;
+  provider?: string;
+  tier?: string;
+}>;
 
 export interface McpToolInputProperty {
   type: string;
