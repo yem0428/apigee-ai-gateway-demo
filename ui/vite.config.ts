@@ -222,8 +222,12 @@ async function provisionUserDeveloperAndApp(
           },
           body: JSON.stringify({
             name: targetAppName,
+            displayName: targetAppName,
             apiProducts: ['Enterprise AI Tier', 'Enterprise Tools MCP'],
-            attributes: [{ name: 'persona', value: 'admin' }],
+            attributes: [
+              { name: 'DisplayName', value: targetAppName },
+              { name: 'persona', value: 'admin' },
+            ],
           }),
         }
       );
@@ -231,7 +235,7 @@ async function provisionUserDeveloperAndApp(
         matchedApp = await createAppRes.json();
       }
     } else {
-      // Ensure products are attached
+      // Ensure products are attached and displayName is set
       const existingProducts = new Set<string>();
       if (matchedApp.credentials) {
         for (const cred of matchedApp.credentials) {
@@ -244,9 +248,17 @@ async function provisionUserDeveloperAndApp(
       }
       const requiredProducts = ['Enterprise AI Tier', 'Enterprise Tools MCP'];
       const missingProducts = requiredProducts.filter((p) => !existingProducts.has(p));
-      if (missingProducts.length > 0) {
-        console.log(`[Vite Server] App ${matchedApp.name} missing products: ${missingProducts.join(', ')}. Updating...`);
+      const hasDisplayNameAttr = matchedApp.attributes?.some(
+        (a: any) => (a.name === 'DisplayName' || a.name === 'displayName') && a.value
+      );
+
+      if (missingProducts.length > 0 || !hasDisplayNameAttr) {
+        console.log(`[Vite Server] Ensuring app ${matchedApp.name} has required products and displayName...`);
         const updatedProducts = Array.from(new Set([...existingProducts, ...requiredProducts]));
+        const existingAttrs = matchedApp.attributes || [];
+        const mergedAttrs = existingAttrs.filter((a: any) => a.name !== 'DisplayName' && a.name !== 'displayName');
+        mergedAttrs.unshift({ name: 'DisplayName', value: matchedApp.name });
+
         await fetch(
           `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/apps/${encodeURIComponent(matchedApp.name)}`,
           {
@@ -257,7 +269,9 @@ async function provisionUserDeveloperAndApp(
             },
             body: JSON.stringify({
               name: matchedApp.name,
+              displayName: matchedApp.name,
               apiProducts: updatedProducts,
+              attributes: mergedAttrs,
             }),
           }
         );

@@ -189,13 +189,59 @@ async function provisionUserDeveloperAndApp(org, token, email, name) {
           },
           body: JSON.stringify({
             name: targetAppName,
+            displayName: targetAppName,
             apiProducts: ['Enterprise AI Tier', 'Enterprise Tools MCP'],
-            attributes: [{ name: 'persona', value: 'admin' }],
+            attributes: [
+              { name: 'DisplayName', value: targetAppName },
+              { name: 'persona', value: 'admin' },
+            ],
           }),
         }
       );
       if (createAppRes.ok) {
         matchedApp = await createAppRes.json();
+      }
+    } else {
+      // Ensure products are attached and displayName is set
+      const existingProducts = new Set();
+      if (matchedApp.credentials) {
+        for (const cred of matchedApp.credentials) {
+          if (cred.apiProducts) {
+            for (const p of cred.apiProducts) {
+              existingProducts.add(p.apiproduct);
+            }
+          }
+        }
+      }
+      const requiredProducts = ['Enterprise AI Tier', 'Enterprise Tools MCP'];
+      const missingProducts = requiredProducts.filter((p) => !existingProducts.has(p));
+      const hasDisplayNameAttr = matchedApp.attributes?.some(
+        (a) => (a.name === 'DisplayName' || a.name === 'displayName') && a.value
+      );
+
+      if (missingProducts.length > 0 || !hasDisplayNameAttr) {
+        console.log(`[Server] Ensuring app ${matchedApp.name} has required products and displayName...`);
+        const updatedProducts = Array.from(new Set([...existingProducts, ...requiredProducts]));
+        const existingAttrs = matchedApp.attributes || [];
+        const mergedAttrs = existingAttrs.filter((a) => a.name !== 'DisplayName' && a.name !== 'displayName');
+        mergedAttrs.unshift({ name: 'DisplayName', value: matchedApp.name });
+
+        await fetch(
+          `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/apps/${encodeURIComponent(matchedApp.name)}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: matchedApp.name,
+              displayName: matchedApp.name,
+              apiProducts: updatedProducts,
+              attributes: mergedAttrs,
+            }),
+          }
+        );
       }
     }
 
