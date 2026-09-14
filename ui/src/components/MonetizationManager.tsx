@@ -17,12 +17,8 @@ import {
   X,
   CreditCard,
   ShieldCheck,
-  Activity,
   User,
   Users,
-  Code,
-  Check,
-  Copy,
 } from 'lucide-react';
 import {
   fetchModelRates,
@@ -51,7 +47,7 @@ interface MonetizationManagerProps {
   settings?: GatewaySettings;
 }
 
-type MonetizationSubTab = 'wallets' | 'rate-cards' | 'rate-plans' | 'governance';
+type MonetizationSubTab = 'wallets' | 'rate-cards' | 'rate-plans';
 
 export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   currentEnv = 'prod',
@@ -60,7 +56,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<MonetizationSubTab>(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search).get('subtab') as MonetizationSubTab;
-      if (p && ['wallets', 'rate-cards', 'rate-plans', 'governance'].includes(p)) {
+      if (p && ['wallets', 'rate-cards', 'rate-plans'].includes(p)) {
         return p;
       }
     }
@@ -105,7 +101,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [showCustomTopUpModal, setShowCustomTopUpModal] = useState(false);
   const [isSimulatingExhaustedWallet, setIsSimulatingExhaustedWallet] = useState(false);
   const [userAttributionSearch, setUserAttributionSearch] = useState('');
-  const [copiedXml, setCopiedXml] = useState(false);
 
   // -------------------------------------------------------------
   // 2. KVM Model Rate Cards State
@@ -579,19 +574,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
               <span>Product Rate Plans & Subscriptions</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('governance')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
-                activeSubTab === 'governance'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/80 dark:border-slate-700'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>Policy Governance & Runtime Flow</span>
             </button>
           </div>
         </div>
@@ -1330,102 +1312,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     </div>
                   );
                 })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SUB-TAB 4: POLICY GOVERNANCE & RUNTIME FLOW */}
-        {activeSubTab === 'governance' && (
-          <div className="space-y-6">
-            <div className="rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-6 space-y-6 shadow-xs">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Apigee Monetization Runtime Architecture & Execution Pipeline</span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  How incoming LLM requests are gated, rated, and accounted in real-time by Apigee X proxy policies
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-mono">
-                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 relative shadow-xs">
-                  <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase">Stage 1: PreFlow Auth</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100 font-sans">API Key Verification</div>
-                  <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                    Resolves developer product, monthly budget limit attribute, and developer identity.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-500/40 space-y-2 relative shadow-xs">
-                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">Stage 2: Limits Check</div>
-                  <div className="text-sm font-bold text-emerald-700 dark:text-emerald-300 font-sans">Monetization Limits Check</div>
-                  <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                    Verifies active rate plan subscription and wallet balance &gt; $0. Returns HTTP 403 if exhausted.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/40 space-y-2 relative shadow-xs">
-                  <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">Stage 3: PostFlow Rating</div>
-                  <div className="text-sm font-bold text-amber-700 dark:text-amber-300 font-sans">Model Rates & Cost Engine</div>
-                  <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                    Calculates micro-dollars from rate cards, sets unit price multiplier for rating engine.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-500/40 space-y-2 relative shadow-xs">
-                  <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase">Stage 4: Telemetry Headers</div>
-                  <div className="text-sm font-bold text-purple-700 dark:text-purple-300 font-sans">Balance & Cost Injection</div>
-                  <p className="text-[11px] font-sans text-slate-500 dark:text-slate-400">
-                    Passes prepaid balance, remaining quota, and transaction cost headers to caller.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
-                <div className="bg-slate-100 dark:bg-slate-850 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Code className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-sans">
-                      Monetization Limits Policy Configuration
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                      apiproxy/policies/MonetizationLimits.xml
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<MonetizationLimitsCheck continueOnError="false" enabled="true" name="MLC-EnforceMonetizationLimits">\n  <DisplayName>MLC-EnforceMonetizationLimits</DisplayName>\n  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>\n  <FaultResponse>\n    <Set>\n      <Payload contentType="application/json">{"error": {"code": 403, "status": "PERMISSION_DENIED", "message": "Monetization limit exceeded or prepaid balance exhausted: {mint.limitscheck.status_message}"}}</Payload>\n      <StatusCode>403</StatusCode>\n      <ReasonPhrase>Forbidden</ReasonPhrase>\n    </Set>\n  </FaultResponse>\n</MonetizationLimitsCheck>`);
-                      setCopiedXml(true);
-                      setTimeout(() => setCopiedXml(false), 2000);
-                    }}
-                    className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer font-sans font-semibold shadow-xs"
-                  >
-                    {copiedXml ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedXml ? 'Copied' : 'Copy XML'}</span>
-                  </button>
-                </div>
-                <div 
-                  className="p-4 font-mono text-xs overflow-x-auto leading-relaxed"
-                  style={{ backgroundColor: '#0f172a', color: '#e2e8f0' }}
-                >
-                  <pre className="text-[11px] font-mono leading-relaxed text-emerald-400">
-{`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<MonetizationLimitsCheck continueOnError="false" enabled="true" name="MLC-EnforceMonetizationLimits">
-  <DisplayName>MLC-EnforceMonetizationLimits</DisplayName>
-  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
-  <FaultResponse>
-    <Set>
-      <Payload contentType="application/json">{"error": {"code": 403, "status": "PERMISSION_DENIED", "message": "Monetization limit exceeded or prepaid balance exhausted: {mint.limitscheck.status_message}"}}</Payload>
-      <StatusCode>403</StatusCode>
-      <ReasonPhrase>Forbidden</ReasonPhrase>
-    </Set>
-  </FaultResponse>
-</MonetizationLimitsCheck>`}
-                  </pre>
-                </div>
               </div>
             </div>
           </div>
