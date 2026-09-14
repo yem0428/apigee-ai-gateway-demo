@@ -54,28 +54,26 @@ flowchart TB
 
     subgraph Compute Layer [Serverless Backend - asia-southeast1]
         NEG["Serverless NEG\n(apigee-ai-ui-neg)"]
-        CloudRun["Cloud Run Service: apigee-ai-gateway-ui\n(Ingress: internal-and-cloud-load-balancing)\n(Port: 8080)"]
-        Nginx["NGINX Alpine Web Server\n(/etc/nginx/templates/default.conf.template)"]
-        EnvScript["Entrypoint Hook: 40-generate-env.sh\n(Secret Env -> /env-config.js)"]
-        Static["Compiled React + Vite SPA\n(/usr/share/nginx/html)"]
+        CloudRun["Cloud Run Service: apigee-ai-gateway-ui\n(Ingress: internal-and-cloud-load-balancing)\n(Port: 8080)\n(Service Account: apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com)"]
+        NodeServer["Node 20 Server\n(server.js)"]
+        Static["Compiled React + Vite SPA\n(dist/)"]
+        ManagementProxy["Dynamic Management API Proxy\n(getGcpAccessToken via ADC)"]
 
         IAP_SA -->|roles/run.invoker| NEG
         NEG --> CloudRun
-        SM_Bronze -.->|Mounted as BRONZE_API_KEY| CloudRun
-        SM_Silver -.->|Mounted as SILVER_API_KEY| CloudRun
-        SM_Sales -.->|Mounted as SALES_API_KEY| CloudRun
-        CloudRun --> EnvScript
-        EnvScript --> Static
-        CloudRun --> Nginx
-        Nginx --> Static
+        CloudRun --> NodeServer
+        NodeServer --> Static
+        NodeServer --> ManagementProxy
     end
 
     subgraph Apigee AI Gateway Layer [External Proxies]
-        DevProxy["Dev Gateway:\nbap.api.maloosatyam.demo.altostrat.com/vertexai/v1"]
-        ProdProxy["Prod Gateway:\napi.maloosatyam.demo.altostrat.com/vertexai/v1"]
+        DevProxy["Dev Gateway:\nbap.api.maloosatyam.demo.altostrat.com/ai/v1"]
+        ProdProxy["Prod Gateway:\napi.maloosatyam.demo.altostrat.com/ai/v1"]
+        McpProxy["MCP Gateway:\napi.maloosatyam.demo.altostrat.com/mcp"]
         
-        Nginx -->|Reverse Proxy: /api/vertexai-dev| DevProxy
-        Nginx -->|Reverse Proxy: /api/vertexai-prod| ProdProxy
+        NodeServer -->|Reverse Proxy: /api/ai-dev| DevProxy
+        NodeServer -->|Reverse Proxy: /api/ai-prod| ProdProxy
+        NodeServer -->|Reverse Proxy: /api/mcp-prod| McpProxy
     end
 ```
 

@@ -1,10 +1,15 @@
 {
   "name": "Unified Sales App",
+  "displayName": "Unified Sales App",
   "apiProducts": [
     "Standard AI Tier",
     "Sales Tools MCP"
   ],
   "attributes": [
+    {
+      "name": "DisplayName",
+      "value": "Unified Sales App"
+    },
     {
       "name": "persona",
       "value": "sales_agent"
