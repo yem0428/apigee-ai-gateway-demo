@@ -124,7 +124,6 @@ def main():
     print("\n2. Synchronizing Developer Apps & Keys...")
     app_dir = os.path.join(base_dir, "apps")
     target_apps = [
-        ("unified_admin_app.json", "VITE_ADMIN_API_KEY"),
         ("unified_sales_app.json", "VITE_SALES_API_KEY"),
         ("unified_loans_app.json", "VITE_LOANS_API_KEY")
     ]
@@ -298,7 +297,6 @@ def main():
     print("\n2. Synchronizing Developer Apps & Keys...")
     app_dir = os.path.join(base_dir, "apps")
     target_apps = [
-        ("unified_admin_app.json", "VITE_ADMIN_API_KEY"),
         ("unified_sales_app.json", "VITE_SALES_API_KEY"),
         ("unified_loans_app.json", "VITE_LOANS_API_KEY")
     ]

@@ -207,7 +207,6 @@ async function provisionUserDeveloperAndApp(
     let matchedApp = appsList.find(
       (a: any) =>
         a.name === targetAppName ||
-        a.name === 'Unified Admin App' ||
         a.name.startsWith(targetAppName)
     );
 

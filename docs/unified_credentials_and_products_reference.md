@@ -68,11 +68,11 @@ The products are designed to be **generic and provider-agnostic** to facilitate 
 
 Each Developer App is created under the developer profile `maloosatyam@google.com`:
 
-| App Name | File | Persona | Associated Products | Unified Key Environment Variable |
+| App Name | File | Persona | Associated Products | Provisioning Model |
 | :--- | :--- | :--- | :--- | :--- |
-| **`Unified Admin App`** | [`unified_admin_app.json`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_admin_app.json) | Admin | `Enterprise AI Tier`<br>`Enterprise Tools MCP` | `VITE_ADMIN_API_KEY` |
-| **`Unified Sales App`** | [`unified_sales_app.json`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_sales_app.json) | Sales Agent | `Standard AI Tier`<br>`Sales Tools MCP` | `VITE_SALES_API_KEY` |
-| **`Unified Loans App`** | [`unified_loans_app.json`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_loans_app.json) | Loans Agent | `Standard AI Tier`<br>`Loans Tools MCP` | `VITE_LOANS_API_KEY` |
+| **`Unified Admin <USERNAME> App`** | Dynamic (`/api/me`) | Admin | `Enterprise AI Tier`<br>`Enterprise Tools MCP` | **Dynamic Per SSO User** |
+| **`Unified Sales App`** | [`unified_sales_app.json`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_sales_app.json) | Sales Agent | `Standard AI Tier`<br>`Sales Tools MCP` | **Global Shared Persona** |
+| **`Unified Loans App`** | [`unified_loans_app.json`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_loans_app.json) | Loans Agent | `Standard AI Tier`<br>`Loans Tools MCP` | **Global Shared Persona** |
 
 ---
 
