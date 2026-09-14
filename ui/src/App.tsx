@@ -228,7 +228,13 @@ export function App() {
   });
 
   // Analytics Dashboard Controls State (hoisted to Navbar)
-  const [analyticsViewMode, setAnalyticsViewMode] = useState<'admin' | 'user'>('admin');
+  const [analyticsViewMode, setAnalyticsViewMode] = useState<'admin' | 'user'>(() => {
+    if (typeof window !== 'undefined') {
+      const v = new URLSearchParams(window.location.search).get('view');
+      if (v === 'admin' || v === 'user') return v;
+    }
+    return 'admin';
+  });
   const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const analyticsRefreshRef = useRef<() => void>(() => {});
