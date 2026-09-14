@@ -286,12 +286,61 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
 };
 
+async function proxyRequest(req, res, targetUrl) {
+  try {
+    const headers = { ...req.headers };
+    delete headers.host;
+
+    let bodyBuffer = null;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      bodyBuffer = Buffer.concat(chunks);
+    }
+
+    const proxyRes = await fetch(targetUrl, {
+      method: req.method,
+      headers,
+      body: bodyBuffer,
+    });
+
+    res.statusCode = proxyRes.status;
+    proxyRes.headers.forEach((val, key) => res.setHeader(key, val));
+    const responseBody = await proxyRes.arrayBuffer();
+    res.end(Buffer.from(responseBody));
+  } catch (err) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const reqUrl = req.url || '/';
   const parsedUrl = new URL(reqUrl, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
-  // 1. /api/me endpoint
+  // 1. Serve /env-config.js dynamically for SPA
+  if (pathname === '/env-config.js') {
+    res.setHeader('Content-Type', 'text/javascript');
+    res.setHeader('Cache-Control', 'no-store');
+    const runtimeConfig = {
+      ADMIN_API_KEY: process.env.ADMIN_API_KEY || '',
+      SALES_API_KEY: process.env.SALES_API_KEY || '',
+      LOANS_API_KEY: process.env.LOANS_API_KEY || '',
+      ADMIN_USER_EMAIL: process.env.ADMIN_USER_EMAIL || 'admin.user@google.com',
+      SALES_AGENT_EMAIL: process.env.SALES_AGENT_EMAIL || 'sales.agent@example.com',
+      LOANS_AGENT_EMAIL: process.env.LOANS_AGENT_EMAIL || 'loans.agent@example.com',
+      SSO_USER_EMAIL: process.env.SSO_USER_EMAIL || 'demo.user@google.com',
+      DEFAULT_ENV: process.env.DEFAULT_ENV || 'prod',
+    };
+    res.end(`window.__RUNTIME_CONFIG__ = ${JSON.stringify(runtimeConfig)};`);
+    return;
+  }
+
+  // 2. /api/me endpoint
   if (pathname === '/api/me' || pathname === '/api/me/') {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
@@ -329,7 +378,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 2. /api/kvm/rates
+  // 3. /api/kvm/rates
   if (pathname === '/api/kvm/rates') {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
@@ -359,7 +408,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 3. /api/monetization/balance
+  // 4. /api/monetization/balance
   if (pathname === '/api/monetization/balance') {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
@@ -380,55 +429,61 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 4. Proxy /api/vertexai-prod or /api/ai-prod
-  if (pathname.startsWith('/api/vertexai-prod') || pathname.startsWith('/api/ai-prod')) {
-    const targetPath = pathname.replace(/^\/api\/(vertexai-prod|ai-prod)/, '');
-    const upstreamUrl = `https://api.maloosatyam.demo.altostrat.com/ai/v1${targetPath}${parsedUrl.search}`;
-    try {
-      const headers = { ...req.headers };
-      delete headers.host;
-      const proxyRes = await fetch(upstreamUrl, {
-        method: req.method,
-        headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined,
-        duplex: 'half',
-      });
-      res.statusCode = proxyRes.status;
-      proxyRes.headers.forEach((val, key) => res.setHeader(key, val));
-      const body = await proxyRes.arrayBuffer();
-      res.end(Buffer.from(body));
-    } catch (err) {
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: err.message }));
-    }
+  // Reverse proxy routes for Apigee Gateway
+  if (pathname.startsWith('/api/ai-dev')) {
+    const targetPath = pathname.replace(/^\/api\/ai-dev/, '');
+    await proxyRequest(req, res, `https://bap.api.maloosatyam.demo.altostrat.com/ai/v1${targetPath}${parsedUrl.search}`);
     return;
   }
 
-  // 5. Proxy /api/mcp-prod
+  if (pathname.startsWith('/api/ai-prod')) {
+    const targetPath = pathname.replace(/^\/api\/ai-prod/, '');
+    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/ai/v1${targetPath}${parsedUrl.search}`);
+    return;
+  }
+
+  if (pathname.startsWith('/api/claude-dev')) {
+    const targetPath = pathname.replace(/^\/api\/claude-dev/, '');
+    await proxyRequest(req, res, `https://bap.api.maloosatyam.demo.altostrat.com/v1/messages${targetPath}${parsedUrl.search}`);
+    return;
+  }
+
+  if (pathname.startsWith('/api/claude-prod')) {
+    const targetPath = pathname.replace(/^\/api\/claude-prod/, '');
+    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/v1/messages${targetPath}${parsedUrl.search}`);
+    return;
+  }
+
+  if (pathname.startsWith('/api/vertexai-dev')) {
+    const targetPath = pathname.replace(/^\/api\/vertexai-dev/, '');
+    await proxyRequest(req, res, `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1${targetPath}${parsedUrl.search}`);
+    return;
+  }
+
+  if (pathname.startsWith('/api/vertexai-prod')) {
+    const targetPath = pathname.replace(/^\/api\/vertexai-prod/, '');
+    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/vertexai/v1${targetPath}${parsedUrl.search}`);
+    return;
+  }
+
+  if (pathname.startsWith('/api/mcp-dev')) {
+    const targetPath = pathname.replace(/^\/api\/mcp-dev/, '');
+    await proxyRequest(req, res, `https://bap.api.maloosatyam.demo.altostrat.com/mcp${targetPath}${parsedUrl.search}`);
+    return;
+  }
+
   if (pathname.startsWith('/api/mcp-prod')) {
     const targetPath = pathname.replace(/^\/api\/mcp-prod/, '');
-    const upstreamUrl = `https://api.maloosatyam.demo.altostrat.com/mcp${targetPath}${parsedUrl.search}`;
-    try {
-      const headers = { ...req.headers };
-      delete headers.host;
-      const proxyRes = await fetch(upstreamUrl, {
-        method: req.method,
-        headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined,
-        duplex: 'half',
-      });
-      res.statusCode = proxyRes.status;
-      proxyRes.headers.forEach((val, key) => res.setHeader(key, val));
-      const body = await proxyRes.arrayBuffer();
-      res.end(Buffer.from(body));
-    } catch (err) {
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: err.message }));
-    }
+    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/mcp${targetPath}${parsedUrl.search}`);
     return;
   }
 
-  // 6. Serve static SPA files from dist/
+  if (pathname.startsWith('/v1')) {
+    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com${pathname}${parsedUrl.search}`);
+    return;
+  }
+
+  // 5. Serve static SPA files from dist/
   let filePath = path.join(DIST_DIR, pathname);
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(DIST_DIR, 'index.html');
