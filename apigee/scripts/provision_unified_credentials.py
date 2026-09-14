@@ -59,6 +59,13 @@ def sync_app(org, dev, token, filepath):
     with open(filepath) as f:
         app_data = json.load(f)
     app_name = app_data["name"]
+    # Ensure displayName matches name both at top-level and in attributes
+    app_data["displayName"] = app_name
+    attrs = list(app_data.get("attributes", []))
+    if not any(a.get("name") in ("DisplayName", "displayName") for a in attrs):
+        attrs.insert(0, {"name": "DisplayName", "value": app_name})
+    app_data["attributes"] = attrs
+
     enc_name = quote(app_name)
     enc_dev = quote(dev)
     
@@ -69,19 +76,27 @@ def sync_app(org, dev, token, filepath):
     if status != "200":
         post_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/apps"
         res = run_curl(post_url, method="POST", data=app_data, token=token)
-        print(f"  [CREATED] Developer App: {app_name}")
+        print(f"  [CREATED] Developer App: {app_name} (displayName: {app_name})")
     else:
         # Fetch current app
         res = run_curl(url, method="GET", token=token)
-        # Update products if needed
+        # Update products and ensure displayName if needed
+        curr_attrs = res.get("attributes", []) if isinstance(res, dict) else []
+        merged_attrs = [a for a in curr_attrs if a.get("name") not in ("DisplayName", "displayName")]
+        merged_attrs.insert(0, {"name": "DisplayName", "value": app_name})
+        for a in attrs:
+            if not any(ma.get("name") == a.get("name") for ma in merged_attrs):
+                merged_attrs.append(a)
+
         put_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}/apps/{enc_name}"
         update_payload = {
             "name": app_name,
+            "displayName": app_name,
             "apiProducts": app_data.get("apiProducts", []),
-            "attributes": app_data.get("attributes", [])
+            "attributes": merged_attrs
         }
         res = run_curl(put_url, method="PUT", data=update_payload, token=token)
-        print(f"  [UPDATED] Developer App: {app_name}")
+        print(f"  [UPDATED] Developer App: {app_name} (displayName: {app_name})")
     
     # Extract API key (consumerKey)
     credentials = res.get("credentials", [])
