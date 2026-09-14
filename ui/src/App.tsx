@@ -49,6 +49,12 @@ export function App() {
         if (!validUsers.includes(parsed.activeUser)) {
           parsed.activeUser = 'admin';
         }
+        const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const queryUser = urlParams?.get('user') as UserPersona;
+        if (queryUser && validUsers.includes(queryUser)) {
+          parsed.activeUser = queryUser;
+        }
+
         const userInfo = USERS[parsed.activeUser as UserPersona] || USERS.admin;
         parsed.apiKey = userInfo.apiKey;
 
@@ -83,6 +89,15 @@ export function App() {
       }
     } catch (e) {
       console.error('Failed to load settings from localStorage', e);
+    }
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const queryUser = urlParams?.get('user') as UserPersona;
+    if (queryUser && ['admin', 'sales_agent', 'loans_agent'].includes(queryUser)) {
+      return {
+        ...DEFAULT_SETTINGS,
+        activeUser: queryUser,
+        apiKey: USERS[queryUser]?.apiKey || DEFAULT_SETTINGS.apiKey,
+      };
     }
     return DEFAULT_SETTINGS;
   });
@@ -237,12 +252,30 @@ export function App() {
   });
   const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsUserFilter, setAnalyticsUserFilter] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const u = new URLSearchParams(window.location.search).get('userFilter');
+      if (u) return u;
+    }
+    return 'all';
+  });
+  const [analyticsUserList, setAnalyticsUserList] = useState<{ email: string; name?: string }[]>([]);
   const analyticsRefreshRef = useRef<() => void>(() => {});
 
   const handleResetChat = () => {
     setMessages([]);
     setActiveTelemetry(null);
   };
+
+  // Monetization tab is strictly accessible only in Admin view
+  useEffect(() => {
+    const isAdmin = activeTab === 'analytics'
+      ? analyticsViewMode === 'admin'
+      : settings.activeUser === 'admin';
+    if (!isAdmin && (activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards')) {
+      setActiveTab('ai-gateway');
+    }
+  }, [activeTab, analyticsViewMode, settings.activeUser]);
 
   return (
     <div className="h-screen bg-slate-950 flex flex-col text-slate-100 font-sans selection:bg-blue-600 selection:text-white overflow-hidden">
@@ -258,7 +291,12 @@ export function App() {
         onThemeChange={setTheme}
         analyticsControls={{
           viewMode: analyticsViewMode,
-          setViewMode: setAnalyticsViewMode,
+          setViewMode: (mode) => {
+            setAnalyticsViewMode(mode);
+            if (mode === 'user') {
+              setAnalyticsUserFilter('all');
+            }
+          },
           timeRange: analyticsTimeRange,
           setTimeRange: setAnalyticsTimeRange,
           loading: analyticsLoading,
@@ -267,6 +305,9 @@ export function App() {
               analyticsRefreshRef.current();
             }
           },
+          userFilter: analyticsUserFilter,
+          setUserFilter: setAnalyticsUserFilter,
+          userList: analyticsUserList,
         }}
       />
 
@@ -295,6 +336,9 @@ export function App() {
             registerRefresh={(fn) => {
               analyticsRefreshRef.current = fn;
             }}
+            userFilter={analyticsUserFilter}
+            onUserFilterChange={setAnalyticsUserFilter}
+            onUserListChange={setAnalyticsUserList}
           />
         )}
       </main>

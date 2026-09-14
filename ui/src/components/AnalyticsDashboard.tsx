@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Coins,
+  Wallet,
   Sparkles,
   Database,
-  Search,
   Bot,
   Zap,
   Filter,
@@ -14,10 +14,10 @@ import {
   Info,
   User,
 } from 'lucide-react';
-import { GatewaySettings, UserConsumptionRecord } from '../types';
+import { GatewaySettings, UserConsumptionRecord, UserMonetizationAttribution } from '../types';
 import { DEFAULT_SSO_USER } from '../services/defaultSettings';
 import { DonutPieChart, DonutSlice } from './DonutPieChart';
-import { fetchFleetAnalytics, FleetAnalyticsResponse } from '../services/api';
+import { fetchFleetAnalytics, FleetAnalyticsResponse, fetchDeveloperAttributions } from '../services/api';
 
 export interface AnalyticsDashboardProps {
   settings: GatewaySettings;
@@ -25,6 +25,9 @@ export interface AnalyticsDashboardProps {
   timeRange?: '24h' | '7d' | '30d';
   setLoading?: (loading: boolean) => void;
   registerRefresh?: (fn: () => void) => void;
+  userFilter?: string;
+  onUserFilterChange?: (user: string) => void;
+  onUserListChange?: (users: { email: string; name?: string }[]) => void;
 }
 
 type SortField = 'userEmail' | 'model' | 'totalTraffic' | 'inputTokens' | 'outputTokens' | 'costUsd';
@@ -80,17 +83,39 @@ const AreaSparkline: React.FC<{
   );
 };
 
+const DEFAULT_DEVELOPERS: { email: string; name?: string }[] = [
+  { email: 'adk-auto-insurance-developer@acme.com', name: 'ADK Auto Insurance' },
+  { email: 'changichargers@google.com', name: 'Changi Chargers' },
+  { email: 'maloosatyam@gmail.com', name: 'Satyam Maloo' },
+  { email: 'maloosatyam@google.com', name: 'Satyam Maloo' },
+  { email: 'roshah@google.com', name: 'Rohit Shah' },
+  { email: 'shared-dev@example.com', name: 'Shared Developer' },
+  { email: 'us-central1-dev@example.com', name: 'US Developer' },
+];
+
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   settings,
   viewMode = 'admin',
   timeRange = '7d',
   setLoading: controlledSetLoading,
   registerRefresh,
+  userFilter: controlledUserFilter,
+  onUserFilterChange: controlledOnUserFilterChange,
+  onUserListChange,
 }) => {
   const [, setInternalLoading] = useState(false);
   const setLoading = controlledSetLoading ?? setInternalLoading;
 
-  const [searchFilter, setSearchFilter] = useState('');
+  const [internalUserFilter, setInternalUserFilter] = useState<string>('all');
+  const userFilter = controlledUserFilter ?? internalUserFilter;
+  const setUserFilter = (u: string) => {
+    if (controlledOnUserFilterChange) {
+      controlledOnUserFilterChange(u);
+    } else {
+      setInternalUserFilter(u);
+    }
+  };
+
   const [modelFilter, setModelFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('costUsd');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -99,14 +124,25 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   const currentUserEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
 
   const [fleetData, setFleetData] = useState<FleetAnalyticsResponse | null>(null);
+  const [attributions, setAttributions] = useState<UserMonetizationAttribution[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetchFleetAnalytics(timeRange, 'prod');
-      setFleetData(res);
+      const [fleetRes, attrRes] = await Promise.allSettled([
+        fetchFleetAnalytics(timeRange, 'prod'),
+        fetchDeveloperAttributions(),
+      ]);
+      if (fleetRes.status === 'fulfilled') {
+        setFleetData(fleetRes.value);
+      } else {
+        setFetchError(fleetRes.reason?.message || 'Failed to load Apigee Management API stats');
+      }
+      if (attrRes.status === 'fulfilled' && attrRes.value.attributions) {
+        setAttributions(attrRes.value.attributions);
+      }
     } catch (err: any) {
       setFetchError(err.message || 'Failed to load Apigee Management API stats');
     } finally {
@@ -129,19 +165,87 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return fleetData?.consumptionRows || [];
   }, [fleetData]);
 
-  // Active consumption records based on Admin Fleet vs Personal User viewMode
+  // Authoritative user/developer list
+  const userList = useMemo(() => {
+    const map = new Map<string, { email: string; name?: string }>();
+    DEFAULT_DEVELOPERS.forEach((d) => map.set(d.email.toLowerCase(), d));
+    attributions.forEach((a) => {
+      map.set(a.userEmail.toLowerCase(), { email: a.userEmail, name: a.name });
+    });
+    allConsumptionRecords.forEach((r) => {
+      const lower = r.userEmail.toLowerCase();
+      if (!map.has(lower)) {
+        map.set(lower, { email: r.userEmail, name: r.userEmail.split('@')[0] });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email));
+  }, [attributions, allConsumptionRecords]);
+
+  useEffect(() => {
+    if (onUserListChange && userList.length > 0) {
+      onUserListChange(userList);
+    }
+  }, [userList, onUserListChange]);
+
+  // Active consumption records based on Admin Fleet vs Personal User viewMode and userFilter
   const activeConsumptionRecords: UserConsumptionRecord[] = useMemo(() => {
     if (viewMode === 'user') {
       return allConsumptionRecords.filter(
         (r) => r.userEmail.toLowerCase() === currentUserEmail.toLowerCase()
       );
     }
+    if (userFilter && userFilter !== 'all') {
+      return allConsumptionRecords.filter(
+        (r) => r.userEmail.toLowerCase() === userFilter.toLowerCase()
+      );
+    }
     return allConsumptionRecords;
-  }, [allConsumptionRecords, viewMode, currentUserEmail]);
+  }, [allConsumptionRecords, viewMode, currentUserEmail, userFilter]);
 
-  // Overall KPI card summary stats directly from Apigee Management API or computed for User View
+  // Available Balance: Added together for Admin View (All Users) or individual for selected user / user view
+  const availableBalanceData = useMemo(() => {
+    if (viewMode === 'user') {
+      const match = attributions.find(
+        (u) => u.userEmail.toLowerCase() === currentUserEmail.toLowerCase()
+      );
+      const bal = match ? match.currentBalanceUsd : 109.98;
+      const isPrepaid = match ? match.billingType === 'PREPAID' : true;
+      return {
+        amount: bal.toFixed(2),
+        badge: isPrepaid ? 'Prepaid' : 'Postpaid',
+        subtitle: `Authenticated User (${currentUserEmail})`,
+        sparkline: [120, 118, 115, 114, 112, 110, bal],
+      };
+    }
+
+    if (userFilter !== 'all') {
+      const match = attributions.find(
+        (u) => u.userEmail.toLowerCase() === userFilter.toLowerCase()
+      );
+      const bal = match ? match.currentBalanceUsd : 0;
+      const isPrepaid = match ? match.billingType === 'PREPAID' : false;
+      return {
+        amount: bal.toFixed(2),
+        badge: isPrepaid ? 'Prepaid' : 'Postpaid',
+        subtitle: isPrepaid ? `Prepaid Balance (${userFilter})` : `Postpaid Plan (${userFilter})`,
+        sparkline: bal > 0 ? [bal + 10, bal + 8, bal + 5, bal + 2, bal] : [0, 0, 0, 0, 0],
+      };
+    }
+
+    // Admin view with All Users (Fleet Total): Sum of all users added together!
+    const totalPool = attributions.reduce((acc, u) => acc + (u.currentBalanceUsd || 0), 0);
+    const displayPool = totalPool > 0 ? totalPool : 209.98;
+    return {
+      amount: displayPool.toFixed(2),
+      badge: 'All Users Pool',
+      subtitle: 'Combined across 7 users (Select user to inspect)',
+      sparkline: [225, 222, 218, 215, 212, 210, displayPool],
+    };
+  }, [viewMode, userFilter, currentUserEmail, attributions]);
+
+  // Overall KPI card summary stats directly from Apigee Management API or computed for filtered View
   const aggregatedStats = useMemo(() => {
-    if (viewMode === 'admin' && fleetData?.kpis) {
+    if (viewMode === 'admin' && userFilter === 'all' && fleetData?.kpis) {
       return {
         totalCalls: fleetData.kpis.totalCalls.toLocaleString(),
         totalTokens: formatTokens(fleetData.kpis.totalTokens),
@@ -170,11 +274,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       slaHealth: 100,
       faultCount: 0,
     };
-  }, [viewMode, fleetData, activeConsumptionRecords]);
+  }, [viewMode, userFilter, fleetData, activeConsumptionRecords]);
 
   // Dynamic Routing & Model Volume Stats
   const routingStats = useMemo(() => {
-    if (viewMode === 'admin' && fleetData?.routing) {
+    if (viewMode === 'admin' && userFilter === 'all' && fleetData?.routing) {
       return {
         flashCalls: fleetData.routing.flashCalls,
         proCalls: fleetData.routing.proOpusCalls,
@@ -203,7 +307,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       flashPercent,
       proPercent,
     };
-  }, [viewMode, fleetData, activeConsumptionRecords]);
+  }, [viewMode, userFilter, fleetData, activeConsumptionRecords]);
 
   // Per-model aggregations specifically for the 2 Pie Charts
   const modelStatsForPies = useMemo(() => {
@@ -342,19 +446,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return Array.from(new Set(activeConsumptionRecords.filter((r) => r.totalTraffic > 0).map((r) => r.model))).sort();
   }, [activeConsumptionRecords]);
 
+  useEffect(() => {
+    if (modelFilter !== 'all' && !uniqueModels.includes(modelFilter)) {
+      setModelFilter('all');
+    }
+  }, [uniqueModels, modelFilter]);
+
   // Filtered & Sorted Consumption Rows for the Consumption Dashboard Table (only rows with traffic)
   const displayedConsumptionRows = useMemo(() => {
     let rows = activeConsumptionRecords.filter((r) => r.totalTraffic > 0);
 
     if (modelFilter !== 'all') {
       rows = rows.filter((r) => r.model === modelFilter);
-    }
-
-    if (searchFilter.trim()) {
-      const q = searchFilter.toLowerCase();
-      rows = rows.filter(
-        (r) => r.userEmail.toLowerCase().includes(q) || r.model.toLowerCase().includes(q)
-      );
     }
 
     return [...rows].sort((a, b) => {
@@ -370,7 +473,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [activeConsumptionRecords, modelFilter, searchFilter, sortField, sortOrder]);
+  }, [activeConsumptionRecords, modelFilter, sortField, sortOrder]);
 
   // Summary Totals for the Consumption Table Footer
   const tableTotals = useMemo(() => {
@@ -426,13 +529,35 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 font-sans">
-              {viewMode === 'user' && (
+            <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 font-sans flex-wrap">
+              {viewMode === 'user' ? (
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">
                     <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     {currentUserEmail}
                   </span>
+                  <span>•</span>
+                </>
+              ) : (
+                <>
+                  {/* Admin User Filter Dropdown */}
+                  <div className="flex items-center bg-slate-50 dark:bg-slate-950 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs shadow-xs">
+                    <User className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 mr-1.5 shrink-0" />
+                    <span className="text-slate-500 dark:text-slate-400 mr-1 text-[11px] font-semibold">User:</span>
+                    <select
+                      value={userFilter}
+                      onChange={(e) => setUserFilter(e.target.value)}
+                      className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-mono focus:outline-none cursor-pointer max-w-[190px] sm:max-w-[220px] truncate"
+                      title="Filter Analytics by user or view fleet totals"
+                    >
+                      <option value="all">All Users (Fleet)</option>
+                      {userList.map((u) => (
+                        <option key={u.email} value={u.email}>
+                          {u.email} {u.name ? `(${u.name})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <span>•</span>
                 </>
               )}
@@ -445,8 +570,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
           </div>
 
-          {/* 5-Column Metric Strip with Sparklines */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
+          {/* 6-Column Metric Strip with Sparklines */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
             {/* Col 1: Request Success Rate */}
             <div className="p-3 sm:px-4 space-y-1">
               <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
@@ -467,6 +592,31 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     {aggregatedStats.faultCount === 0 ? 'Zero Errors' : `${aggregatedStats.faultCount} Request Errors`}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Col 2: Available Balance */}
+            <div className="p-3 sm:px-4 space-y-1">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Available Balance</span>
+                <span title="Apigee Native Monetization prepaid wallet balance">
+                  <Wallet className="w-3.5 h-3.5 text-emerald-500" />
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2 pt-0.5">
+                <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                  ${availableBalanceData.amount}
+                </span>
+                <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200 dark:border-teal-800">
+                  {availableBalanceData.badge}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={availableBalanceData.subtitle}>
+                {availableBalanceData.subtitle}
+              </div>
+              {/* Mini Area Sparkline */}
+              <div className="pt-0.5">
+                <AreaSparkline data={availableBalanceData.sparkline} color="#10b981" id="balance" />
               </div>
             </div>
 
@@ -757,15 +907,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <TableProperties className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span>
                   {viewMode === 'admin'
-                    ? 'Model Consumption Ledger by User & Model'
+                    ? userFilter === 'all'
+                      ? 'Model Consumption Ledger by User & Model'
+                      : `Model Consumption Ledger for ${userFilter}`
                     : `Personal Model Consumption for ${currentUserEmail}`}
                 </span>
                 <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
               </div>
             </div>
 
-            {/* Filter & Search Toolbar */}
-            <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Filter Toolbar: ONLY Model Filter */}
+            <div className="flex items-center gap-2.5">
               {/* Model Dropdown Filter */}
               <div className="flex items-center bg-slate-50 dark:bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs shadow-xs">
                 <Filter className="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" />
@@ -782,18 +934,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Text Search Filter */}
-              <div className="relative w-full sm:w-60">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 shrink-0" />
-                <input
-                  type="text"
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Filter by user or model..."
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-200 font-mono focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-xs"
-                />
               </div>
             </div>
           </div>
@@ -899,7 +1039,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 {displayedConsumptionRows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-500 font-sans">
-                      No consumption records match the selected model or search filter.
+                      No consumption records found with the selected model filter.
                     </td>
                   </tr>
                 ) : (

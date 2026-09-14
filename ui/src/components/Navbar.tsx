@@ -8,6 +8,7 @@ import {
   Building2,
   Mail,
   Shield,
+  ShieldCheck,
   X,
   Terminal,
   Coins,
@@ -29,6 +30,9 @@ export interface AnalyticsNavControls {
   setTimeRange: (range: '24h' | '7d' | '30d') => void;
   loading: boolean;
   onRefresh: () => void;
+  userFilter?: string;
+  setUserFilter?: (user: string) => void;
+  userList?: { email: string; name?: string }[];
 }
 
 interface NavbarProps {
@@ -100,6 +104,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     }));
   };
 
+  // Monetization tab is strictly visible only in Admin view
+  const isAdminView = activeTab === 'analytics'
+    ? analyticsControls?.viewMode === 'admin'
+    : settings.activeUser === 'admin';
+
   return (
     <header className="bg-white/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 backdrop-blur w-full">
       {/* Primary Bar - Full viewport width */}
@@ -150,20 +159,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               <BarChart3 className="w-3.5 h-3.5" />
               <span>Analytics & Cost</span>
             </button>
-            {/* 4th Tab: Monetization */}
-            <button
-              type="button"
-              onClick={() => onTabChange('monetization')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
-                activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
-              }`}
-              title="Apigee Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
-            >
-              <Coins className="w-3.5 h-3.5" />
-              <span>Monetization</span>
-            </button>
+            {/* 4th Tab: Monetization - Strictly visible ONLY in Admin view */}
+            {isAdminView && (
+              <button
+                type="button"
+                onClick={() => onTabChange('monetization')}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
+                  activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                }`}
+                title="Apigee Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
+              >
+                <Coins className="w-3.5 h-3.5" />
+                <span>Monetization</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -248,9 +259,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </button>
             </>
+          ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
+            /* Monetization is strictly Admin View */
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                Admin Console
+              </span>
+            </div>
           ) : (
             <>
-              {/* User Persona / Entitlement Tier Segmented Control */}
+              {/* User Persona / Entitlement Tier Segmented Control (Only on AI & MCP Gateway) */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shrink-0">
                 <button
                   type="button"
@@ -333,18 +352,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full animate-pulse" />
             </div>
 
-            {/* User Identity Info - Full visibility without artificial truncation */}
-            <div className="flex flex-col leading-tight min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white whitespace-nowrap">
-                  {ssoUser.name || 'SSO User'}
-                </span>
-                <span className="text-[9px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-mono font-bold px-1 rounded border border-blue-200 dark:border-blue-800 shrink-0">
-                  SSO
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-normal whitespace-nowrap">
-                {effectiveEmail}
+            {/* User Identity Info */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white whitespace-nowrap">
+                {ssoUser.name || 'SSO User'}
+              </span>
+              <span className="text-[9px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-mono font-bold px-1 rounded border border-blue-200 dark:border-blue-800 shrink-0">
+                SSO
               </span>
             </div>
 
