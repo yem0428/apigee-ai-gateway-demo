@@ -1,10 +1,10 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 
-// Configuration loaded from process.env (passed by --env-file=.env)
-const ADMIN_KEY = process.env.VITE_ADMIN_API_KEY || '';
-const SALES_KEY = process.env.VITE_SALES_API_KEY || '';
-const LOANS_KEY = process.env.VITE_LOANS_API_KEY || '';
+// Configuration loaded from process.env or dynamically from /api/me endpoint
+let ADMIN_KEY = process.env.VITE_ADMIN_API_KEY || process.env.ADMIN_API_KEY || '';
+let SALES_KEY = process.env.VITE_SALES_API_KEY || process.env.SALES_API_KEY || '';
+let LOANS_KEY = process.env.VITE_LOANS_API_KEY || process.env.LOANS_API_KEY || '';
 const TEST_EMAIL = process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'demo.user@google.com';
 const LOCAL_HOST = process.env.TEST_HOST || 'http://localhost:3000';
 const DIRECT_APIGEE_HOST = 'https://api.maloosatyam.demo.altostrat.com';
@@ -14,15 +14,16 @@ let vertexBaseUrl = '';
 let mcpBaseUrl = '';
 
 before(async () => {
-  assert.ok(SALES_KEY, 'VITE_SALES_API_KEY must be provided for live gateway tests');
-  assert.ok(ADMIN_KEY, 'VITE_ADMIN_API_KEY must be provided for live gateway tests');
-
   try {
-    const meRes = await fetch(`${LOCAL_HOST}/api/me`, { signal: AbortSignal.timeout(2000) });
+    const meRes = await fetch(`${LOCAL_HOST}/api/me`, { signal: AbortSignal.timeout(3000) });
     if (meRes.ok) {
       useLocalProxy = true;
       vertexBaseUrl = `${LOCAL_HOST}/api/ai-prod`;
       mcpBaseUrl = `${LOCAL_HOST}/api/mcp-prod`;
+      const data = await meRes.json();
+      if (!ADMIN_KEY && data.apiKey) ADMIN_KEY = data.apiKey;
+      if (!SALES_KEY && data.apiKeys?.sales_agent) SALES_KEY = data.apiKeys.sales_agent;
+      if (!LOANS_KEY && data.apiKeys?.loans_agent) LOANS_KEY = data.apiKeys.loans_agent;
     } else {
       useLocalProxy = false;
       vertexBaseUrl = `${DIRECT_APIGEE_HOST}/ai/v1`;
@@ -33,6 +34,9 @@ before(async () => {
     vertexBaseUrl = `${DIRECT_APIGEE_HOST}/ai/v1`;
     mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
   }
+
+  assert.ok(SALES_KEY, 'SALES_KEY must be provided via env or /api/me for live gateway tests');
+  assert.ok(ADMIN_KEY, 'ADMIN_KEY must be provided via env or /api/me for live gateway tests');
   console.log(`\n>>> [Live Integration Tests] Target: ${useLocalProxy ? 'Local Prod Proxy (' + vertexBaseUrl + ')' : 'Direct Apigee Gateway (' + DIRECT_APIGEE_HOST + ')'}\n`);
 });
 
