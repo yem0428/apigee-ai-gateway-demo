@@ -301,8 +301,18 @@ const MIME_TYPES = {
 
 async function proxyRequest(req, res, targetUrl) {
   try {
-    const headers = { ...req.headers };
-    delete headers.host;
+    const headers = {};
+    for (const [key, val] of Object.entries(req.headers)) {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey !== 'host' &&
+        lowerKey !== 'content-length' &&
+        lowerKey !== 'connection' &&
+        lowerKey !== 'accept-encoding'
+      ) {
+        headers[key] = val;
+      }
+    }
 
     let bodyBuffer = null;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -320,10 +330,24 @@ async function proxyRequest(req, res, targetUrl) {
     });
 
     res.statusCode = proxyRes.status;
-    proxyRes.headers.forEach((val, key) => res.setHeader(key, val));
+    proxyRes.headers.forEach((val, key) => {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey !== 'content-encoding' &&
+        lowerKey !== 'content-length' &&
+        lowerKey !== 'transfer-encoding' &&
+        lowerKey !== 'connection'
+      ) {
+        res.setHeader(key, val);
+      }
+    });
+
     const responseBody = await proxyRes.arrayBuffer();
-    res.end(Buffer.from(responseBody));
+    const buffer = Buffer.from(responseBody);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.end(buffer);
   } catch (err) {
+    console.error(`[Server] Proxy error to ${targetUrl}:`, err.message);
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ error: err.message }));
