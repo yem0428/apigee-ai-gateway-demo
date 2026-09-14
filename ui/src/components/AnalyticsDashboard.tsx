@@ -421,10 +421,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
             <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900 dark:text-white">
               <span>{viewMode === 'user' ? 'Gateway Analytics (User View)' : 'Gateway Analytics'}</span>
-              <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
+              <span title="Real-time Apigee AI Gateway telemetry and consumption metrics">
+                <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
+              </span>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-sans">
+            <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 font-sans">
               {viewMode === 'user' && (
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">
@@ -434,24 +436,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   <span>•</span>
                 </>
               )}
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 font-medium">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <strong className="text-slate-700 dark:text-slate-300 font-semibold">Environment:</strong> Production
+                Production
               </span>
-              <span>•</span>
-              <span>Global Edge</span>
-              <span>•</span>
-              <span className="font-mono text-[11px]">Updated 1m ago</span>
             </div>
           </div>
 
           {/* 5-Column Metric Strip with Sparklines */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
-            {/* Col 1: Gateway Health / SLA */}
+            {/* Col 1: Request Success Rate */}
             <div className="p-3 sm:px-4 space-y-1">
               <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                <span>Gateway SLA Health</span>
-                <span title="Apigee Gateway availability rate: 100% minus proxy error rate">
+                <span>Request Success Rate</span>
+                <span title="Percentage of successful client requests (100% minus error rate) processed by Apigee">
                   <Info className="w-3 h-3 text-slate-400 hover:text-purple-500 cursor-pointer" />
                 </span>
               </div>
@@ -461,10 +459,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {aggregatedStats.faultCount === 0 ? 'SLA Optimal' : 'Faults Detected'}
+                    {aggregatedStats.faultCount === 0 ? 'Optimal' : 'Errors Logged'}
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {aggregatedStats.faultCount === 0 ? 'Zero Gateway Faults' : `${aggregatedStats.faultCount} Gateway Errors`}
+                    {aggregatedStats.faultCount === 0 ? 'Zero Errors' : `${aggregatedStats.faultCount} Request Errors`}
                   </div>
                 </div>
               </div>
@@ -689,13 +687,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900 dark:text-white">
                     <Coins className="w-4 h-4 text-amber-500 shrink-0" />
                     <span>{viewMode === 'user' ? 'My Model Split' : 'Model Split Across Catalog'}</span>
-                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
+                    <span title="Model token volume and spend split">
+                      <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {viewMode === 'user'
-                      ? 'Personal spend and tokens across active models'
-                      : 'Split of tokens and spend across Vertex AI and Claude endpoints'}
-                  </p>
                 </div>
 
                 {/* View Switcher: Spend ($ USD) vs Token Volume */}
