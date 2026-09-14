@@ -440,6 +440,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Production
               </span>
+              <span>•</span>
+              <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">Updated 1m ago</span>
             </div>
           </div>
 
