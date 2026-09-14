@@ -149,10 +149,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       }));
     }
     return [
-      { email: defaultEmail, name: 'Current SSO User (maloosatyam)', badge: 'SSO Caller' },
-      { email: 'maloosatyam@google.com', name: 'Satyam Maloo', badge: 'Prepaid Wallet' },
-      { email: 'maloosatyam@gmail.com', name: 'Satyam Maloo (Personal)', badge: 'Prepaid Wallet' },
-      { email: 'adk-auto-insurance-developer@acme.com', name: 'ADK Auto Insurance Dev', badge: 'Developer' },
+      { email: defaultEmail, name: defaultEmail.split('@')[0], badge: 'SSO Caller' },
     ];
   }, [liveAttributions, defaultEmail]);
 

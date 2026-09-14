@@ -83,16 +83,6 @@ const AreaSparkline: React.FC<{
   );
 };
 
-const DEFAULT_DEVELOPERS: { email: string; name?: string }[] = [
-  { email: 'adk-auto-insurance-developer@acme.com', name: 'ADK Auto Insurance' },
-  { email: 'changichargers@google.com', name: 'Changi Chargers' },
-  { email: 'maloosatyam@gmail.com', name: 'Satyam Maloo' },
-  { email: 'maloosatyam@google.com', name: 'Satyam Maloo' },
-  { email: 'roshah@google.com', name: 'Rohit Shah' },
-  { email: 'shared-dev@example.com', name: 'Shared Developer' },
-  { email: 'us-central1-dev@example.com', name: 'US Developer' },
-];
-
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   settings,
   viewMode = 'admin',
@@ -165,10 +155,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return fleetData?.consumptionRows || [];
   }, [fleetData]);
 
-  // Authoritative user/developer list
+  // Authoritative user/developer list dynamically built from Apigee attributions and consumption logs
   const userList = useMemo(() => {
     const map = new Map<string, { email: string; name?: string }>();
-    DEFAULT_DEVELOPERS.forEach((d) => map.set(d.email.toLowerCase(), d));
     attributions.forEach((a) => {
       map.set(a.userEmail.toLowerCase(), { email: a.userEmail, name: a.name });
     });
@@ -178,8 +167,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         map.set(lower, { email: r.userEmail, name: r.userEmail.split('@')[0] });
       }
     });
+    if (map.size === 0 && currentUserEmail) {
+      map.set(currentUserEmail.toLowerCase(), { email: currentUserEmail, name: currentUserEmail.split('@')[0] });
+    }
     return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email));
-  }, [attributions, allConsumptionRecords]);
+  }, [attributions, allConsumptionRecords, currentUserEmail]);
 
   useEffect(() => {
     if (onUserListChange && userList.length > 0) {
@@ -208,13 +200,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       const match = attributions.find(
         (u) => u.userEmail.toLowerCase() === currentUserEmail.toLowerCase()
       );
-      const bal = match ? match.currentBalanceUsd : 109.98;
-      const isPrepaid = match ? match.billingType === 'PREPAID' : true;
+      const bal = match ? match.currentBalanceUsd : 0;
+      const isPrepaid = match ? match.billingType === 'PREPAID' : false;
       return {
         amount: bal.toFixed(2),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
         subtitle: `Authenticated User (${currentUserEmail})`,
-        sparkline: [120, 118, 115, 114, 112, 110, bal],
+        sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
       };
     }
 
@@ -228,20 +220,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         amount: bal.toFixed(2),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
         subtitle: isPrepaid ? `Prepaid Balance (${userFilter})` : `Postpaid Plan (${userFilter})`,
-        sparkline: bal > 0 ? [bal + 10, bal + 8, bal + 5, bal + 2, bal] : [0, 0, 0, 0, 0],
+        sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
       };
     }
 
-    // Admin view with All Users (Fleet Total): Sum of all users added together!
+    // Admin view with All Users (Fleet Total): Sum of all developers added together
     const totalPool = attributions.reduce((acc, u) => acc + (u.currentBalanceUsd || 0), 0);
-    const displayPool = totalPool > 0 ? totalPool : 209.98;
+    const userCount = attributions.length || userList.length || 1;
     return {
-      amount: displayPool.toFixed(2),
+      amount: totalPool.toFixed(2),
       badge: 'All Users Pool',
-      subtitle: 'Combined across 7 users (Select user to inspect)',
-      sparkline: [225, 222, 218, 215, 212, 210, displayPool],
+      subtitle: `Combined across ${userCount} active developer${userCount === 1 ? '' : 's'} (Select user to inspect)`,
+      sparkline: totalPool > 0 ? [totalPool, totalPool, totalPool, totalPool, totalPool] : [0, 0, 0, 0, 0],
     };
-  }, [viewMode, userFilter, currentUserEmail, attributions]);
+  }, [viewMode, userFilter, currentUserEmail, attributions, userList]);
 
   // Overall KPI card summary stats directly from Apigee Management API or computed for filtered View
   const aggregatedStats = useMemo(() => {
