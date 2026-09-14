@@ -99,7 +99,10 @@ def sync_app(org, dev, token, filepath):
         print(f"  [UPDATED] Developer App: {app_name} (displayName: {app_name})")
     
     # Extract API key (consumerKey)
-    credentials = res.get("credentials", [])
+    credentials = res.get("credentials", []) if isinstance(res, dict) else []
+    if not credentials:
+        get_res = run_curl(url, method="GET", token=token)
+        credentials = get_res.get("credentials", []) if isinstance(get_res, dict) else []
     if credentials:
         key = credentials[0].get("consumerKey", "")
         return app_name, key
