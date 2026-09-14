@@ -226,7 +226,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   };
 
   // Master Refresh
-  const handleRefreshAll = async () => {
+  const handleRefreshAll = async (isManual = false) => {
     setError(null);
     await Promise.all([
       loadWalletData(selectedDeveloper),
@@ -234,13 +234,15 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       loadPlansAndSubscriptions(selectedDeveloper),
       loadAttributions(),
     ]);
-    setSuccessMessage('Synchronized all monetization and pricing data with Apigee');
-    setTimeout(() => setSuccessMessage(null), 3500);
+    if (isManual) {
+      setSuccessMessage('Synchronized all monetization and pricing data with Apigee');
+      setTimeout(() => setSuccessMessage(null), 3500);
+    }
   };
 
   useEffect(() => {
-    handleRefreshAll();
-  }, [selectedDeveloper, env]);
+    handleRefreshAll(false);
+  }, [selectedDeveloper, defaultEmail, env]);
 
   // Wallet Top-Up Action
   const handleCreditWallet = async (amountStr: string) => {
@@ -449,7 +451,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         u.name.toLowerCase().includes(q) ||
         u.badge.toLowerCase().includes(q)
     );
-  }, [defaultEmail, walletBalance, isSimulatingExhaustedWallet, userAttributionSearch]);
+  }, [liveAttributions, selectedDeveloper, defaultEmail, walletBalance, isSimulatingExhaustedWallet, userAttributionSearch]);
 
   return (
     <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-y-auto">
@@ -520,7 +522,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             {/* Quick Refresh */}
             <button
               type="button"
-              onClick={handleRefreshAll}
+              onClick={() => handleRefreshAll(true)}
               disabled={walletLoading || ratesLoading || plansLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
               title="Synchronize all data from Apigee Management API"
