@@ -1,18 +1,21 @@
-FROM nginx:alpine
+FROM node:20-alpine AS builder
 
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine
+
+WORKDIR /app
 ENV PORT=8080
-ENV NGINX_ENVSUBST_FILTER="PORT"
 
-# Copy NGINX configuration template
-COPY nginx.conf.template /etc/nginx/templates/default.conf.template
-
-# Copy runtime environment generator script to entrypoint
-COPY generate-env.sh /docker-entrypoint.d/40-generate-env.sh
-RUN chmod +x /docker-entrypoint.d/40-generate-env.sh
-
-# Copy pre-built SPA production assets
-COPY dist /usr/share/nginx/html
+COPY package*.json ./
+COPY --from=builder /app/dist ./dist
+COPY server.js ./
 
 EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
