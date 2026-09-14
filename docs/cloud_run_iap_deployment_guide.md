@@ -109,66 +109,28 @@ All resources are provisioned in Google Cloud project **`bap-apac-demo2`**:
 
 ## 3. UI Container & Runtime Architecture
 
-### A. Secret Manager Integration & Runtime Injection
-To comply with strict security standards prohibiting secrets in source control or plaintext environment variables:
+### A. Production Node.js Server & Runtime Injection ([`ui/server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js))
+The UI container uses a lightweight Node.js runtime server ([`ui/server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js)) serving static SPA assets and acting as an API gateway proxy & management server.
 
-1. **Google Secret Manager Storage**:
-   Credentials and management keys are stored as encrypted secrets in Google Secret Manager:
-   - `apigee-ui-mgmt-sa-key` (Service Account JSON Key)
-   - `apigee-admin-api-key` (Admin persona API key fallback)
-   - `apigee-sales-agent-api-key` (Sales Agent persona API key)
-   - `apigee-loans-agent-api-key` (Loans Agent persona API key)
+1. **Dynamic `/env-config.js` Generation**:
+   At runtime, GET `/env-config.js` generates JavaScript setting `window.__RUNTIME_CONFIG__` on the client browser.
 
-2. **Cloud Run Secret Mounting**:
-   Secrets are bound to Cloud Run container environment variables using the `--set-secrets` flag:
-   ```bash
-   gcloud run services update apigee-ai-gateway-ui \
-     --region=asia-southeast1 \
-     --set-secrets="SALES_API_KEY=apigee-sales-agent-api-key:latest,LOANS_API_KEY=apigee-loans-agent-api-key:latest"
-   ```
-   The Cloud Run service account `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` is authorized with `roles/apigee.admin`, `roles/apigee.monetizationAdmin`, and `roles/secretmanager.secretAccessor`.
+2. **Management API & User Auto-Provisioning (`/api/me`)**:
+   On website load, `/api/me` extracts the SSO identity header (`X-Goog-Authenticated-User-Email`) passed by IAP. Using the Cloud Run Service Account (`apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com`), it automatically:
+   - Verifies/creates the user's Apigee Developer profile (`userName: username`).
+   - Provisions a user-specific `Unified Admin <USERNAME> App` attached to `Enterprise AI Tier` and `Enterprise Tools MCP`.
+   - Configures `PREPAID` monetization and adds a **$20 USD** initial wallet balance.
+   - Fetches shared consumer keys for the global [`Unified Sales App`](https://pantheon.corp.google.com/apigee/apps/view/8d1ec4bd-c872-4764-bf50-c64728fe95ec?e=13802955&mods=monitoring_api_prod&project=bap-apac-demo2) and [`Unified Loans App`](https://pantheon.corp.google.com/apigee/apps/view/c04f8fee-0484-471b-84b6-3c961c79d777?e=13802955&mods=monitoring_api_prod&project=bap-apac-demo2).
 
-3. **Container Boot Generation ([`ui/generate-env.sh`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/generate-env.sh))**:
-   At container startup, the NGINX entrypoint executes `/docker-entrypoint.d/40-generate-env.sh`:
-   ```sh
-   #!/bin/sh
-   cat <<EOF > /usr/share/nginx/html/env-config.js
-   window.__RUNTIME_CONFIG__ = {
-     BRONZE_API_KEY: "${BRONZE_API_KEY:-}",
-     SILVER_API_KEY: "${SILVER_API_KEY:-}",
-     SALES_API_KEY: "${SALES_API_KEY:-}",
-     BRONZE_USER_EMAIL: "${BRONZE_USER_EMAIL:-bronze.user@example.com}",
-     SILVER_USER_EMAIL: "${SILVER_USER_EMAIL:-silver.user@example.com}",
-     SALES_AGENT_EMAIL: "${SALES_AGENT_EMAIL:-sales.agent@example.com}",
-     SSO_USER_EMAIL: "${SSO_USER_EMAIL:-demouser@google.com}"
-   };
-   EOF
-   ```
+3. **Management API Proxy Handlers**:
+   Management endpoints (`/api/analytics/fleet-stats`, `/api/monetization/attributions`, `/api/monetization/rateplans`, `/api/monetization/subscriptions`, `/api/monetization/config`, `/api/monetization/credit`, `/api/kvm/rates`) acquire OAuth access tokens directly from the Cloud Run Metadata Server (`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token`) and execute Apigee REST calls server-side.
 
-4. **Frontend Dynamic Consumption ([`ui/src/services/defaultSettings.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts))**:
-   ```ts
-   export const getRuntimeEnv = (key: string, fallback: string = ''): string => {
-     if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.[key]) {
-       return (window as any).__RUNTIME_CONFIG__[key];
-     }
-     const viteVal = (import.meta.env as any)[`VITE_${key}`] || (import.meta.env as any)[key];
-     return viteVal !== undefined && viteVal !== '' ? viteVal : fallback;
-   };
-   ```
-
-5. **HTML Script Injection ([`ui/index.html`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/index.html))**:
-   The `/env-config.js` script tag is loaded in `<head>` before the Vite SPA bundles execute.
-
-### B. NGINX Reverse Proxying, IAP Identity & SPA Fallback
-In **[`ui/nginx.conf.template`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/nginx.conf.template)**:
-1. **Dynamic Port Binding**: `listen ${PORT};` substituted automatically by official NGINX entrypoint using `NGINX_ENVSUBST_FILTER="PORT"`.
-2. **IAP Identity Endpoint (`/api/me`)**:
-   Extracts the authenticated Google SSO user email from the `X-Goog-Authenticated-User-Email` header passed by Google Cloud IAP, stripping `accounts.google.com:` via `map $http_x_goog_authenticated_user_email $iap_user_email`. The React frontend queries `/api/me` on mount to automatically display the signed-in user and inject their email into `X-User-Email`.
-3. **SPA Routing**: `location / { try_files $uri $uri/ /index.html; }` preserves client-side routing.
-4. **Apigee Reverse Proxying**:
-   - `/api/vertexai-dev` -> rewrites to `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1/$1`
-   - `/api/vertexai-prod` -> rewrites to `https://api.maloosatyam.demo.altostrat.com/vertexai/v1/$1`
-   - `proxy_ssl_server_name on;` and explicit DNS resolver (`8.8.8.8`) ensure seamless TLS SNI handshakes with Apigee routers.
+4. **Gateway Reverse Proxying & Header Sanitization**:
+   - `/api/ai-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/ai/v1/*`
+   - `/api/claude-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/v1/messages/*`
+   - `/api/vertexai-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/vertexai/v1/*`
+   - `/api/mcp-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/mcp/*`
+   - Automatically strips hop-by-hop and encoding headers (`content-encoding`, `content-length`, `transfer-encoding`) to prevent client browser decompression mismatches.
 
 ---
 
@@ -190,14 +152,25 @@ The DNS `A` record for **`maloosatyam.demo.altostrat.com`** is active:
 ### A. Rebuilding & Updating the UI
 Whenever you modify UI code under `ui/`:
 
-1. **Build the production assets locally**:
+1. **Build production SPA assets locally**:
    ```bash
    cd ui
    npm run build
    ```
-2. **Submit build to Google Cloud Build**:
+2. **Submit container build to Google Cloud Build**:
    ```bash
-   gcloud builds submit --tag asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest ui
+   gcloud builds submit --tag asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest ui --project=bap-apac-demo2
+   ```
+3. **Deploy updated image to Cloud Run**:
+   ```bash
+   gcloud run deploy apigee-ai-gateway-ui \
+     --image=asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest \
+     --region=asia-southeast1 \
+     --platform=managed \
+     --no-allow-unauthenticated \
+     --ingress=internal-and-cloud-load-balancing \
+     --service-account=apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com \
+     --project=bap-apac-demo2
    ```
 3. **Deploy the updated container to Cloud Run**:
    ```bash
