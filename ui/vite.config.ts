@@ -1,23 +1,109 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execSync } from 'node:child_process'
+import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
 
 // In-memory token cache for Apigee Management API
 let cachedToken = ''
 let tokenExpiry = 0
 
-function getGcpAccessToken(): string {
+async function getGcpAccessToken(): Promise<string> {
   const now = Date.now()
   if (cachedToken && now < tokenExpiry) {
     return cachedToken
   }
+
+  // 1. Check for Service Account Key File
+  const keyPaths = [
+    process.env.APIGEE_SA_KEY_PATH,
+    process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    path.resolve(process.cwd(), 'apigee-ui-mgmt-sa-key.json'),
+    path.resolve(process.cwd(), '../apigee-ui-mgmt-sa-key.json'),
+  ].filter(Boolean) as string[];
+
+  for (const keyPath of keyPaths) {
+    if (fs.existsSync(keyPath)) {
+      try {
+        const keyData = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+        if (keyData.client_email && keyData.private_key) {
+          const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+          const nowSec = Math.floor(Date.now() / 1000);
+          const payload = Buffer.from(
+            JSON.stringify({
+              iss: keyData.client_email,
+              scope: 'https://www.googleapis.com/auth/cloud-platform',
+              aud: 'https://oauth2.googleapis.com/token',
+              exp: nowSec + 3600,
+              iat: nowSec,
+            })
+          ).toString('base64url');
+
+          const signer = crypto.createSign('RSA-SHA256');
+          signer.update(`${header}.${payload}`);
+          const signature = signer.sign(keyData.private_key, 'base64url');
+          const jwt = `${header}.${payload}.${signature}`;
+
+          const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+              assertion: jwt,
+            }),
+          });
+
+          if (tokenRes.ok) {
+            const data = await tokenRes.json();
+            if (data.access_token) {
+              cachedToken = data.access_token;
+              tokenExpiry = now + 50 * 60 * 1000; // Cache for 50 minutes
+              return cachedToken;
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[Vite Server] Failed SA key auth at ${keyPath}:`, err.message);
+      }
+    }
+  }
+
+  // 2. Query Cloud Run / Compute Metadata Server (for Cloud Run deployments)
   try {
-    cachedToken = execSync('gcloud auth print-access-token').toString().trim()
-    tokenExpiry = now + 4 * 60 * 1000 // Cache for 4 minutes
-    return cachedToken
+    const metaRes = await fetch(
+      'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
+      { headers: { 'Metadata-Flavor': 'Google' } }
+    );
+    if (metaRes.ok) {
+      const metaData = await metaRes.json();
+      if (metaData.access_token) {
+        cachedToken = metaData.access_token;
+        const expiresInSec = metaData.expires_in || 3600;
+        tokenExpiry = now + Math.max(300, expiresInSec - 300) * 1000;
+        return cachedToken;
+      }
+    }
+  } catch {
+    // Not running on Cloud Run / GCE
+  }
+
+  // 3. Fallback to gcloud SA impersonation or print-access-token
+  try {
+    try {
+      cachedToken = execSync(
+        'gcloud auth print-access-token --impersonate-service-account=apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com 2>/dev/null'
+      )
+        .toString()
+        .trim();
+    } catch {
+      cachedToken = execSync('gcloud auth print-access-token').toString().trim();
+    }
+    tokenExpiry = now + 4 * 60 * 1000;
+    return cachedToken;
   } catch (err: any) {
-    console.error('[Vite Server] Failed to get gcloud auth token:', err.message)
-    return ''
+    console.error('[Vite Server] Failed to get gcloud auth token:', err.message);
+    return '';
   }
 }
 
@@ -53,6 +139,214 @@ function getGcpIdentityToken(): { token: string; email: string; name: string } {
   return { token: '', email: '', name: '' }
 }
 
+async function fetchAppConsumerKey(org: string, token: string, devEmail: string, appName: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(devEmail)}/apps/${encodeURIComponent(appName)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const cred = data.credentials?.find((c: any) => c.status === 'approved') || data.credentials?.[0];
+      return cred?.consumerKey || '';
+    }
+  } catch (err: any) {
+    console.warn(`[Vite Server] Failed to fetch key for ${appName}:`, err.message);
+  }
+  return '';
+}
+
+async function provisionUserDeveloperAndApp(
+  org: string,
+  token: string,
+  email: string,
+  name: string
+): Promise<{ apiKey: string; apiKeys: Record<string, string>; username: string }> {
+  if (!email || !token) {
+    return { apiKey: '', apiKeys: {}, username: '' };
+  }
+
+  const username = email.split('@')[0] || 'admin';
+  const nameParts = name.trim().split(' ').filter(Boolean);
+  const firstName = nameParts[0] || username;
+  const lastName = nameParts.slice(1).join(' ') || 'User';
+  const apiKeys: Record<string, string> = { admin: '', sales_agent: '', loans_agent: '' };
+
+  try {
+    // 1. Check if Developer exists; if not create Developer
+    const devUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}`;
+    const devRes = await fetch(devUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (devRes.status === 404) {
+      console.log(`[Vite Server] Developer ${email} not found. Creating...`);
+      await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          firstName,
+          lastName,
+          userName: username,
+        }),
+      });
+    }
+
+    // 2. Provision/fetch user-specific Admin app (Unified Admin <USERNAME> App)
+    const targetAppName = `Unified Admin ${username} App`;
+    const appsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/apps?expand=true`;
+    const appsRes = await fetch(appsUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const appsList = appsRes.ok ? (await appsRes.json()).app || [] : [];
+
+    let matchedApp = appsList.find(
+      (a: any) =>
+        a.name === targetAppName ||
+        a.name === 'Unified Admin App' ||
+        a.name.startsWith(targetAppName)
+    );
+
+    if (!matchedApp) {
+      console.log(`[Vite Server] Creating app ${targetAppName} for ${email}...`);
+      const createAppRes = await fetch(
+        `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/apps`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: targetAppName,
+            apiProducts: ['Enterprise AI Tier', 'Enterprise Tools MCP'],
+            attributes: [{ name: 'persona', value: 'admin' }],
+          }),
+        }
+      );
+      if (createAppRes.ok) {
+        matchedApp = await createAppRes.json();
+      }
+    } else {
+      // Ensure products are attached
+      const existingProducts = new Set<string>();
+      if (matchedApp.credentials) {
+        for (const cred of matchedApp.credentials) {
+          if (cred.apiProducts) {
+            for (const p of cred.apiProducts) {
+              existingProducts.add(p.apiproduct);
+            }
+          }
+        }
+      }
+      const requiredProducts = ['Enterprise AI Tier', 'Enterprise Tools MCP'];
+      const missingProducts = requiredProducts.filter((p) => !existingProducts.has(p));
+      if (missingProducts.length > 0) {
+        console.log(`[Vite Server] App ${matchedApp.name} missing products: ${missingProducts.join(', ')}. Updating...`);
+        const updatedProducts = Array.from(new Set([...existingProducts, ...requiredProducts]));
+        await fetch(
+          `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/apps/${encodeURIComponent(matchedApp.name)}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: matchedApp.name,
+              apiProducts: updatedProducts,
+            }),
+          }
+        );
+      }
+    }
+
+    if (matchedApp && matchedApp.credentials) {
+      const approvedCred = matchedApp.credentials.find((c: any) => c.status === 'approved') || matchedApp.credentials[0];
+      if (approvedCred && approvedCred.consumerKey) {
+        apiKeys.admin = approvedCred.consumerKey;
+      }
+    }
+
+    // 3. Fetch existing global keys for Sales and Loans apps
+    const defaultDevEmail = 'maloosatyam@google.com';
+    apiKeys.sales_agent = await fetchAppConsumerKey(org, token, defaultDevEmail, 'Unified Sales App');
+    apiKeys.loans_agent = await fetchAppConsumerKey(org, token, defaultDevEmail, 'Unified Loans App');
+
+    // 4. Check if developer is a prepaid user; if not register as prepaid, add $20 starting balance
+    const cfgUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/monetizationConfig`;
+    const cfgRes = await fetch(cfgUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (cfgRes.ok) {
+      const cfgData = await cfgRes.json();
+      if (cfgData.billingType !== 'PREPAID') {
+        console.log(`[Vite Server] Setting monetizationConfig PREPAID for ${email}...`);
+        await fetch(cfgUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ billingType: 'PREPAID' }),
+        });
+      }
+    } else if (cfgRes.status === 404) {
+      console.log(`[Vite Server] Initializing monetizationConfig PREPAID for ${email}...`);
+      await fetch(cfgUrl, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ billingType: 'PREPAID' }),
+      });
+    }
+
+    // Check balance
+    const balUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/balance`;
+    const balRes = await fetch(balUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    let needsInitialTopup = true;
+    if (balRes.ok) {
+      const balData = await balRes.json();
+      const wallets = balData.wallets || [];
+      if (wallets.length > 0 && wallets[0].balance) {
+        const units = parseInt(wallets[0].balance.units || '0', 10);
+        if (units > 0 || wallets[0].lastCreditTime) {
+          needsInitialTopup = false;
+        }
+      }
+    }
+
+    if (needsInitialTopup) {
+      console.log(`[Vite Server] Adding $20 starting balance for developer ${email}...`);
+      const creditUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/balance:credit`;
+      await fetch(creditUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionAmount: { currencyCode: 'USD', units: '20', nanos: 0 },
+          transactionId: `init-topup-20-${Date.now()}`,
+        }),
+      });
+    }
+
+    return { apiKey: apiKeys.admin || '', apiKeys, username };
+  } catch (err: any) {
+    console.error('[Vite Server] Error provisioning user developer and apps:', err.message);
+    return { apiKey: '', apiKeys: {}, username };
+  }
+}
+
 function getApigeeTimeRange(rangeParam: string): string {
   const now = new Date();
   let days = 7;
@@ -76,7 +370,7 @@ export default defineConfig(({ mode }) => {
       {
         name: 'iap-me-endpoint',
         configureServer(server) {
-          server.middlewares.use('/api/me', (req, res) => {
+          server.middlewares.use('/api/me', async (req, res) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
 
@@ -95,11 +389,34 @@ export default defineConfig(({ mode }) => {
             const email = cleanHeader || sso.email || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || 'demo.user@google.com';
             const name = sso.name || (email ? email.split('@')[0] : 'SSO User');
 
+            // Obtain Service Account token for Apigee Management API
+            const saToken = await getGcpAccessToken();
+            let apiKey = '';
+            let apiKeys: Record<string, string> = {};
+            let username = email.split('@')[0] || 'admin';
+
+            if (saToken && email) {
+              const org = 'bap-apac-demo2';
+              const provResult = await provisionUserDeveloperAndApp(org, saToken, email, name);
+              if (provResult.apiKey) {
+                apiKey = provResult.apiKey;
+              }
+              if (provResult.apiKeys) {
+                apiKeys = provResult.apiKeys;
+              }
+              if (provResult.username) {
+                username = provResult.username;
+              }
+            }
+
             res.end(JSON.stringify({
               email,
               token: sso.token || '',
               name,
-              provider: sso.token ? 'Google Cloud Identity SSO (gcloud)' : 'Local Mock SSO',
+              username,
+              apiKey,
+              apiKeys,
+              provider: sso.token ? 'Google Cloud Identity SSO (gcloud)' : 'Google Cloud Identity SSO (IAP)',
               raw: incomingHeader,
             }));
           });
@@ -115,7 +432,7 @@ export default defineConfig(({ mode }) => {
             const kvmName = 'ai-model-rates';
             const entryKey = 'rate_card';
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
@@ -211,7 +528,7 @@ export default defineConfig(({ mode }) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
@@ -251,7 +568,7 @@ export default defineConfig(({ mode }) => {
               return;
             }
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token' }));
@@ -306,7 +623,7 @@ export default defineConfig(({ mode }) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
@@ -357,7 +674,7 @@ export default defineConfig(({ mode }) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
@@ -426,7 +743,7 @@ export default defineConfig(({ mode }) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
@@ -484,7 +801,7 @@ export default defineConfig(({ mode }) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
@@ -651,7 +968,7 @@ export default defineConfig(({ mode }) => {
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-store');
 
-            const token = getGcpAccessToken();
+            const token = await getGcpAccessToken();
             if (!token) {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));

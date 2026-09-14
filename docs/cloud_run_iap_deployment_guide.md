@@ -90,7 +90,7 @@ All resources are provisioned in Google Cloud project **`bap-apac-demo2`**:
 | **Static External IP** | `apigee-ai-ui-ip` | **`136.68.103.117`** (Global IPv4) |
 | **Cloud Run Service** | `apigee-ai-gateway-ui` | Region: `asia-southeast1`<br>Port: `8080`<br>Ingress: `internal-and-cloud-load-balancing`<br>Auth: `--no-allow-unauthenticated` |
 | **Cloud Run Runtime SA** | `1058667481809-compute@developer.gserviceaccount.com` | Granted `roles/secretmanager.secretAccessor` |
-| **Secret Manager Secrets** | `apigee-bronze-api-key`<br>`apigee-silver-api-key`<br>`apigee-sales-agent-api-key` | Mounted as container environment variables:<br>`BRONZE_API_KEY`, `SILVER_API_KEY`, `SALES_API_KEY` |
+| **Secret Manager Secrets** | `apigee-admin-api-key`<br>`apigee-sales-agent-api-key`<br>`apigee-ui-mgmt-sa-key` | Mounted as container environment variables:<br>`ADMIN_API_KEY`, `SALES_API_KEY`, `APIGEE_SA_KEY_PATH` |
 | **Artifact Registry** | `cloud-run-source-deploy` | `asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest` |
 | **Serverless NEG** | `apigee-ai-ui-neg` | Region: `asia-southeast1`<br>Target: Cloud Run `apigee-ai-gateway-ui` |
 | **Backend Service** | `apigee-ai-ui-backend` | Scheme: `EXTERNAL_MANAGED`<br>Backend: `apigee-ai-ui-neg`<br>IAP: **Enabled** |
@@ -113,19 +113,20 @@ All resources are provisioned in Google Cloud project **`bap-apac-demo2`**:
 To comply with strict security standards prohibiting secrets in source control or plaintext environment variables:
 
 1. **Google Secret Manager Storage**:
-   Credentials are stored as encrypted secrets in Google Secret Manager:
-   - `apigee-bronze-api-key`
-   - `apigee-silver-api-key`
-   - `apigee-sales-agent-api-key`
+   Credentials and management keys are stored as encrypted secrets in Google Secret Manager:
+   - `apigee-ui-mgmt-sa-key` (Service Account JSON Key)
+   - `apigee-admin-api-key` (Admin persona API key fallback)
+   - `apigee-sales-agent-api-key` (Sales Agent persona API key)
+   - `apigee-loans-agent-api-key` (Loans Agent persona API key)
 
 2. **Cloud Run Secret Mounting**:
    Secrets are bound to Cloud Run container environment variables using the `--set-secrets` flag:
    ```bash
    gcloud run services update apigee-ai-gateway-ui \
      --region=asia-southeast1 \
-     --set-secrets="BRONZE_API_KEY=apigee-bronze-api-key:latest,SILVER_API_KEY=apigee-silver-api-key:latest,SALES_API_KEY=apigee-sales-agent-api-key:latest"
+     --set-secrets="SALES_API_KEY=apigee-sales-agent-api-key:latest,LOANS_API_KEY=apigee-loans-agent-api-key:latest"
    ```
-   The Cloud Run service account `1058667481809-compute@developer.gserviceaccount.com` is authorized with `roles/secretmanager.secretAccessor`.
+   The Cloud Run service account `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` is authorized with `roles/apigee.admin`, `roles/apigee.monetizationAdmin`, and `roles/secretmanager.secretAccessor`.
 
 3. **Container Boot Generation ([`ui/generate-env.sh`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/generate-env.sh))**:
    At container startup, the NGINX entrypoint executes `/docker-entrypoint.d/40-generate-env.sh`:

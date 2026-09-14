@@ -102,7 +102,7 @@ export function App() {
     return DEFAULT_SETTINGS;
   });
 
-  // Synchronize authenticated user identity from Google IAP / backend (/api/me)
+  // Synchronize authenticated user identity & provisioned credentials from backend (/api/me)
   useEffect(() => {
     async function syncAuthenticatedUser() {
       try {
@@ -113,23 +113,39 @@ export function App() {
             const data = await res.json();
             let email = (data.email || '').trim();
             const idToken = (data.token || '').trim();
+            const apiKey = (data.apiKey || '').trim();
+
             if (email.startsWith('accounts.google.com:')) {
               email = email.replace(/^accounts\.google\.com:/, '').trim();
             }
             if (email) {
               const provider = data.provider || (idToken ? 'Google Cloud Identity SSO (gcloud)' : 'Google Cloud Identity SSO (IAP)');
               const authUser = createSsoUserFromEmail(email, provider, idToken);
+
+              const apiKeys = data.apiKeys || {};
+
+              if (apiKeys.admin || apiKey) {
+                USERS.admin.apiKey = apiKeys.admin || apiKey;
+              }
+              if (apiKeys.sales_agent) {
+                USERS.sales_agent.apiKey = apiKeys.sales_agent;
+              }
+              if (apiKeys.loans_agent) {
+                USERS.loans_agent.apiKey = apiKeys.loans_agent;
+              }
+
               setSettings((prev) => ({
                 ...prev,
                 userEmail: email,
                 ssoUser: authUser,
                 idToken: idToken || undefined,
+                apiKey: apiKeys[prev.activeUser] || apiKeys.admin || apiKey || prev.apiKey,
               }));
             }
           }
         }
       } catch (err) {
-        console.debug('No active IAP session detected on /api/me, using runtime defaults.');
+        console.debug('No active session detected on /api/me, using runtime defaults.');
       }
     }
 

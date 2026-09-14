@@ -13,6 +13,8 @@ build/
 .env.*.local
 *.pem
 *.key
+*-key.json
+apigee-ui-mgmt-sa-key.json
 
 # Python
 __pycache__/
