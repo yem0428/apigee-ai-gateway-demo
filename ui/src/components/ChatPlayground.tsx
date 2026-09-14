@@ -254,42 +254,56 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     },
   ];
 
+  const handleAutoRoutingStep = (step: 0 | 1 | 2, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setAutoStep(step);
+    const example = AUTO_ROUTING_EXAMPLES[step];
+    const effectiveSettings: GatewaySettings = {
+      ...settings,
+      model: 'auto',
+      useCache: false,
+      omitEmailHeader: false,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      model: 'auto',
+      useCache: false,
+      omitEmailHeader: false,
+    }));
+    handleExecute(example.prompt, effectiveSettings);
+  };
+
+  const handleCacheStep = (step: 0 | 1, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCacheStep(step);
+    const example = CACHE_EXAMPLES[step];
+    const effectiveSettings: GatewaySettings = {
+      ...settings,
+      useCache: true,
+      model: 'gemini-3.1-flash-lite',
+      omitEmailHeader: false,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      useCache: true,
+      model: 'gemini-3.1-flash-lite',
+      omitEmailHeader: false,
+    }));
+    handleExecute(example.prompt, effectiveSettings);
+  };
+
   const handleChipClick = async (chip: (typeof sampleChips)[0]) => {
     if (chip.promptId === 'cache-toggle') {
-      const currentCacheExample = CACHE_EXAMPLES[cacheStep];
-      const effectiveSettings: GatewaySettings = {
-        ...settings,
-        useCache: true,
-        model: 'gemini-3.1-flash-lite',
-        omitEmailHeader: false,
-      };
-      setSettings((prev) => ({
-        ...prev,
-        useCache: true,
-        model: 'gemini-3.1-flash-lite',
-        omitEmailHeader: false,
-      }));
-      handleExecute(currentCacheExample.prompt, effectiveSettings);
-      setCacheStep((prev) => (prev === 0 ? 1 : 0));
+      const nextStep = cacheStep;
+      handleCacheStep(nextStep);
+      setCacheStep(nextStep === 0 ? 1 : 0);
       return;
     }
 
     if (chip.promptId === 'auto-routing') {
-      const currentAutoExample = AUTO_ROUTING_EXAMPLES[autoStep];
-      const effectiveSettings: GatewaySettings = {
-        ...settings,
-        model: 'auto',
-        useCache: false,
-        omitEmailHeader: false,
-      };
-      setSettings((prev) => ({
-        ...prev,
-        model: 'auto',
-        useCache: false,
-        omitEmailHeader: false,
-      }));
-      handleExecute(currentAutoExample.prompt, effectiveSettings);
-      setAutoStep((prev) => ((prev + 1) % 3) as 0 | 1 | 2);
+      const nextStep = autoStep;
+      handleAutoRoutingStep(nextStep);
+      setAutoStep(((nextStep + 1) % 3) as 0 | 1 | 2);
       return;
     }
 
@@ -395,16 +409,66 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
                       {chip.promptId === 'auto-routing' && (
                         <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${autoStep === 0 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30' : 'text-slate-400'}`}>1. General / Fast</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${autoStep === 1 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30' : 'text-slate-400'}`}>2. Deep Reasoning</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${autoStep === 2 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30' : 'text-slate-400'}`}>3. Coding</span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleAutoRoutingStep(0, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              autoStep === 0
+                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            1. General / Fast
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleAutoRoutingStep(1, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              autoStep === 1
+                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            2. Deep Reasoning
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleAutoRoutingStep(2, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              autoStep === 2
+                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            3. Coding
+                          </button>
                         </div>
                       )}
 
                       {chip.promptId === 'cache-toggle' && (
                         <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${cacheStep === 0 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-400'}`}>1. Seed (Miss)</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${cacheStep === 1 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-400'}`}>2. Instant Hit ($0)</span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleCacheStep(0, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              cacheStep === 0
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            1. Seed (Miss)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleCacheStep(1, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              cacheStep === 1
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            2. Instant Hit ($0)
+                          </button>
                         </div>
                       )}
                     </button>
