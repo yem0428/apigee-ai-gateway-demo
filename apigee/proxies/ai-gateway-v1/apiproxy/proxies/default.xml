@@ -107,7 +107,7 @@
         </Step>
       </Request>
       <Response/>
-      <Condition>(proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash*") or (proxy.pathsuffix MatchesPath "/models/gemini-2.0-flash*") or (request.header.x-enforce-token-limit == "true")</Condition>
+      <Condition>(proxy.pathsuffix MatchesPath "/models/claude-opus-4-5*") or (proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash*") or (proxy.pathsuffix MatchesPath "/models/gemini-2.0-flash*")</Condition>
     </Flow>
     <Flow name="AutoRoutingFlow">
       <Description>Dedicated intelligent auto-routing flow</Description>

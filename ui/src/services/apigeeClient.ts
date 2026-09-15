@@ -148,9 +148,7 @@ export async function sendPromptToApigee(
     headersSent['use-cache'] = 'true';
   }
 
-  if (isClaude || settings.model?.startsWith('claude')) {
-    headersSent['x-enforce-token-limit'] = 'true';
-  }
+
 
   let responseStatus = 0;
   let responseStatusText = '';
