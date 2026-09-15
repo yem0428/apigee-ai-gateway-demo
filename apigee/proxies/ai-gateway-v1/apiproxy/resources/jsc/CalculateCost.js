@@ -3,7 +3,7 @@ var promptTokens = parseInt(context.getVariable("flow.promptTokenCount") || cont
 var completionTokens = parseInt(context.getVariable("flow.candidatesTokenCount") || context.getVariable("flow.claudeCandidatesTokens") || "0", 10);
 var totalTokens = promptTokens + completionTokens;
 
-var model = context.getVariable("flow.target_model") || context.getVariable("flow.model") || "gemini-3-flash";
+var model = context.getVariable("flow.target_model") || context.getVariable("flow.model") || "gemini-3-flash-preview";
 var modelNormalized = model.toLowerCase().trim();
 
 var inputRate = null;
@@ -33,10 +33,10 @@ if (kvmRatesJson) {
     // Fallback matching for known model prefixes
     if (inputRate === null) {
       var prefixes = [
-        "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash",
-        "gemini-3.1-pro-preview", "gemini-2.5-pro",
+        "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview",
+        "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash",
         "claude-opus-4-5", "claude-opus",
-        "claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"
+        "claude-haiku-4-5"
       ];
       for (var i = 0; i < prefixes.length; i++) {
         if (modelNormalized.indexOf(prefixes[i]) !== -1 && rateCard[prefixes[i]]) {
@@ -70,10 +70,10 @@ if (inputRate === null || isNaN(inputRate)) {
 
   if (!inputRateStr) {
     var prefixes2 = [
-      "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash",
-      "gemini-3.1-pro-preview", "gemini-2.5-pro",
+      "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview",
+      "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash",
       "claude-opus-4-5", "claude-opus",
-      "claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"
+      "claude-haiku-4-5"
     ];
     for (var j = 0; j < prefixes2.length; j++) {
       if (modelNormalized.indexOf(prefixes2[j]) !== -1) {

@@ -83,7 +83,7 @@ paths:
           required: true
           schema:
             type: string
-          example: gemini-3-flash
+          example: gemini-3-flash-preview
         - $ref: '#/components/parameters/UseCacheHeader'
         - $ref: '#/components/parameters/XUseCacheHeader'
       requestBody:
@@ -118,7 +118,7 @@ paths:
           required: true
           schema:
             type: string
-          example: gemini-3-flash
+          example: gemini-3-flash-preview
         - $ref: '#/components/parameters/UseCacheHeader'
         - $ref: '#/components/parameters/XUseCacheHeader'
       requestBody:

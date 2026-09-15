@@ -25,7 +25,7 @@ var isCoding = /def |class |function |import |const |let |var |SELECT |FROM |WHE
 var isDeepReasoning = /compare|architect|deep|reasoning|evaluate|trade-off|multi-step|benchmark|optimize|root cause/i.test(userPrompt);
 var isSimple = userPrompt.length < 200 && !isCoding && !isDeepReasoning;
 
-var targetModel = "gemini-3-flash";
+var targetModel = "gemini-3-flash-preview";
 var targetProvider = "google";
 var costTier = "medium";
 
@@ -36,7 +36,7 @@ if (isStandard) {
     targetProvider = "google";
     costTier = "low";
   } else {
-    targetModel = "gemini-3-flash";
+    targetModel = "gemini-3-flash-preview";
     targetProvider = "google";
     costTier = "medium";
   }
@@ -55,7 +55,7 @@ if (isStandard) {
     targetProvider = "google";
     costTier = "low";
   } else {
-    targetModel = "gemini-3-flash";
+    targetModel = "gemini-3-flash-preview";
     targetProvider = "google";
     costTier = "medium";
   }

@@ -121,7 +121,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [newOutputRate, setNewOutputRate] = useState('0.60');
 
   // Interactive Calculator State
-  const [calcModel, setCalcModel] = useState<string>('gemini-3-flash');
+  const [calcModel, setCalcModel] = useState<string>('gemini-3-flash-preview');
   const [calcPromptTokens, setCalcPromptTokens] = useState<number>(2500);
   const [calcOutputTokens, setCalcOutputTokens] = useState<number>(800);
 

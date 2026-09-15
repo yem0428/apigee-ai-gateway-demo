@@ -26,14 +26,7 @@
         "apiSource": "ai-gateway-v1",
         "llmOperations": [
           {
-            "resource": "/auto*",
-            "methods": [
-              "POST"
-            ],
-            "model": "auto"
-          },
-          {
-            "resource": "/models/auto*",
+            "resource": "/auto:*",
             "methods": [
               "POST"
             ],
@@ -50,14 +43,24 @@
         "apiSource": "ai-gateway-v1",
         "llmOperations": [
           {
-            "resource": "/models/gemini-2.5-flash*",
+            "resource": "/models/auto:*",
             "methods": [
               "POST"
             ],
-            "model": "gemini-2.5-flash"
-          },
+            "model": "auto"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "2000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
           {
-            "resource": "/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash*",
+            "resource": "/models/gemini-2.5-flash:*",
             "methods": [
               "POST"
             ],
@@ -74,14 +77,24 @@
         "apiSource": "ai-gateway-v1",
         "llmOperations": [
           {
-            "resource": "/models/gemini-3.1-flash-lite*",
+            "resource": "/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash:*",
             "methods": [
               "POST"
             ],
-            "model": "gemini-3.1-flash-lite"
-          },
+            "model": "gemini-2.5-flash"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "100",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
           {
-            "resource": "/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite*",
+            "resource": "/models/gemini-3.1-flash-lite:*",
             "methods": [
               "POST"
             ],
@@ -98,18 +111,11 @@
         "apiSource": "ai-gateway-v1",
         "llmOperations": [
           {
-            "resource": "/models/gemini-3-flash*",
+            "resource": "/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite:*",
             "methods": [
               "POST"
             ],
-            "model": "gemini-3-flash"
-          },
-          {
-            "resource": "/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash*",
-            "methods": [
-              "POST"
-            ],
-            "model": "gemini-3-flash"
+            "model": "gemini-3.1-flash-lite"
           }
         ],
         "llmTokenQuota": {
@@ -122,18 +128,62 @@
         "apiSource": "ai-gateway-v1",
         "llmOperations": [
           {
-            "resource": "/models/claude-3-5-haiku*",
+            "resource": "/models/gemini-3-flash-preview:*",
             "methods": [
               "POST"
             ],
-            "model": "claude-3-5-haiku"
-          },
+            "model": "gemini-3-flash-preview"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "2000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
           {
-            "resource": "/v1/projects/*/locations/*/publishers/anthropic/models/claude-3-5-haiku*",
+            "resource": "/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash-preview:*",
             "methods": [
               "POST"
             ],
-            "model": "claude-3-5-haiku"
+            "model": "gemini-3-flash-preview"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "2000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/claude-haiku-4-5@20251001:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "claude-haiku-4-5@20251001"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "2000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/v1/projects/*/locations/*/publishers/anthropic/models/claude-haiku-4-5@20251001:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "claude-haiku-4-5@20251001"
           }
         ],
         "llmTokenQuota": {

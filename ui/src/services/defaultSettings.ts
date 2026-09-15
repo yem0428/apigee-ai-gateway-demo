@@ -212,16 +212,14 @@ export const AVAILABLE_MODELS = [
   { id: 'auto', name: 'Auto', tag: 'Intelligent Routing' },
   { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Rate Limited (100 tok/min)' },
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
-  { id: 'gemini-3-flash', name: 'gemini-3-flash', tag: 'Flash' },
+  { id: 'gemini-3-flash-preview', name: 'gemini-3-flash-preview', tag: 'Flash' },
   { id: 'gemini-3.1-pro-preview', name: 'gemini-3.1-pro-preview', tag: 'Pro Preview' },
   // Deliberately absent from every API Product whitelist. Used by the
   // "Restricted Model" scenario to demonstrate an entitlement block: even an
   // Enterprise-tier key is rejected at VA-VerifyAPIKey before any upstream call.
   { id: 'gemini-3.1-ultra', name: 'gemini-3.1-ultra', tag: 'Restricted (Not Entitled)' },
+  { id: 'claude-haiku-4-5@20251001', name: 'claude-haiku-4-5@20251001', tag: 'Claude Haiku' },
   { id: 'claude-opus-4-5@20251101', name: 'claude-opus-4-5@20251101', tag: 'Claude Opus' },
-  { id: 'claude-3-5-sonnet', name: 'claude-3-5-sonnet', tag: 'Claude 3.5 Sonnet' },
-  { id: 'claude-3-5-haiku', name: 'claude-3-5-haiku', tag: 'Claude 3.5 Haiku' },
-  { id: 'claude-3-7-sonnet', name: 'claude-3-7-sonnet', tag: 'Claude 3.7 Sonnet' },
 ];
 
 export const AUTO_ROUTING_EXAMPLES = [

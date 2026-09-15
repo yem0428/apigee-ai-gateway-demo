@@ -1,7 +1,9 @@
 // Prepares request payload for Anthropic Claude on Vertex Model Garden
 try {
   var targetModel = context.getVariable("flow.target_model") || context.getVariable("flow.model") || "";
-  if (!targetModel || targetModel.indexOf("claude-3-5-sonnet") !== -1 || targetModel.indexOf("claude-default") !== -1) {
+  // The claude-3-x generation is no longer published to Vertex in this project.
+  // Coerce any legacy or unset ID to the current default rather than 404ing.
+  if (!targetModel || targetModel.indexOf("claude-3-") !== -1 || targetModel.indexOf("claude-default") !== -1) {
     targetModel = "claude-opus-4-5@20251101";
   }
   context.setVariable("flow.target_model", targetModel);

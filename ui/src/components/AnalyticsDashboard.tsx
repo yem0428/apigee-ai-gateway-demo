@@ -313,9 +313,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     const colorPalette: Record<string, { color: string; badge: string }> = {
       'claude-opus-4-5@20251101': { color: '#9333ea', badge: 'Op' }, // Purple
       'claude-opus-4-5': { color: '#9333ea', badge: 'Op' },          // Purple
-      'claude-3-5-sonnet': { color: '#a855f7', badge: 'Sn' },        // Purple-500
-      'claude-3-5-haiku': { color: '#0d9488', badge: 'Hk' },         // Teal-600
-      'gemini-3-flash': { color: '#2563eb', badge: 'Gf' },           // Blue
+      'claude-haiku-4-5@20251001': { color: '#0d9488', badge: 'Hk' }, // Teal-600
+      'claude-haiku-4-5': { color: '#0d9488', badge: 'Hk' },         // Teal-600
+      'gemini-3-flash-preview': { color: '#2563eb', badge: 'Gf' },   // Blue
       'gemini-2.5-flash': { color: '#0284c7', badge: 'F2' },         // Sky
       'gemini-3.1-flash-lite': { color: '#059669', badge: 'Fl' },    // Emerald
       'gemini-3.1-pro-preview': { color: '#4f46e5', badge: 'Pr' },   // Indigo

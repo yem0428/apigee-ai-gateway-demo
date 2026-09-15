@@ -130,7 +130,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       }
     });
 
-    describe("General Complex Prompts (>= 200 chars, no code, no deep reasoning) -> gemini-3-flash (google / medium)", () => {
+    describe("General Complex Prompts (>= 200 chars, no code, no deep reasoning) -> gemini-3-flash-preview (google / medium)", () => {
       it("routes general lengthy paragraph to Gemini 3 Flash", () => {
         const longPrompt =
           "The quick brown fox jumps over the lazy dog repeatedly until evening shadows settle across the ancient hills. " +
@@ -139,7 +139,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         assert.ok(longPrompt.length >= 200, "Prompt must be at least 200 characters");
 
         const res = runAutoRouting({ userPrompt: longPrompt, tier: "enterprise" });
-        assert.strictEqual(res.targetModel, "gemini-3-flash");
+        assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
         assert.strictEqual(res.targetProvider, "google");
         assert.strictEqual(res.costTier, "medium");
         assert.strictEqual(res.autoRouted, "true");
@@ -170,7 +170,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         userPrompt: "def calculate_sum(a, b): return a + b",
         tier: "standard",
       });
-      assert.strictEqual(res.targetModel, "gemini-3-flash");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
       assert.strictEqual(res.targetProvider, "google");
       assert.strictEqual(res.costTier, "medium");
     });
@@ -180,7 +180,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         userPrompt: "Compare and architect the trade-offs of microservices",
         tier: "standard",
       });
-      assert.strictEqual(res.targetModel, "gemini-3-flash");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
       assert.strictEqual(res.targetProvider, "google");
       assert.strictEqual(res.costTier, "medium");
     });
@@ -193,7 +193,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       assert.ok(longPrompt.length >= 200);
 
       const res = runAutoRouting({ userPrompt: longPrompt, tier: "standard" });
-      assert.strictEqual(res.targetModel, "gemini-3-flash");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
       assert.strictEqual(res.targetProvider, "google");
       assert.strictEqual(res.costTier, "medium");
     });
@@ -202,7 +202,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
   describe("3. Tier Detection Flexibility & Edge Cases", () => {
     it("detects standard tier from case-insensitive tier variable \"STANDARD\"", () => {
       const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "STANDARD" });
-      assert.strictEqual(res.targetModel, "gemini-3-flash", "Should constrain to flash model");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Should constrain to flash model");
     });
 
     it("detects standard tier from product name containing \"standard\"", () => {
@@ -211,7 +211,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         tier: "",
         productName: "Apigee-Standard-AI-Product",
       });
-      assert.strictEqual(res.targetModel, "gemini-3-flash", "Should constrain to flash model");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Should constrain to flash model");
     });
 
     it("fails CLOSED to standard when tier and product name are blank", () => {
@@ -219,7 +219,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       // out the premium multi-provider models. A coding prompt that would route
       // to Opus under enterprise must be constrained to flash here.
       const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "", productName: "" });
-      assert.strictEqual(res.targetModel, "gemini-3-flash", "Unknown tier must not reach Opus");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Unknown tier must not reach Opus");
       assert.strictEqual(res.targetProvider, "google");
       assert.strictEqual(res.routingTier, "standard");
     });
@@ -251,7 +251,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         tier: "standard",
         productName: "Standard AI Tier",
       });
-      assert.strictEqual(res.targetModel, "gemini-3-flash");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
       assert.strictEqual(res.routingTier, "standard");
     });
 
