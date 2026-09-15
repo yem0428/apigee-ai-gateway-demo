@@ -28,15 +28,6 @@ export async function sendPromptToApigee(
 ): Promise<GenerateContentResult> {
   const startTime = performance.now();
 
-  // If triggering the Exceeded (429) scenario prompt, run pre-flight quota exhaustion to guarantee HTTP 429
-  if (userMessage.includes('2,000 word technical overview') || userMessage.includes('token-exceeded')) {
-    try {
-      await exhaustLlmQuota(settings);
-    } catch {
-      // Ignore exhaustion errors
-    }
-  }
-
   // Determine base URL (via Vite proxy or direct custom) with safe fallback
   let baseUrl = '';
   if (settings.environment === 'custom') {

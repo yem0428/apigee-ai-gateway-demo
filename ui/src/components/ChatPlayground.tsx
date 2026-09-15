@@ -357,14 +357,17 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     if (e) e.stopPropagation();
     setTokenStep(step);
     const example = TOKEN_LIMIT_EXAMPLES[step];
+    const targetPersona = step === 1 ? 'sales_agent' : 'admin';
     const effectiveSettings: GatewaySettings = {
       ...settings,
+      activeUser: targetPersona,
       useCache: false,
       model: 'claude-opus-4-5@20251101',
       omitEmailHeader: false,
     };
     setSettings((prev) => ({
       ...prev,
+      activeUser: targetPersona,
       useCache: false,
       model: 'claude-opus-4-5@20251101',
       omitEmailHeader: false,
