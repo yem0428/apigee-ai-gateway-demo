@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptTransactionRecord } from '../types';
 import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
-import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES } from '../services/defaultSettings';
-import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, Key, RotateCcw, Zap } from 'lucide-react';
+import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES } from '../services/defaultSettings';
+import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap } from 'lucide-react';
 import { ApigeeColorSymbol } from './ApigeeLogo';
 
 interface ChatPlaygroundProps {
@@ -34,6 +34,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const [cacheStep, setCacheStep] = useState<0 | 1>(0);
   const [autoStep, setAutoStep] = useState<0 | 1 | 2>(0);
   const [tokenStep, setTokenStep] = useState<0 | 1>(0);
+  const [authStep, setAuthStep] = useState<0 | 1>(0);
   const [activeSendingUrl, setActiveSendingUrl] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -190,23 +191,21 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   // 1. Identity check, 2. Unauthorized model, 3. Model Armor, 4. Auto, 5. Semantic cache, 6. No cache
   const sampleChips = [
     {
-      label: '🔒 Identity (401)',
-      promptId: 'zero-trust-identity',
-      title: 'Missing Authorization token to trigger Apigee authentication rejection (HTTP 401 Unauthorized)',
-      color: 'hover:border-orange-500 hover:text-orange-500',
-      icon: Key,
-      iconColor: 'text-orange-500',
-    },
-    {
-      label: '🚫 Unauthorized (401)',
-      promptId: 'unauthorized-model',
-      title: 'Sales Agent credentials attempting to call restricted Gemini Pro reasoning model (Entitlement tier rejection)',
+      label:
+        authStep === 0
+          ? '🚫 Auth (401): Missing Header (1/2)'
+          : '🚫 Auth (401): Model Block (2/2)',
+      promptId: 'unauthorized-toggle',
+      title:
+        authStep === 0
+          ? 'Step 1: Omits Authorization header -> HTTP 401 Unauthorized'
+          : 'Step 2: Sales key calling restricted model -> HTTP 401 Forbidden',
       color: 'hover:border-rose-500 hover:text-rose-500',
       icon: ShieldAlert,
       iconColor: 'text-rose-500',
     },
     {
-      label: '🛡️ Model Armor (400)',
+      label: '🛡️ Model Armor',
       promptId: 'model-armor-block',
       title: 'Destructive prompt blocked by Apigee Model Armor guardrail (HTTP 400 Bad Request)',
       color: 'hover:border-red-500 hover:text-red-500',
@@ -261,7 +260,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       promptId: 'token-limit-toggle',
       title:
         tokenStep === 0
-          ? 'Step 1: Request consuming ~20-30 tokens within product quota limit (HTTP 200 OK)'
+          ? 'Step 1: Request consuming ~90 tokens within product quota limit (HTTP 200 OK)'
           : 'Step 2: Request exceeding product quota limit (HTTP 429 Rate Limit Interception)',
       color:
         tokenStep === 0
@@ -271,6 +270,22 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       iconColor: tokenStep === 0 ? 'text-emerald-500' : 'text-rose-500',
     },
   ];
+
+  const handleAuthStep = (step: 0 | 1, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setAuthStep(step);
+    const example = UNAUTHORIZED_401_EXAMPLES[step];
+    const overrides = (example.settingsOverride || {}) as Partial<GatewaySettings>;
+    const effectiveSettings: GatewaySettings = {
+      ...settings,
+      ...overrides,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      ...overrides,
+    }));
+    handleExecute(example.prompt, effectiveSettings);
+  };
 
   const handleAutoRoutingStep = (step: 0 | 1 | 2, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -330,6 +345,12 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   };
 
   const handleChipClick = async (chip: (typeof sampleChips)[0]) => {
+    if (chip.promptId === 'unauthorized-toggle') {
+      const nextStep = authStep;
+      handleAuthStep(nextStep);
+      setAuthStep(nextStep === 0 ? 1 : 0);
+      return;
+    }
     if (chip.promptId === 'token-limit-toggle') {
       const nextStep = tokenStep;
       handleTokenStep(nextStep);
@@ -450,6 +471,33 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           {preset?.description || chip.title}
                         </p>
                       </div>
+
+                      {chip.promptId === 'unauthorized-toggle' && (
+                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                          <button
+                            type="button"
+                            onClick={(e) => handleAuthStep(0, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              authStep === 0
+                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            1. Missing Auth
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleAuthStep(1, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              authStep === 1
+                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            2. Model Block
+                          </button>
+                        </div>
+                      )}
 
                       {chip.promptId === 'auto-routing' && (
                         <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">

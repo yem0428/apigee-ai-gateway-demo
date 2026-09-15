@@ -283,26 +283,37 @@ export const TOKEN_LIMIT_EXAMPLES = [
   },
 ];
 
-export const SCENARIO_PRESETS: ScenarioPreset[] = [
+export const UNAUTHORIZED_401_EXAMPLES = [
   {
-    id: 'zero-trust-identity',
-    title: 'Identity Check',
-    category: 'Governance',
-    description: 'Omits Authorization header.',
+    step: 1,
+    id: 'auth-missing',
+    title: 'Identity Check: Missing Auth Header (401)',
+    tag: '1. Missing Auth',
     prompt: 'Can I access the API without an Authorization token?',
-    badgeText: 'Auth (401)',
-    badgeColor: 'orange',
+    description: 'Omits Authorization header.',
     settingsOverride: { omitEmailHeader: true, useCache: false },
   },
   {
-    id: 'unauthorized-model',
-    title: 'Unauthorized Model',
-    category: 'Governance',
-    description: 'Calls restricted model.',
+    step: 2,
+    id: 'model-forbidden',
+    title: 'Unauthorized Model: Entitlement Block (401)',
+    tag: '2. Model Block',
     prompt: 'Attempting to run complex multi-step reasoning on Gemini Pro with standard sales agent credentials.',
-    badgeText: 'Forbidden (401)',
-    badgeColor: 'rose',
+    description: 'Calls restricted model.',
     settingsOverride: { activeUser: 'sales_agent', model: 'gemini-3.1-pro-preview', useCache: false },
+  },
+];
+
+export const SCENARIO_PRESETS: ScenarioPreset[] = [
+  {
+    id: 'unauthorized-toggle',
+    title: 'Unauthorized (401)',
+    category: 'Governance',
+    description: 'Demonstrates 401 Unauthorized rejections.',
+    prompt: UNAUTHORIZED_401_EXAMPLES[0].prompt,
+    badgeText: 'Auth → Model',
+    badgeColor: 'rose',
+    settingsOverride: { omitEmailHeader: true, useCache: false },
   },
   {
     id: 'model-armor-block',
