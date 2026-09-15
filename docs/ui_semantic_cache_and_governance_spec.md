@@ -46,7 +46,7 @@ Thirteen components exist under
 | [GatewaySettingsModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewaySettingsModal.tsx) | Settings modal, heading **"Gateway Configuration"** | Yes — App |
 | [GatewayTraceViewer.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx) | AI Gateway telemetry panel | Yes — ChatPlayground |
 | [McpPlayground.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpPlayground.tsx) | MCP tool catalog + execution | Yes — `mcp-gateway` tab |
-| [McpTraceViewer.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx) | JSON-RPC request/response/headers tabs | Yes — McpPlayground |
+| [McpTraceViewer.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx) | Structured result tables + collapsible JSON-RPC/headers inspector | Yes — McpPlayground |
 | [ModelRateCardView.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ModelRateCardView.tsx) | Standalone KVM rate-card screen | **No — not imported anywhere** |
 | [MonetizationManager.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx) | Wallets, rate cards, rate plans | Yes — `monetization` tab |
 | [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) | Header, tabs, quick config | Yes — App |
@@ -68,7 +68,7 @@ flowchart TD
     Chat["ChatPlayground.tsx (chat + scenario chips)"]
     GTV["GatewayTraceViewer.tsx (AI telemetry)"]
     Mcp["McpPlayground.tsx (tool catalog)"]
-    MTV["McpTraceViewer.tsx (JSON-RPC + Headers)"]
+    MTV["McpTraceViewer.tsx (Structured Tables + JSON-RPC Inspector)"]
     Analytics["AnalyticsDashboard.tsx"]
     Donut["DonutPieChart.tsx"]
     Money["MonetizationManager.tsx (wallets | rate-cards | rate-plans)"]
@@ -360,36 +360,22 @@ exposes three blocks:
 
 ### 8.2 `McpTraceViewer.tsx`
 
-Header banner shows the JSON-RPC method, a status pill, the endpoint URL and a latency chip. An
-identity strip below it shows `Caller:`, the active persona badge, and `Request ID:` when
-`x-request-id` is present.
+The MCP Gateway trace inspector mirrors the executive layout of `GatewayTraceViewer.tsx` so that non-technical viewers see structured business data first, while technical architects can expand the wire protocol on demand:
 
-Three tabs: **JSON-RPC Response**, **JSON-RPC Request**, **Headers**. The initial tab can be
-deep-linked via `?subtab=response|request|headers`
-([L49-L55](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx#L49-L55)).
-The two JSON tabs render through a custom highlighter (cyan keys, emerald strings, amber numbers,
-purple booleans, rose `null`) on a fixed `#0f172a` surface.
+1. **Executive Telemetry Summary Cards** (2-column grid at top):
+   - **MCP Operation Card**: Displays the JSON-RPC method (`tools/list` or `tools/call (<toolName>)`), a `JSON-RPC 2.0` protocol badge, and round-trip latency (`ms`) with color-coded thresholds.
+   - **Access Governance Card**: Displays the caller email (`Caller:`), active persona badge (`ADMIN` / `SALES AGENT` / `LOANS AGENT`), and policy enforcement status (`Policies Verified` or `Quota Breached`).
 
-The **Headers** tab was rebuilt for contrast
-([L249-L311](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx#L249-L311)):
+2. **Structured Visual Result View** (Primary default view, replacing raw JSON dumps):
+   - **Tool Discovery Catalog (`tools/list`)**: Renders a 4-column table (`Tool Name`, `Domain`, `Parameters`, `Description`) categorizing tools into `Sales & Inventory` or `Loans & Banking` and highlighting required input fields.
+   - **Array Result Table (`tools/call` returning arrays, e.g. `listAllDiscounts`)**: Dynamically constructs columns from returned object keys (`Part SKU`, `Discounted Price`, etc.) with formatted currency values (`$10.99`) and monospace SKU chips.
+   - **Business Entity Record Table (`tools/call` returning single objects, e.g. `getDiscountForSku`, `getLoanApplication`)**: Flattens nested objects into a 2-column property table with section headers (`Customer Segment`, `Loan Details`, etc.) and styled status badges (`APPROVED`, `PENDING`).
+   - **Gateway & Service Diagnostic Card (HTTP 429 / 401 / 403 or upstream faults)**: Displays a clear policy enforcement banner alongside a structured table of diagnostic fields (`Diagnostic Message`, `Error Code`).
 
-- Two theme-aware cards — **"Headers Received from Gateway"** (cyan `Activity` icon) and
-  **"Headers Sent by Client"** (blue `Send` icon) — each styled for both light and dark themes.
-- Each card header carries a live count badge rendered as `{n} headers`.
-- Received keys are cyan; sent keys use neutral slate. All values render in high-contrast chips
-  with `select-all`, so a single click copies a value.
-- `x-apikey` is masked to `first8...last4` when longer than 12 characters. The match is on the exact
-  lower-cased key `x-apikey`; `Authorization` is **not** masked in this viewer.
-- Empty states read `No headers received in response` and `No headers sent`.
-
-The shared **Copy** button is tab-aware: on Headers it exports both sections as one JSON object
-([L200-L219](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx#L200-L219)):
-
-```ts
-{ headersReceived: telemetry.headersReceived, headersSent: telemetry.headersSent }
-```
-
-Values are copied unmasked — the mask is presentation-only.
+3. **Collapsible Technical Accordion (`Inspect JSON-RPC Wire Payload & HTTP Headers`)**:
+   - Collapsed by default (`showTechnicalDetails = false`) so raw JSON never intimidates users; automatically opens if deep-linked via `?subtab=response|request|headers`.
+   - When expanded, reveals three tabs: **JSON-RPC Response**, **JSON-RPC Request**, and **Headers**, plus a tab-aware **Copy** button.
+   - The **Headers** tab displays two theme-aware cards (**"Headers Received from Gateway"** and **"Headers Sent by Client"**) with live header count badges and `x-apikey` masking (`first8...last4`).
 
 ---
 

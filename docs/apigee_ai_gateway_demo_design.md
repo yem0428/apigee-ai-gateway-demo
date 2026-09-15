@@ -684,7 +684,7 @@ ui/src/components/
 ├── GatewaySettingsModal.tsx    # "Gateway Configuration" modal
 ├── GatewayTraceViewer.tsx      # "Gateway Telemetry" pane (six cards + raw accordion)
 ├── McpPlayground.tsx           # MCP tab: tool discovery, dynamic schema form, presets
-├── McpTraceViewer.tsx          # MCP protocol/telemetry inspector, headers tab
+├── McpTraceViewer.tsx          # MCP telemetry cards, structured result tables + collapsible raw accordion
 ├── ModelRateCardView.tsx       # KVM-backed model rate cards
 ├── MonetizationManager.tsx     # Prepaid wallets, rate plans, subscriptions
 ├── Navbar.tsx                  # Tabs, persona pills, env pills, model dropdown, SSO chip

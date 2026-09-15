@@ -274,18 +274,20 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
             {/* Header / Subtitle */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800/80">
               <div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white shadow-sm shadow-cyan-500/20">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white shadow-sm shadow-cyan-500/20 shrink-0">
                     <Terminal className="w-4.5 h-4.5" />
                   </div>
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                      Native MCP Server
-                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                        Native MCP Server
+                      </h2>
+                      <span className="inline-flex items-center text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30 shrink-0">
                         JSON-RPC 2.0
                       </span>
-                    </h2>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
                       Discover tools via <code className="text-cyan-700 dark:text-cyan-300 bg-cyan-100/70 dark:bg-cyan-950/50 px-1.5 py-0.5 rounded font-mono font-semibold border border-cyan-200/60 dark:border-cyan-800/40">tools/list</code> and govern tool executions via <code className="text-cyan-700 dark:text-cyan-300 bg-cyan-100/70 dark:bg-cyan-950/50 px-1.5 py-0.5 rounded font-mono font-semibold border border-cyan-200/60 dark:border-cyan-800/40">tools/call</code>.
                     </p>
                   </div>
