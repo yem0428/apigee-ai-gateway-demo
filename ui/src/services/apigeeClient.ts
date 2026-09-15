@@ -392,38 +392,22 @@ export async function exhaustLlmQuota(settings: GatewaySettings): Promise<void> 
   const longPrompt = 'Write an exhaustive 1,500-word deep-dive technical architectural document covering distributed API rate limiting, token bucket algorithms, spike arrest, and zero-trust security governance in microservice architectures.';
 
   try {
-    // Send 3 parallel requests to exceed 1,000 token limit in minute window
+    // Send 3 parallel requests with maxOutputTokens: 1 for sub-second quota exhaustion
+    const payload = JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: longPrompt }] }],
+      generationConfig: { maxOutputTokens: 1 },
+    });
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-apikey': effectiveApiKey,
+      'X-User-Email': effectiveEmail,
+      'x-enforce-token-limit': 'true',
+    };
+
     await Promise.all([
-      fetch(endpointUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-apikey': effectiveApiKey,
-          'X-User-Email': effectiveEmail,
-          'x-enforce-token-limit': 'true',
-        },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: longPrompt }] }] }),
-      }),
-      fetch(endpointUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-apikey': effectiveApiKey,
-          'X-User-Email': effectiveEmail,
-          'x-enforce-token-limit': 'true',
-        },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: longPrompt }] }] }),
-      }),
-      fetch(endpointUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-apikey': effectiveApiKey,
-          'X-User-Email': effectiveEmail,
-          'x-enforce-token-limit': 'true',
-        },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: longPrompt }] }] }),
-      }),
+      fetch(endpointUrl, { method: 'POST', headers, body: payload }),
+      fetch(endpointUrl, { method: 'POST', headers, body: payload }),
+      fetch(endpointUrl, { method: 'POST', headers, body: payload }),
     ]);
   } catch {
     // Ignore error if already exhausted
