@@ -362,9 +362,8 @@ exposes three blocks:
 
 The MCP Gateway trace inspector mirrors the executive layout of `GatewayTraceViewer.tsx` so that non-technical viewers see structured business data first, while technical architects can expand the wire protocol on demand:
 
-1. **Executive Telemetry Summary Cards** (2-column grid at top):
-   - **MCP Operation Card**: Displays the JSON-RPC method (`tools/list` or `tools/call (<toolName>)`), a `JSON-RPC 2.0` protocol badge, and round-trip latency (`ms`) with color-coded thresholds.
-   - **Access Governance Card**: Displays the caller email (`Caller:`), active persona badge (`ADMIN` / `SALES AGENT` / `LOANS AGENT`), and policy enforcement status (`Policies Verified` or `Quota Breached`).
+1. **Executive Telemetry Summary Card** (Full-width top card):
+   - **MCP Operation Card**: Displays the JSON-RPC method (`tools/list` or `tools/call (<toolName>)`) in full without truncation, a `JSON-RPC 2.0` protocol badge, and round-trip latency (`ms`) on a single line with color-coded thresholds.
 
 2. **Structured Visual Result View** (Primary default view, replacing raw JSON dumps):
    - **Tool Discovery Catalog (`tools/list`)**: Renders a 4-column table (`Tool Name`, `Domain`, `Parameters`, `Description`) categorizing tools into `Sales & Inventory` or `Loans & Banking` and highlighting required input fields.
