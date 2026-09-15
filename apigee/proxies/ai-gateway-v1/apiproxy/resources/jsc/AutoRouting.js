@@ -2,9 +2,23 @@
 // Analyzes prompt content, complexity, coding indicators, and product tier to select the optimal model
 
 var userPrompt = context.getVariable("flow.userPrompt") || "";
-var tier = context.getVariable("verifyapikey.VA-VerifyAPIKey.tier") || "";
-var productName = context.getVariable("verifyapikey.VA-VerifyAPIKey.apiproduct.name") || "";
-var isStandard = (tier.toLowerCase() === "standard") || (productName.toLowerCase().indexOf("standard") !== -1);
+
+// Tier resolution. `tier` is a custom attribute on the API PRODUCT, so it must
+// be read from the apiproduct namespace. The bare "...VA-VerifyAPIKey.tier"
+// form addresses APP attributes and never resolves here.
+var tierAttr = (context.getVariable("verifyapikey.VA-VerifyAPIKey.apiproduct.tier") || "").toLowerCase();
+var productName = (context.getVariable("verifyapikey.VA-VerifyAPIKey.apiproduct.name") || "").toLowerCase();
+
+// Fail CLOSED. Premium routing (Pro / Opus) requires a positive enterprise
+// signal. If the tier cannot be determined we downgrade to the constrained
+// Standard branch rather than handing out the expensive models by default.
+var isEnterprise = (tierAttr === "enterprise") ||
+                   (tierAttr === "" && productName.indexOf("enterprise") !== -1);
+var isStandard = !isEnterprise;
+
+// Exposed for tracing so a downgrade caused by unresolved entitlement is
+// visible rather than silent.
+context.setVariable("flow.routingTier", isEnterprise ? "enterprise" : "standard");
 
 // Heuristic pattern matchers
 var isCoding = /def |class |function |import |const |let |var |SELECT |FROM |WHERE |UPDATE |INSERT |DELETE |```|refactor|regex|async /i.test(userPrompt);

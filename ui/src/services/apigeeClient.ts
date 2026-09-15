@@ -104,7 +104,13 @@ export async function sendPromptToApigee(
 
   // Resolve active user entitlement and dynamic SSO caller email
   const userInfo = getUserInfo(settings.activeUser);
-  let effectiveApiKey = settings.apiKey || userInfo.apiKey;
+
+  // A named persona must resolve to its OWN key and nothing else.
+  // settings.apiKey is sticky session state that is pinned to the admin key at
+  // load (App.tsx), so preferring it here would make the persona selector
+  // cosmetic and silently send Enterprise credentials as any persona.
+  const isNamedPersona = !!settings.activeUser && settings.activeUser in USERS;
+  let effectiveApiKey = isNamedPersona ? userInfo.apiKey : (settings.apiKey || userInfo.apiKey);
 
   if (!effectiveApiKey && typeof window !== 'undefined') {
     try {
@@ -115,14 +121,26 @@ export async function sendPromptToApigee(
         if (apiKeys.admin || meData.apiKey) USERS.admin.apiKey = apiKeys.admin || meData.apiKey;
         if (apiKeys.sales_agent) USERS.sales_agent.apiKey = apiKeys.sales_agent;
         if (apiKeys.loans_agent) USERS.loans_agent.apiKey = apiKeys.loans_agent;
-        effectiveApiKey = apiKeys[settings.activeUser] || USERS[settings.activeUser]?.apiKey || meData.apiKey || USERS.admin.apiKey;
+        // Resolve strictly within the active persona. Falling through to
+        // meData.apiKey or the admin key here would re-introduce the escalation.
+        effectiveApiKey = isNamedPersona
+          ? (apiKeys[settings.activeUser] || USERS[settings.activeUser]?.apiKey || '')
+          : (apiKeys[settings.activeUser] || meData.apiKey || USERS.admin.apiKey);
       }
     } catch (e) {
       console.warn('[apigeeClient] Failed to auto-resolve API key from /api/me', e);
     }
   }
+  if (!effectiveApiKey && !isNamedPersona) {
+    effectiveApiKey = USERS.admin.apiKey || '';
+  }
   if (!effectiveApiKey) {
-    effectiveApiKey = USERS[settings.activeUser]?.apiKey || USERS.admin.apiKey || USERS.sales_agent.apiKey || USERS.loans_agent.apiKey;
+    // Deliberately send no key rather than borrowing another persona's.
+    // The gateway will reject with 401, which is the correct, visible outcome.
+    console.warn(
+      `[apigeeClient] No API key resolved for persona "${settings.activeUser}". ` +
+      'Sending request without x-apikey; expect HTTP 401.'
+    );
   }
 
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;

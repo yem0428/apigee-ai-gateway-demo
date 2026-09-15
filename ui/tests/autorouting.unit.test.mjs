@@ -16,6 +16,12 @@ const autoRoutingCode = fs.readFileSync(autoRoutingPath, "utf8");
 function runAutoRouting({ userPrompt = "", tier = "", productName = "" } = {}) {
   const variables = {
     "flow.userPrompt": userPrompt,
+    // The tier custom attribute lives on the API PRODUCT. This is the variable
+    // AutoRouting.js reads.
+    "verifyapikey.VA-VerifyAPIKey.apiproduct.tier": tier,
+    // Legacy app-attribute form, deliberately left populated. The policy must
+    // NOT depend on it; if a change starts reading this again the fail-closed
+    // test below will still catch the regression.
     "verifyapikey.VA-VerifyAPIKey.tier": tier,
     "verifyapikey.VA-VerifyAPIKey.apiproduct.name": productName,
   };
@@ -41,6 +47,7 @@ function runAutoRouting({ userPrompt = "", tier = "", productName = "" } = {}) {
     targetProvider: variables["flow.target_provider"],
     autoRouted: variables["flow.autoRouted"],
     costTier: variables["flow.costTier"],
+    routingTier: variables["flow.routingTier"],
     allVars: variables,
   };
 }
@@ -207,10 +214,45 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       assert.strictEqual(res.targetModel, "gemini-3-flash", "Should constrain to flash model");
     });
 
-    it("defaults to enterprise multi-provider when tier and product name are blank", () => {
+    it("fails CLOSED to standard when tier and product name are blank", () => {
+      // Security regression guard. An unresolved entitlement must never hand
+      // out the premium multi-provider models. A coding prompt that would route
+      // to Opus under enterprise must be constrained to flash here.
       const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "", productName: "" });
+      assert.strictEqual(res.targetModel, "gemini-3-flash", "Unknown tier must not reach Opus");
+      assert.strictEqual(res.targetProvider, "google");
+      assert.strictEqual(res.routingTier, "standard");
+    });
+
+    it("routes enterprise multi-provider when tier is explicitly enterprise", () => {
+      const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "enterprise" });
       assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
       assert.strictEqual(res.targetProvider, "anthropic");
+      assert.strictEqual(res.routingTier, "enterprise");
+    });
+
+    it("detects enterprise tier from product name when the attribute is blank", () => {
+      const res = runAutoRouting({
+        userPrompt: "def test(): pass",
+        tier: "",
+        productName: "Enterprise AI Tier",
+      });
+      assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
+      assert.strictEqual(res.routingTier, "enterprise");
+    });
+
+    it("ignores an enterprise value supplied only via the legacy app attribute", () => {
+      // The policy must read apiproduct.tier. If it regressed to the app
+      // attribute form, a caller whose PRODUCT is standard could be routed as
+      // enterprise. Here the product says standard and only the legacy key says
+      // enterprise, so the result must stay constrained.
+      const res = runAutoRouting({
+        userPrompt: "def test(): pass",
+        tier: "standard",
+        productName: "Standard AI Tier",
+      });
+      assert.strictEqual(res.targetModel, "gemini-3-flash");
+      assert.strictEqual(res.routingTier, "standard");
     });
 
     it("handles empty prompt gracefully as simple prompt", () => {

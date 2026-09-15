@@ -182,7 +182,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
           ...persistentOverrides,
           ...(preset.settingsOverride?.activeUser
             ? {
-                apiKey: USERS[preset.settingsOverride.activeUser]?.apiKey || prev.apiKey,
+                // Must not fall back to prev.apiKey: that is the previously
+                // active persona's key (admin at session start), which would
+                // silently escalate this scenario's privileges. Empty is
+                // correct here; apigeeClient re-resolves from /api/me.
+                apiKey: USERS[preset.settingsOverride.activeUser]?.apiKey || '',
               }
             : {}),
           omitEmailHeader: false,

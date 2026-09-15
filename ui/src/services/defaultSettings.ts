@@ -143,7 +143,13 @@ export const getUserInfo = (userKey?: string): UserInfo => {
   const user = (userKey && USERS[userKey as UserPersona]) ? USERS[userKey as UserPersona] : USERS.admin;
   return {
     ...user,
-    apiKey: user.apiKey || USERS.admin.apiKey || '',
+    // Never substitute the admin key for a named persona. Doing so is a silent
+    // privilege escalation: selecting "Sales Agent" would send Enterprise-tier
+    // credentials and any entitlement demo would wrongly succeed. An unresolved
+    // persona key must stay empty so the gateway rejects the call.
+    // Note an unknown userKey resolves `user` to USERS.admin above, so the admin
+    // key is still returned in that case, which is intended.
+    apiKey: user.apiKey || '',
   };
 };
 
@@ -206,6 +212,7 @@ export const AVAILABLE_MODELS = [
   { id: 'auto', name: 'Auto', tag: 'Intelligent Routing' },
   { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Rate Limited (100 tok/min)' },
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
+  { id: 'gemini-3-flash', name: 'gemini-3-flash', tag: 'Flash' },
   { id: 'gemini-3.1-pro-preview', name: 'gemini-3.1-pro-preview', tag: 'Pro Preview' },
   // Deliberately absent from every API Product whitelist. Used by the
   // "Restricted Model" scenario to demonstrate an entitlement block: even an

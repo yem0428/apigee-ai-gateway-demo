@@ -135,7 +135,10 @@ export function App() {
                 userEmail: email,
                 ssoUser: authUser,
                 idToken: idToken || undefined,
-                apiKey: apiKeys[prev.activeUser] || apiKeys.admin || apiKey || prev.apiKey,
+                // Resolve within the active persona only. Falling back to
+                // apiKeys.admin here would store Enterprise credentials on
+                // state for a non-admin persona.
+                apiKey: apiKeys[prev.activeUser] || USERS[prev.activeUser]?.apiKey || '',
               }));
             }
           }
