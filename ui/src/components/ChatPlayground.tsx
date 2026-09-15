@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptTransactionRecord } from '../types';
 import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
-import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES } from '../services/defaultSettings';
+import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES, MODEL_ARMOR_EXAMPLES } from '../services/defaultSettings';
 import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap } from 'lucide-react';
 import { ApigeeColorSymbol } from './ApigeeLogo';
 
@@ -35,6 +35,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const [autoStep, setAutoStep] = useState<0 | 1 | 2>(0);
   const [tokenStep, setTokenStep] = useState<0 | 1>(0);
   const [authStep, setAuthStep] = useState<0 | 1>(0);
+  const [armorStep, setArmorStep] = useState<0 | 1 | 2>(0);
   const [activeSendingUrl, setActiveSendingUrl] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -205,9 +206,19 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       iconColor: 'text-rose-500',
     },
     {
-      label: '🛡️ Model Armor',
-      promptId: 'model-armor-block',
-      title: 'Destructive prompt blocked by Apigee Model Armor guardrail (HTTP 400 Bad Request)',
+      label:
+        armorStep === 0
+          ? '🛡️ Armor: Destructive (1/3)'
+          : armorStep === 1
+          ? '🛡️ Armor: Jailbreak (2/3)'
+          : '🛡️ Armor: PII Exfil (3/3)',
+      promptId: 'model-armor-toggle',
+      title:
+        armorStep === 0
+          ? 'Step 1: Malicious deletion script -> Intercepted by Model Armor'
+          : armorStep === 1
+          ? 'Step 2: DAN prompt injection override -> Intercepted by Model Armor'
+          : 'Step 3: Confidential SSN/PII exfiltration query -> Intercepted by Model Armor',
       color: 'hover:border-red-500 hover:text-red-500',
       icon: Shield,
       iconColor: 'text-red-500',
@@ -287,6 +298,23 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     handleExecute(example.prompt, effectiveSettings);
   };
 
+  const handleArmorStep = (step: 0 | 1 | 2, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setArmorStep(step);
+    const example = MODEL_ARMOR_EXAMPLES[step];
+    const effectiveSettings: GatewaySettings = {
+      ...settings,
+      useCache: false,
+      omitEmailHeader: false,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      useCache: false,
+      omitEmailHeader: false,
+    }));
+    handleExecute(example.prompt, effectiveSettings);
+  };
+
   const handleAutoRoutingStep = (step: 0 | 1 | 2, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setAutoStep(step);
@@ -345,6 +373,12 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   };
 
   const handleChipClick = async (chip: (typeof sampleChips)[0]) => {
+    if (chip.promptId === 'model-armor-toggle') {
+      const nextStep = armorStep;
+      handleArmorStep(nextStep);
+      setArmorStep(((nextStep + 1) % 3) as 0 | 1 | 2);
+      return;
+    }
     if (chip.promptId === 'unauthorized-toggle') {
       const nextStep = authStep;
       handleAuthStep(nextStep);
@@ -495,6 +529,44 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             }`}
                           >
                             2. Model Block
+                          </button>
+                        </div>
+                      )}
+
+                      {chip.promptId === 'model-armor-toggle' && (
+                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                          <button
+                            type="button"
+                            onClick={(e) => handleArmorStep(0, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              armorStep === 0
+                                ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            1. Destructive Script
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleArmorStep(1, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              armorStep === 1
+                                ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            2. Jailbreak Attack
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleArmorStep(2, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              armorStep === 2
+                                ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            3. PII Exfiltration
                           </button>
                         </div>
                       )}
