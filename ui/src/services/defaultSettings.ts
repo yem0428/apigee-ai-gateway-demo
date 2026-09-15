@@ -297,7 +297,7 @@ export const UNAUTHORIZED_401_EXAMPLES = [
     step: 2,
     id: 'model-forbidden',
     title: 'Unauthorized Model: Entitlement Block (401)',
-    tag: 'Model Block',
+    tag: 'Restricted Model',
     prompt: 'Attempting to run complex multi-step reasoning on Gemini Pro with standard sales agent credentials.',
     description: 'Calls restricted model.',
     settingsOverride: { activeUser: 'sales_agent', model: 'gemini-3.1-pro-preview', useCache: false },

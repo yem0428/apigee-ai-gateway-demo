@@ -12,7 +12,7 @@ Use this document to edit, refine, or leave comments on the titles, badges, desc
 - **Description**: `Demonstrate Unauthorized rejections.`
 - **Sub-Buttons**:
   - `Missing Auth` -> Prompt: `Can I access the API without an Authorization token?`
-  - `Model Block` -> Prompt: `Attempting to run complex multi-step reasoning on Gemini Pro with standard sales agent credentials.`
+  - `Restricted Model` (Alternate options: `Model Entitlement`, `Forbidden Model`, `Role Restricted`) -> Prompt: `Attempting to run complex multi-step reasoning on Gemini Pro with standard sales agent credentials.`
 
 ---
 

@@ -195,7 +195,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       label:
         authStep === 0
           ? '🚫 Auth (401): Missing Auth (1/2)'
-          : '🚫 Auth (401): Model Block (2/2)',
+          : '🚫 Auth (401): Restricted Model (2/2)',
       promptId: 'unauthorized-toggle',
       title:
         authStep === 0
@@ -528,7 +528,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            Model Block
+                            Restricted Model
                           </button>
                         </div>
                       )}
