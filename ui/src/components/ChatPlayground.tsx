@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptTransactionRecord } from '../types';
-import { sendPromptToApigee, getGatewayTargetUrl, exhaustLlmQuota } from '../services/apigeeClient';
+import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
 import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES, MODEL_ARMOR_EXAMPLES } from '../services/defaultSettings';
 import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap } from 'lucide-react';
@@ -353,7 +353,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     handleExecute(example.prompt, effectiveSettings);
   };
 
-  const handleTokenStep = async (step: 0 | 1, e?: React.MouseEvent) => {
+  const handleTokenStep = (step: 0 | 1, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setTokenStep(step);
     const example = TOKEN_LIMIT_EXAMPLES[step];
@@ -369,9 +369,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       model: 'claude-opus-4-5@20251101',
       omitEmailHeader: false,
     }));
-    if (step === 1) {
-      await exhaustLlmQuota(effectiveSettings);
-    }
     handleExecute(example.prompt, effectiveSettings);
   };
 
