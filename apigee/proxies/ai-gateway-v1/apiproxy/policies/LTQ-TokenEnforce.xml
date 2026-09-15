@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<LLMTokenQuota continueOnError="true" enabled="true" name="LTQ-TokenEnforce">
+<LLMTokenQuota continueOnError="false" enabled="true" name="LTQ-TokenEnforce">
   <DisplayName>LTQ-TokenEnforce</DisplayName>
   <Allow count="1000" countRef="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.limit"/>
   <Interval ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.interval">1</Interval>
