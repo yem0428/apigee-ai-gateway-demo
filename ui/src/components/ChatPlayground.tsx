@@ -252,6 +252,22 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       icon: Globe,
       iconColor: 'text-cyan-500',
     },
+    {
+      label: '⚡ Token Quota: Pass (200)',
+      promptId: 'token-limit-pass',
+      title: 'Request consuming ~20-30 tokens within 100 token/min quota limit (HTTP 200 OK)',
+      color: 'hover:border-emerald-500 hover:text-emerald-500',
+      icon: Zap,
+      iconColor: 'text-emerald-500',
+    },
+    {
+      label: '🛑 Token Limit: Exceeded (429)',
+      promptId: 'token-limit-exceeded',
+      title: 'Large prompt exceeding 100 token/min quota limit, triggering Apigee HTTP 429 Rate Limit Interception',
+      color: 'hover:border-rose-500 hover:text-rose-500',
+      icon: ShieldAlert,
+      iconColor: 'text-rose-500',
+    },
   ];
 
   const handleAutoRoutingStep = (step: 0 | 1 | 2, e?: React.MouseEvent) => {

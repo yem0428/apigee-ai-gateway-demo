@@ -203,6 +203,7 @@ export const DEFAULT_SETTINGS: GatewaySettings = {
 
 export const AVAILABLE_MODELS = [
   { id: 'auto', name: 'Auto', tag: 'Intelligent Routing' },
+  { id: 'gemini-2.0-flash', name: 'gemini-2.0-flash', tag: 'Rate Limited (100 tok/min)' },
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
   { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Flash' },
   { id: 'gemini-3.1-pro-preview', name: 'gemini-3.1-pro-preview', tag: 'Pro Preview' },
@@ -321,6 +322,26 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     badgeText: 'No Cache',
     badgeColor: 'cyan',
     settingsOverride: { useCache: false, model: 'gemini-3.1-flash-lite' },
+  },
+  {
+    id: 'token-limit-pass',
+    title: 'Token Quota: Pass (200)',
+    category: 'Quota',
+    description: 'Short prompt consuming ~20-30 tokens within the 100 token/min rate limit. Succeeds with HTTP 200 OK.',
+    prompt: 'What is an API gateway? Answer in 1 short sentence.',
+    badgeText: 'Quota Pass (200)',
+    badgeColor: 'emerald',
+    settingsOverride: { model: 'gemini-2.0-flash', useCache: false },
+  },
+  {
+    id: 'token-limit-exceeded',
+    title: 'Token Limit: Exceeded (429)',
+    category: 'Quota',
+    description: 'Sends a large prompt/response request exceeding the 100 token/min quota limit, triggering HTTP 429 Rate Limit Interception.',
+    prompt: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting, token bucket algorithms, spike arrest, and API security governance.',
+    badgeText: 'Limit Exceeded (429)',
+    badgeColor: 'rose',
+    settingsOverride: { model: 'gemini-2.0-flash', useCache: false },
   },
 ];
 

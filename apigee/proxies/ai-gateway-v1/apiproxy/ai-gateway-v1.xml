@@ -29,11 +29,13 @@
     <Policy>KVM-GetModelRates</Policy>
     <Policy>LTQ-TokenCount</Policy>
     <Policy>LTQ-TokenEnforce</Policy>
+    <Policy>LTQ-TokenEnforce100</Policy>
     <Policy>ML-CloudLogging</Policy>
     <Policy>MLC-EnforceMonetizationLimits</Policy>
     <Policy>OAS-ValidateRequest</Policy>
     <Policy>QC-DeductBudget</Policy>
     <Policy>QC-EnforceBudgetLimit</Policy>
+    <Policy>QC-TokenRateLimit100</Policy>
     <Policy>RF-MissingUserEmail</Policy>
     <Policy>SCL-Semantic-Cache-Lookup</Policy>
     <Policy>SCP-Semantic-Cache-Populate</Policy>

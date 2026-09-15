@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Quota async="false" continueOnError="false" enabled="true" name="QC-TokenRateLimit100">
+  <DisplayName>QC-TokenRateLimit100</DisplayName>
+  <Identifier ref="verifyapikey.VA-VerifyAPIKey.developer.id"/>
+  <Allow count="100"/>
+  <Interval>1</Interval>
+  <TimeUnit>minute</TimeUnit>
+  <Distributed>true</Distributed>
+  <Synchronous>true</Synchronous>
+  <SharedName>token-rate-limit-100-counter</SharedName>
+</Quota>
