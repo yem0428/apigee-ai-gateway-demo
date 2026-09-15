@@ -511,7 +511,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleAuthStep(0, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               authStep === 0
                                 ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -522,7 +522,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleAuthStep(1, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               authStep === 1
                                 ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -538,7 +538,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleArmorStep(0, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               armorStep === 0
                                 ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -549,7 +549,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleArmorStep(1, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               armorStep === 1
                                 ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -560,13 +560,13 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleArmorStep(2, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               armorStep === 2
                                 ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            PII Exfiltration
+                            PII Exfil
                           </button>
                         </div>
                       )}
@@ -576,29 +576,29 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleAutoRoutingStep(0, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               autoStep === 0
                                 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            General / Fast
+                            Fast
                           </button>
                           <button
                             type="button"
                             onClick={(e) => handleAutoRoutingStep(1, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               autoStep === 1
                                 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            Deep Reasoning
+                            Reasoning
                           </button>
                           <button
                             type="button"
                             onClick={(e) => handleAutoRoutingStep(2, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               autoStep === 2
                                 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -614,7 +614,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleCacheStep(0, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               cacheStep === 0
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -625,7 +625,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleCacheStep(1, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               cacheStep === 1
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -641,7 +641,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleTokenStep(0, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               tokenStep === 0
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -652,7 +652,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleTokenStep(1, e)}
-                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               tokenStep === 1
                                 ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
