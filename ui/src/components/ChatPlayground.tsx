@@ -517,7 +517,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            1. Missing Auth
+                            Missing Auth
                           </button>
                           <button
                             type="button"
@@ -528,7 +528,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            2. Model Block
+                            Model Block
                           </button>
                         </div>
                       )}
@@ -544,7 +544,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            1. Destructive
+                            Destructive
                           </button>
                           <button
                             type="button"
@@ -555,7 +555,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            2. Jailbreak
+                            Jailbreak
                           </button>
                           <button
                             type="button"
@@ -566,7 +566,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            3. PII Exfil
+                            PII Exfil
                           </button>
                         </div>
                       )}
@@ -582,7 +582,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            1. General / Fast
+                            General / Fast
                           </button>
                           <button
                             type="button"
@@ -593,7 +593,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            2. Deep Reasoning
+                            Deep Reasoning
                           </button>
                           <button
                             type="button"
@@ -604,7 +604,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            3. Coding
+                            Coding
                           </button>
                         </div>
                       )}
@@ -620,7 +620,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            1. Seed (Miss)
+                            Seed (Miss)
                           </button>
                           <button
                             type="button"
@@ -631,7 +631,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            2. Instant Hit ($0)
+                            Instant Hit ($0)
                           </button>
                         </div>
                       )}
@@ -647,7 +647,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            1. Pass (200 OK)
+                            Pass (200 OK)
                           </button>
                           <button
                             type="button"
@@ -658,7 +658,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            2. Exceeded (429)
+                            Exceeded (429)
                           </button>
                         </div>
                       )}
