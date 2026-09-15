@@ -276,8 +276,8 @@ export const TOKEN_LIMIT_EXAMPLES = [
     id: 'token-exceeded',
     title: 'Token Quota: Quota Exceeded (429)',
     tag: 'Exceeded (429)',
-    prompt: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting, token bucket algorithms, spike arrest, and API security governance.',
-    description: 'Request exceeding token quota (429 Rate Limit).',
+    prompt: 'Summarize API gateway token bucket algorithms and rate limiting principles in 50 concise words.',
+    description: 'Subsequent request under the same key breaching cumulative minute quota (429 Rate Limit).',
     model: 'claude-opus-4-5@20251101',
   },
 ];
