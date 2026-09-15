@@ -360,13 +360,13 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     const effectiveSettings: GatewaySettings = {
       ...settings,
       useCache: false,
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       omitEmailHeader: false,
     };
     setSettings((prev) => ({
       ...prev,
       useCache: false,
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       omitEmailHeader: false,
     }));
     handleExecute(example.prompt, effectiveSettings);

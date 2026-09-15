@@ -203,9 +203,8 @@ export const DEFAULT_SETTINGS: GatewaySettings = {
 
 export const AVAILABLE_MODELS = [
   { id: 'auto', name: 'Auto', tag: 'Intelligent Routing' },
-  { id: 'gemini-2.0-flash', name: 'gemini-2.0-flash', tag: 'Rate Limited (100 tok/min)' },
+  { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Rate Limited (100 tok/min)' },
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
-  { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Flash' },
   { id: 'gemini-3.1-pro-preview', name: 'gemini-3.1-pro-preview', tag: 'Pro Preview' },
   { id: 'claude-opus-4-5@20251101', name: 'claude-opus-4-5@20251101', tag: 'Claude Opus' },
   { id: 'claude-3-5-sonnet', name: 'claude-3-5-sonnet', tag: 'Claude 3.5 Sonnet' },
@@ -270,7 +269,7 @@ export const TOKEN_LIMIT_EXAMPLES = [
     tag: 'Pass (200 OK)',
     prompt: 'Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words.',
     description: 'Single prompt consuming ~90 tokens within quota (200 OK).',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
   },
   {
     step: 2,
@@ -279,7 +278,7 @@ export const TOKEN_LIMIT_EXAMPLES = [
     tag: 'Exceeded (429)',
     prompt: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting, token bucket algorithms, spike arrest, and API security governance.',
     description: 'Request exceeding token quota (429 Rate Limit).',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
   },
 ];
 
@@ -370,7 +369,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     prompt: TOKEN_LIMIT_EXAMPLES[0].prompt,
     badgeText: 'Pass → Limit',
     badgeColor: 'emerald',
-    settingsOverride: { model: 'gemini-2.0-flash', useCache: false },
+    settingsOverride: { model: 'gemini-2.5-flash', useCache: false },
   },
   {
     id: 'cache-toggle',
