@@ -334,11 +334,11 @@ export const MODEL_ARMOR_EXAMPLES = [
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
     id: 'unauthorized-toggle',
-    title: 'Unauthorized (401)',
+    title: 'Unauthorized',
     category: 'Governance',
-    description: 'Demonstrates 401 Unauthorized rejections.',
+    description: 'Demonstrate 401 Unauthorized rejections.',
     prompt: UNAUTHORIZED_401_EXAMPLES[0].prompt,
-    badgeText: 'Auth → Model',
+    badgeText: 'Rejected (401)',
     badgeColor: 'rose',
     settingsOverride: { omitEmailHeader: true, useCache: false },
   },
