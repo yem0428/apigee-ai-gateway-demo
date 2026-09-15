@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptTransactionRecord } from '../types';
 import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
-import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES } from '../services/defaultSettings';
+import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES } from '../services/defaultSettings';
 import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, Key, RotateCcw, Zap } from 'lucide-react';
 import { ApigeeColorSymbol } from './ApigeeLogo';
 
@@ -33,6 +33,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const [hasUnreadTrace, setHasUnreadTrace] = useState(false);
   const [cacheStep, setCacheStep] = useState<0 | 1>(0);
   const [autoStep, setAutoStep] = useState<0 | 1 | 2>(0);
+  const [tokenStep, setTokenStep] = useState<0 | 1>(0);
   const [activeSendingUrl, setActiveSendingUrl] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -253,20 +254,21 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       iconColor: 'text-cyan-500',
     },
     {
-      label: '⚡ Token Quota: Pass (200)',
-      promptId: 'token-limit-pass',
-      title: 'Request consuming ~20-30 tokens within 100 token/min quota limit (HTTP 200 OK)',
-      color: 'hover:border-emerald-500 hover:text-emerald-500',
-      icon: Zap,
-      iconColor: 'text-emerald-500',
-    },
-    {
-      label: '🛑 Token Limit: Exceeded (429)',
-      promptId: 'token-limit-exceeded',
-      title: 'Large prompt exceeding 100 token/min quota limit, triggering Apigee HTTP 429 Rate Limit Interception',
-      color: 'hover:border-rose-500 hover:text-rose-500',
-      icon: ShieldAlert,
-      iconColor: 'text-rose-500',
+      label:
+        tokenStep === 0
+          ? '⚡ Token Quota: Pass (1/2)'
+          : '🛑 Token Limit: Exceeded (2/2)',
+      promptId: 'token-limit-toggle',
+      title:
+        tokenStep === 0
+          ? 'Step 1: Request consuming ~20-30 tokens within product quota limit (HTTP 200 OK)'
+          : 'Step 2: Request exceeding product quota limit (HTTP 429 Rate Limit Interception)',
+      color:
+        tokenStep === 0
+          ? 'hover:border-emerald-500 hover:text-emerald-500'
+          : 'hover:border-rose-500 hover:text-rose-500',
+      icon: tokenStep === 0 ? Zap : ShieldAlert,
+      iconColor: tokenStep === 0 ? 'text-emerald-500' : 'text-rose-500',
     },
   ];
 
@@ -308,7 +310,33 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     handleExecute(example.prompt, effectiveSettings);
   };
 
+  const handleTokenStep = (step: 0 | 1, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setTokenStep(step);
+    const example = TOKEN_LIMIT_EXAMPLES[step];
+    const effectiveSettings: GatewaySettings = {
+      ...settings,
+      useCache: false,
+      model: 'gemini-2.0-flash',
+      omitEmailHeader: false,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      useCache: false,
+      model: 'gemini-2.0-flash',
+      omitEmailHeader: false,
+    }));
+    handleExecute(example.prompt, effectiveSettings);
+  };
+
   const handleChipClick = async (chip: (typeof sampleChips)[0]) => {
+    if (chip.promptId === 'token-limit-toggle') {
+      const nextStep = tokenStep;
+      handleTokenStep(nextStep);
+      setTokenStep(nextStep === 0 ? 1 : 0);
+      return;
+    }
+
     if (chip.promptId === 'cache-toggle') {
       const nextStep = cacheStep;
       handleCacheStep(nextStep);
@@ -484,6 +512,33 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             }`}
                           >
                             2. Instant Hit ($0)
+                          </button>
+                        </div>
+                      )}
+
+                      {chip.promptId === 'token-limit-toggle' && (
+                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                          <button
+                            type="button"
+                            onClick={(e) => handleTokenStep(0, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              tokenStep === 0
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            1. Pass (200 OK)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleTokenStep(1, e)}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                              tokenStep === 1
+                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            2. Exceeded (429)
                           </button>
                         </div>
                       )}

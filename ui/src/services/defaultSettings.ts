@@ -262,6 +262,27 @@ export const CACHE_EXAMPLES = [
   },
 ];
 
+export const TOKEN_LIMIT_EXAMPLES = [
+  {
+    step: 1,
+    id: 'token-pass',
+    title: 'Token Quota: Within Quota Limit (Pass)',
+    tag: '1. Pass (200 OK)',
+    prompt: 'What is an API gateway? Answer in 1 short sentence.',
+    description: 'Light request consuming ~20-30 tokens within the product token quota limit (HTTP 200 OK).',
+    model: 'gemini-2.0-flash',
+  },
+  {
+    step: 2,
+    id: 'token-exceeded',
+    title: 'Token Quota: Quota Exceeded (429)',
+    tag: '2. Exceeded (429)',
+    prompt: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting, token bucket algorithms, spike arrest, and API security governance.',
+    description: 'Sends a large prompt/response request exceeding the product token quota limit, triggering Apigee HTTP 429 Rate Limit Interception.',
+    model: 'gemini-2.0-flash',
+  },
+];
+
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
     id: 'zero-trust-identity',
@@ -324,23 +345,13 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     settingsOverride: { useCache: false, model: 'gemini-3.1-flash-lite' },
   },
   {
-    id: 'token-limit-pass',
-    title: 'Token Quota: Pass (200)',
+    id: 'token-limit-toggle',
+    title: 'Token Quota Limits',
     category: 'Quota',
-    description: 'Short prompt consuming ~20-30 tokens within the 100 token/min rate limit. Succeeds with HTTP 200 OK.',
-    prompt: 'What is an API gateway? Answer in 1 short sentence.',
-    badgeText: 'Quota Pass (200)',
+    description: 'Evaluates product LLM token quota enforcement. Step 1 executes within quota (200 OK); Step 2 exceeds quota (429 Rate Limit).',
+    prompt: TOKEN_LIMIT_EXAMPLES[0].prompt,
+    badgeText: 'Pass (200) → Limit (429)',
     badgeColor: 'emerald',
-    settingsOverride: { model: 'gemini-2.0-flash', useCache: false },
-  },
-  {
-    id: 'token-limit-exceeded',
-    title: 'Token Limit: Exceeded (429)',
-    category: 'Quota',
-    description: 'Sends a large prompt/response request exceeding the 100 token/min quota limit, triggering HTTP 429 Rate Limit Interception.',
-    prompt: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting, token bucket algorithms, spike arrest, and API security governance.',
-    badgeText: 'Limit Exceeded (429)',
-    badgeColor: 'rose',
     settingsOverride: { model: 'gemini-2.0-flash', useCache: false },
   },
 ];
