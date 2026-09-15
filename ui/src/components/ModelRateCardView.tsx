@@ -81,7 +81,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
         setCalcModel(Object.keys(data.rates)[0] || 'default');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load model rate card from KVM');
+      setError(err.message || 'Failed to load model rate card');
     } finally {
       setLoading(false);
     }
@@ -101,10 +101,10 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
       const elapsed = Math.round(performance.now() - startTime);
       setInitialRates(JSON.parse(JSON.stringify(rates)));
       setLastSynced(new Date().toLocaleTimeString());
-      setSuccessMessage(`Saved ${Object.keys(rates).length} model rates to ${env.toUpperCase()} KVM in ${elapsed}ms!`);
+      setSuccessMessage(`Saved ${Object.keys(rates).length} model rates in ${elapsed}ms!`);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
-      setError(err.message || 'Failed to update rates in KVM');
+      setError(err.message || 'Failed to update rates');
     } finally {
       setSaving(false);
     }
@@ -238,7 +238,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
               onClick={() => loadRates(env)}
               disabled={loading || saving}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-medium transition cursor-pointer disabled:opacity-50"
-              title="Reload rates from KVM"
+              title="Reload Rates"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
@@ -450,7 +450,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-500">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-400" />
-                      Loading live rate card from KVM...
+                      Loading live rate card...
                     </td>
                   </tr>
                 ) : filteredModels.length === 0 ? (

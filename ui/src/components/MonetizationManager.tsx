@@ -190,7 +190,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         setCalcModel(Object.keys(data.rates)[0] || 'default');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load model rate card from KVM');
+      setError(err.message || 'Failed to load model rate card');
     } finally {
       setRatesLoading(false);
     }
@@ -309,10 +309,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
     try {
       await updateModelRates(env, rates);
       setInitialRates(JSON.parse(JSON.stringify(rates)));
-      setSuccessMessage(`Saved model rates to ${env.toUpperCase()} KVM (ai-model-rates)`);
+      setSuccessMessage('Saved model rates');
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
-      setError(err.message || 'Failed to update rates in KVM');
+      setError(err.message || 'Failed to update rates');
     } finally {
       setRatesSaving(false);
     }
@@ -998,7 +998,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       <tr>
                         <td colSpan={7} className="py-12 text-center text-slate-500">
                           <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-500" />
-                          Loading live rate cards from KVM...
+                          Loading live rate cards...
                         </td>
                       </tr>
                     ) : filteredModels.length === 0 ? (
