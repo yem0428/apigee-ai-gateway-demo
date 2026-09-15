@@ -7,7 +7,7 @@
   </AssignVariable>
   <AssignVariable>
     <Name>flow.location</Name>
-    <Value>global</Value>
+    <Value>us-east5</Value>
   </AssignVariable>
   <AssignVariable>
     <Name>target.copy.pathsuffix</Name>
