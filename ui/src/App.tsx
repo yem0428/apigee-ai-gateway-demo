@@ -6,8 +6,9 @@ import { McpPlayground } from './components/McpPlayground';
 import { MonetizationManager } from './components/MonetizationManager';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
+import { ArchitectureBlueprintModal } from './components/ArchitectureBlueprintModal';
 import { ThemeSelector } from './components/ThemeSelector';
-import { GatewaySettings, ChatMessage, GatewayTelemetry, UserPersona, AppTab, AppTheme } from './types';
+import { GatewaySettings, ChatMessage, GatewayTelemetry, McpTelemetry, UserPersona, AppTab, AppTheme } from './types';
 import { DEFAULT_SETTINGS, USERS, createSsoUserFromEmail } from './services/defaultSettings';
 
 export function App() {
@@ -16,6 +17,19 @@ export function App() {
       return new URLSearchParams(window.location.search).get('settings') === 'open';
     }
     return false;
+  });
+  const [isArchitectureOpen, setIsArchitectureOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('arch') === 'open';
+    }
+    return false;
+  });
+  const [archInitialTab, setArchInitialTab] = useState<'ai-gateway' | 'mcp-gateway' | 'dual-pattern'>(() => {
+    if (typeof window !== 'undefined') {
+      const flow = new URLSearchParams(window.location.search).get('flow');
+      if (flow === 'mcp-gateway' || flow === 'dual-pattern') return flow;
+    }
+    return 'ai-gateway';
   });
   const [theme, setTheme] = useState<AppTheme>(() => {
     if (typeof window !== 'undefined') {
@@ -257,6 +271,7 @@ export function App() {
     }
     return null;
   });
+  const [activeMcpTelemetry, setActiveMcpTelemetry] = useState<McpTelemetry | null>(null);
 
   // Analytics Dashboard Controls State (hoisted to Navbar)
   const [analyticsViewMode, setAnalyticsViewMode] = useState<'admin' | 'user'>(() => {
@@ -311,6 +326,10 @@ export function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenArchitecture={() => {
+          setArchInitialTab(activeTab === 'mcp-gateway' ? 'mcp-gateway' : 'ai-gateway');
+          setIsArchitectureOpen(true);
+        }}
         onResetChat={handleResetChat}
         theme={theme}
         onThemeChange={setTheme}
@@ -349,7 +368,7 @@ export function App() {
             onResetChat={handleResetChat}
           />
         ) : activeTab === 'mcp-gateway' ? (
-          <McpPlayground settings={settings} />
+          <McpPlayground settings={settings} onTelemetryChange={setActiveMcpTelemetry} />
         ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
           <MonetizationManager currentEnv="prod" settings={settings} />
         ) : (
@@ -387,6 +406,15 @@ export function App() {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSave={(newSettings) => setSettings(newSettings)}
+      />
+
+      {/* Interactive Architecture Blueprint Modal */}
+      <ArchitectureBlueprintModal
+        isOpen={isArchitectureOpen}
+        onClose={() => setIsArchitectureOpen(false)}
+        initialTab={archInitialTab}
+        aiTelemetry={activeTelemetry}
+        mcpTelemetry={activeMcpTelemetry}
       />
     </div>
   );

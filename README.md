@@ -291,7 +291,8 @@ upstream call is made.
 
 [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) renders four
 primary tabs: **AI Gateway**, **MCP Gateway**, **Analytics & Cost**, and **Monetization**
-(the last is admin-view only). The underlying `AppTab` union in
+(the last is admin-view only), plus an interactive **Architecture** button that opens
+[ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive 3-tab reference diagram (**AI Gateway Flow**, **MCP Tools Flow**, and **ADK Dual-Pattern**) with clickable policy XML inspection and live trace status correlation. The underlying `AppTab` union in
 [types/index.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L131) also carries
 `kvm-pricing` and `rate-cards`, which render inside the Monetization surface.
 

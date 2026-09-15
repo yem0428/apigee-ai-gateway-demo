@@ -18,6 +18,7 @@ import {
   User,
   RotateCcw,
   Loader2,
+  Layers,
 } from 'lucide-react';
 import { GatewaySettings, UserPersona, AppTab, AppTheme } from '../types';
 import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER } from '../services/defaultSettings';
@@ -41,6 +42,7 @@ interface NavbarProps {
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
   onOpenSettings?: () => void;
+  onOpenArchitecture?: () => void;
   onResetChat?: () => void;
   theme?: AppTheme;
   onThemeChange?: (theme: AppTheme) => void;
@@ -52,6 +54,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSettings,
   activeTab,
   onTabChange,
+  onOpenArchitecture,
   analyticsControls,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -176,6 +179,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
           </div>
+
+          {/* Architecture Blueprint Button */}
+          {onOpenArchitecture && (
+            <button
+              type="button"
+              onClick={onOpenArchitecture}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 font-semibold text-xs transition cursor-pointer shadow-2xs shrink-0"
+              title="Open Interactive AI Gateway & MCP Tools Gateway Architecture Blueprint"
+            >
+              <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="hidden sm:inline">Architecture</span>
+            </button>
+          )}
         </div>
 
         {/* Mobile Quick Config Toggle (< lg) */}

@@ -24,6 +24,7 @@ import {
 
 interface McpPlaygroundProps {
   settings: GatewaySettings;
+  onTelemetryChange?: (telemetry: McpTelemetry | null) => void;
 }
 
 const DEFAULT_MCP_TOOLS: McpTool[] = [
@@ -94,6 +95,7 @@ const createInitialMcpTelemetry = (settings: GatewaySettings): McpTelemetry => (
 
 export const McpPlayground: React.FC<McpPlaygroundProps> = ({
   settings,
+  onTelemetryChange,
 }) => {
   const [tools, setTools] = useState<McpTool[]>(DEFAULT_MCP_TOOLS);
   const [loadingTools, setLoadingTools] = useState<boolean>(false);
@@ -106,6 +108,10 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
   const [mobileTab, setMobileTab] = useState<'console' | 'trace'>('console');
   const [hasNewTrace, setHasNewTrace] = useState<boolean>(false);
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    onTelemetryChange?.(telemetry);
+  }, [telemetry, onTelemetryChange]);
 
   // Load available MCP tools on mount and when environment or active user tier changes
   useEffect(() => {
