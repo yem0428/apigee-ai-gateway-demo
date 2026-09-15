@@ -336,7 +336,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     id: 'unauthorized-toggle',
     title: 'Unauthorized',
     category: 'Governance',
-    description: 'Demonstrate 401 Unauthorized rejections.',
+    description: 'Demonstrate Unauthorized rejections.',
     prompt: UNAUTHORIZED_401_EXAMPLES[0].prompt,
     badgeText: 'Rejected (401)',
     badgeColor: 'rose',

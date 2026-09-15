@@ -9,7 +9,7 @@ Use this document to edit, refine, or leave comments on the titles, badges, desc
 - **Title**: `Unauthorized`
 - **Badge Options**: `Zero-Trust (401)` | `Rejected (401)` | `Auth (401)`
 - **Badge**: `Rejected (401)`
-- **Description**: `Demonstrate 401 Unauthorized rejections.`
+- **Description**: `Demonstrate Unauthorized rejections.`
 - **Sub-Buttons**:
   - `Missing Auth` -> Prompt: `Can I access the API without an Authorization token?`
   - `Model Block` -> Prompt: `Attempting to run complex multi-step reasoning on Gemini Pro with standard sales agent credentials.`
