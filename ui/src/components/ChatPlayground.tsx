@@ -357,7 +357,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     if (e) e.stopPropagation();
     setTokenStep(step);
     const example = TOKEN_LIMIT_EXAMPLES[step];
-    const targetPersona = 'sales_agent';
+    const targetPersona = 'admin';
     const effectiveSettings: GatewaySettings = {
       ...settings,
       activeUser: targetPersona,

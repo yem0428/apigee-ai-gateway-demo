@@ -140,10 +140,11 @@ export const USERS: Record<UserPersona, UserInfo> = {
 };
 
 export const getUserInfo = (userKey?: string): UserInfo => {
-  if (userKey && USERS[userKey as UserPersona]) {
-    return USERS[userKey as UserPersona];
-  }
-  return USERS.admin;
+  const user = (userKey && USERS[userKey as UserPersona]) ? USERS[userKey as UserPersona] : USERS.admin;
+  return {
+    ...user,
+    apiKey: user.apiKey || USERS.admin.apiKey || '',
+  };
 };
 
 export interface KeyTierInfo {
