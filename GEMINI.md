@@ -7,6 +7,9 @@ This repository is an enterprise demonstration and development platform for:
 4. **Google ADK (Agent Development Kit)**: Dual-pattern Python agents that consume Apigee gateways for models and tools, and are hosted as managed backend microservices fronted by Apigee.
 5. **Interactive Demo UI**: React + Vite + Tailwind playground with real-time gateway trace inspection, token/latency/cost metrics, and live policy toggles.
 
+> [!WARNING]
+> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Migrate `gemini-2.5-flash` references in API products, proxy flows (`LLMTokenLimitFlow`), and UI presets to `gemini-3.5-flash` or `gemini-3.1-flash-lite` before retirement.
+
 ---
 
 ## Repository Structure Overview

@@ -232,6 +232,7 @@ export const DEFAULT_SETTINGS: GatewaySettings = {
 
 export const AVAILABLE_MODELS = [
   { id: 'auto', name: 'Auto', tag: 'Intelligent Routing' },
+  // TODO: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Update to gemini-3.5-flash before retirement.
   { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Rate Limited (100 tok/min)' },
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
   { id: 'gemini-3-flash-preview', name: 'gemini-3-flash-preview', tag: 'Flash' },

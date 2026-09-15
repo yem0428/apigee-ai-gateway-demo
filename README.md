@@ -96,6 +96,9 @@ dynamically from the API Product attached to the verified key:
 The inline `count="1000"` / `1` / `minute` values are fallback defaults only — the `*Ref` attributes win.
 `LTQ-TokenEnforce` enforces, `LTQ-TokenCount` counts, and both share the `common-counter` shared name.
 
+> [!WARNING]
+> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Prior to retirement, update all `gemini-2.5-flash` demo model references across API products, proxy flows (`LLMTokenLimitFlow`), and UI presets to `gemini-3.5-flash` or `gemini-3.1-flash-lite`.
+
 **`gemini-2.5-flash` is the deliberate token-limit demo model at 100 tokens / 1 minute.**
 Every other operation in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
 is 2000 tokens / 1 minute. The product declares **12 `operationConfigs` across 5 models**, exactly

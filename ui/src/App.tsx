@@ -31,6 +31,13 @@ export function App() {
     }
     return 'ai-gateway';
   });
+  const [archInitialMode, setArchInitialMode] = useState<'request-flow' | 'full-blueprint'>(() => {
+    if (typeof window !== 'undefined') {
+      const mode = new URLSearchParams(window.location.search).get('mode');
+      if (mode === 'request-flow' || mode === 'full-blueprint') return mode;
+    }
+    return 'full-blueprint';
+  });
   const [theme, setTheme] = useState<AppTheme>(() => {
     if (typeof window !== 'undefined') {
       const urlParam = new URLSearchParams(window.location.search).get('theme') as AppTheme;
@@ -240,8 +247,34 @@ export function App() {
     return [];
   });
 
-  const [activeTelemetry, setActiveTelemetry] = useState<GatewayTelemetry | null>(() => {
-    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sample') === 'true') {
+  const [activeTelemetry, setActiveTelemetry] = useState<GatewayTelemetry | null>((): GatewayTelemetry | null => {
+    const sampleParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sample') : null;
+    if (sampleParam === 'armor') {
+      return {
+        status: 400,
+        statusText: 'Bad Request',
+        latencyMs: 92,
+        endpointUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1/auto',
+        environment: 'prod',
+        model: 'auto',
+        provider: 'Google',
+        costTier: 'low',
+        costUsd: '0.000000',
+        promptTokens: 0,
+        candidatesTokens: 0,
+        totalTokens: 0,
+        autoRouted: false,
+        intent: 'Blocked at Perimeter',
+        cacheStatus: 'DISABLED',
+        guardrailStatus: 'BLOCKED',
+        guardrailMessage: 'Model Armor Policy Violation (SUP-UserPrompt): Destructive system command & prompt injection attempt blocked at perimeter.',
+        headersSent: {},
+        headersReceived: {},
+        rawRequest: {},
+        rawResponse: { error: { code: 400, message: 'Blocked by Model Armor' } },
+      };
+    }
+    if (sampleParam === 'true') {
       return {
         status: 200,
         statusText: 'OK',
@@ -328,6 +361,7 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenArchitecture={() => {
           setArchInitialTab(activeTab === 'mcp-gateway' ? 'mcp-gateway' : 'ai-gateway');
+          setArchInitialMode('full-blueprint');
           setIsArchitectureOpen(true);
         }}
         onResetChat={handleResetChat}
@@ -366,9 +400,24 @@ export function App() {
             activeTelemetry={activeTelemetry}
             setActiveTelemetry={setActiveTelemetry}
             onResetChat={handleResetChat}
+            onOpenRequestFlow={(telemetry) => {
+              setActiveTelemetry(telemetry);
+              setArchInitialTab('ai-gateway');
+              setArchInitialMode('request-flow');
+              setIsArchitectureOpen(true);
+            }}
           />
         ) : activeTab === 'mcp-gateway' ? (
-          <McpPlayground settings={settings} onTelemetryChange={setActiveMcpTelemetry} />
+          <McpPlayground
+            settings={settings}
+            onTelemetryChange={setActiveMcpTelemetry}
+            onOpenRequestFlow={(telemetry) => {
+              setActiveMcpTelemetry(telemetry);
+              setArchInitialTab('mcp-gateway');
+              setArchInitialMode('request-flow');
+              setIsArchitectureOpen(true);
+            }}
+          />
         ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
           <MonetizationManager currentEnv="prod" settings={settings} />
         ) : (
@@ -413,6 +462,7 @@ export function App() {
         isOpen={isArchitectureOpen}
         onClose={() => setIsArchitectureOpen(false)}
         initialTab={archInitialTab}
+        initialMode={archInitialMode}
         aiTelemetry={activeTelemetry}
         mcpTelemetry={activeMcpTelemetry}
       />
