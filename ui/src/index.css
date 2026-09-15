@@ -180,33 +180,43 @@ html[data-theme="light"] [class*="bg-blue-950"] {
 html[data-theme="light"] pre,
 html[data-theme="light"] .code-editor-dark,
 html[data-theme="light"] pre.code-editor-dark {
-  background-color: #0f172a !important;
-  color: #e2e8f0 !important;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
 }
 
-/* Ensure JSON syntax highlight spans inside dark code blocks are razor-sharp in light mode */
+/* Ensure JSON syntax highlight spans inside code blocks are crisp and accessible in light mode */
+html[data-theme="light"] pre .text-cyan-400,
 html[data-theme="light"] .code-editor-dark .text-cyan-400 {
-  color: #22d3ee !important;
+  color: #0e7490 !important;
 }
+html[data-theme="light"] pre .text-emerald-400,
 html[data-theme="light"] .code-editor-dark .text-emerald-400 {
-  color: #34d399 !important;
+  color: #047857 !important;
 }
+html[data-theme="light"] pre .text-amber-400,
 html[data-theme="light"] .code-editor-dark .text-amber-400 {
-  color: #fbbf24 !important;
+  color: #b45309 !important;
 }
+html[data-theme="light"] pre .text-purple-400,
 html[data-theme="light"] .code-editor-dark .text-purple-400 {
-  color: #c084fc !important;
+  color: #7e22ce !important;
 }
+html[data-theme="light"] pre .text-rose-400,
 html[data-theme="light"] .code-editor-dark .text-rose-400 {
-  color: #fb7185 !important;
+  color: #be123c !important;
 }
+html[data-theme="light"] pre .text-slate-100,
+html[data-theme="light"] pre .text-slate-200,
+html[data-theme="light"] pre .text-slate-300,
 html[data-theme="light"] .code-editor-dark .text-slate-100,
 html[data-theme="light"] .code-editor-dark .text-slate-200,
 html[data-theme="light"] .code-editor-dark .text-slate-300 {
-  color: #f1f5f9 !important;
+  color: #0f172a !important;
 }
+html[data-theme="light"] pre .text-slate-400,
 html[data-theme="light"] .code-editor-dark .text-slate-400 {
-  color: #94a3b8 !important;
+  color: #475569 !important;
 }
 
 html[data-theme="light"] input,

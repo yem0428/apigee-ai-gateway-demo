@@ -426,7 +426,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
                     <span>{copied ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
-                <pre className="p-2.5 bg-slate-950 rounded-lg overflow-x-auto text-[10px] text-slate-300 leading-relaxed max-h-60">
+                <pre className="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 overflow-x-auto text-[10px] text-slate-800 dark:text-slate-300 leading-relaxed max-h-60">
                   {JSON.stringify(telemetry.rawResponse, null, 2)}
                 </pre>
               </div>

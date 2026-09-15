@@ -23,7 +23,7 @@ interface McpTraceViewerProps {
 }
 
 /**
- * High-contrast JSON syntax highlighter for dark terminal/code editor views
+ * Theme-aware JSON syntax highlighter for both Light and Dark modes
  */
 const highlightJson = (json: any): string => {
   if (typeof json !== 'string') {
@@ -34,17 +34,17 @@ const highlightJson = (json: any): string => {
   return json.replace(
     /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
     (match: string) => {
-      let cls = 'text-amber-400'; // number
+      let cls = 'text-amber-700 dark:text-amber-400 font-medium'; // number
       if (/^"/.test(match)) {
         if (/:$/.test(match)) {
-          cls = 'text-cyan-400 font-semibold'; // JSON key
+          cls = 'text-cyan-700 dark:text-cyan-400 font-semibold'; // JSON key
         } else {
-          cls = 'text-emerald-400'; // string value
+          cls = 'text-emerald-700 dark:text-emerald-400'; // string value
         }
       } else if (/true|false/.test(match)) {
-        cls = 'text-purple-400 font-bold'; // boolean
+        cls = 'text-purple-700 dark:text-purple-400 font-bold'; // boolean
       } else if (/null/.test(match)) {
-        cls = 'text-rose-400 italic'; // null
+        cls = 'text-rose-600 dark:text-rose-400 italic'; // null
       }
       return `<span class="${cls}">${match}</span>`;
     }
@@ -722,8 +722,7 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
               <div className="p-3.5 font-mono text-xs leading-relaxed">
                 {activeTab === 'response' && (
                   <pre
-                    className="code-editor-dark p-3.5 rounded-xl border border-slate-800 overflow-x-auto text-xs leading-relaxed selection:bg-cyan-900 shadow-inner max-h-80"
-                    style={{ backgroundColor: '#0f172a', color: '#e2e8f0' }}
+                    className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs leading-relaxed selection:bg-cyan-100 dark:selection:bg-cyan-900 shadow-2xs max-h-80"
                     dangerouslySetInnerHTML={{
                       __html: highlightJson(telemetry.rawResponse),
                     }}
@@ -740,8 +739,7 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
                       :
                     </div>
                     <pre
-                      className="code-editor-dark p-3.5 rounded-xl border border-slate-800 overflow-x-auto text-xs leading-relaxed selection:bg-cyan-900 shadow-inner max-h-80"
-                      style={{ backgroundColor: '#0f172a', color: '#e2e8f0' }}
+                      className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs leading-relaxed selection:bg-cyan-100 dark:selection:bg-cyan-900 shadow-2xs max-h-80"
                       dangerouslySetInnerHTML={{
                         __html: highlightJson(telemetry.rawRequest),
                       }}
