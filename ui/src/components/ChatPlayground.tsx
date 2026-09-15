@@ -209,7 +209,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       title:
         authStep === 0
           ? 'Step 1: Omits Authorization header -> HTTP 401 Unauthorized'
-          : 'Step 2: Sales key calling restricted model -> HTTP 401 Forbidden',
+          : 'Step 2: Enterprise key calling a non-whitelisted model -> HTTP 401 Unauthorized',
       color: 'hover:border-rose-500 hover:text-rose-500',
       icon: ShieldAlert,
       iconColor: 'text-rose-500',

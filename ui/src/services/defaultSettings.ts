@@ -207,6 +207,10 @@ export const AVAILABLE_MODELS = [
   { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Rate Limited (100 tok/min)' },
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
   { id: 'gemini-3.1-pro-preview', name: 'gemini-3.1-pro-preview', tag: 'Pro Preview' },
+  // Deliberately absent from every API Product whitelist. Used by the
+  // "Restricted Model" scenario to demonstrate an entitlement block: even an
+  // Enterprise-tier key is rejected at VA-VerifyAPIKey before any upstream call.
+  { id: 'gemini-3.1-ultra', name: 'gemini-3.1-ultra', tag: 'Restricted (Not Entitled)' },
   { id: 'claude-opus-4-5@20251101', name: 'claude-opus-4-5@20251101', tag: 'Claude Opus' },
   { id: 'claude-3-5-sonnet', name: 'claude-3-5-sonnet', tag: 'Claude 3.5 Sonnet' },
   { id: 'claude-3-5-haiku', name: 'claude-3-5-haiku', tag: 'Claude 3.5 Haiku' },
@@ -298,9 +302,14 @@ export const UNAUTHORIZED_401_EXAMPLES = [
     id: 'model-forbidden',
     title: 'Unauthorized Model: Entitlement Block (401)',
     tag: 'Restricted Model',
-    prompt: 'Attempting to run complex multi-step reasoning on Gemini Pro with standard sales agent credentials.',
-    description: 'Calls restricted model.',
-    settingsOverride: { activeUser: 'sales_agent', model: 'gemini-3.1-pro-preview', useCache: false },
+    prompt:
+      'Attempting to run complex multi-step reasoning on gemini-3.1-ultra, a model that no API Product whitelists.',
+    description: 'Calls a model outside every product whitelist.',
+    // Uses the admin (Enterprise AI Tier) key on purpose: the strongest
+    // credential in the demo still cannot reach a model that is not named in
+    // its product. This keeps the scenario deterministic instead of depending
+    // on the sales key resolving.
+    settingsOverride: { activeUser: 'admin', model: 'gemini-3.1-ultra', useCache: false },
   },
 ];
 
