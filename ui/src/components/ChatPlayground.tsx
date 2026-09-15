@@ -194,7 +194,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     {
       label:
         authStep === 0
-          ? '🚫 Auth (401): Missing Header (1/2)'
+          ? '🚫 Auth (401): Missing Auth (1/2)'
           : '🚫 Auth (401): Model Block (2/2)',
       promptId: 'unauthorized-toggle',
       title:
@@ -243,6 +243,23 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     },
     {
       label:
+        tokenStep === 0
+          ? '⚡ Token Quota: Pass (1/2)'
+          : '🛑 Token Limit: Exceeded (2/2)',
+      promptId: 'token-limit-toggle',
+      title:
+        tokenStep === 0
+          ? 'Step 1: Request consuming ~90 tokens within product quota limit (HTTP 200 OK)'
+          : 'Step 2: Request exceeding product quota limit (HTTP 429 Rate Limit Interception)',
+      color:
+        tokenStep === 0
+          ? 'hover:border-emerald-500 hover:text-emerald-500'
+          : 'hover:border-rose-500 hover:text-rose-500',
+      icon: tokenStep === 0 ? Zap : ShieldAlert,
+      iconColor: tokenStep === 0 ? 'text-emerald-500' : 'text-rose-500',
+    },
+    {
+      label:
         cacheStep === 0
           ? '⚡ Cache: Seed (Miss)'
           : '⚡ Cache: Instant Hit ($0)',
@@ -262,23 +279,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       color: 'hover:border-cyan-500 hover:text-cyan-500',
       icon: Globe,
       iconColor: 'text-cyan-500',
-    },
-    {
-      label:
-        tokenStep === 0
-          ? '⚡ Token Quota: Pass (1/2)'
-          : '🛑 Token Limit: Exceeded (2/2)',
-      promptId: 'token-limit-toggle',
-      title:
-        tokenStep === 0
-          ? 'Step 1: Request consuming ~90 tokens within product quota limit (HTTP 200 OK)'
-          : 'Step 2: Request exceeding product quota limit (HTTP 429 Rate Limit Interception)',
-      color:
-        tokenStep === 0
-          ? 'hover:border-emerald-500 hover:text-emerald-500'
-          : 'hover:border-rose-500 hover:text-rose-500',
-      icon: tokenStep === 0 ? Zap : ShieldAlert,
-      iconColor: tokenStep === 0 ? 'text-emerald-500' : 'text-rose-500',
     },
   ];
 
@@ -544,7 +544,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            1. Destructive Script
+                            1. Destructive
                           </button>
                           <button
                             type="button"
@@ -555,7 +555,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            2. Jailbreak Attack
+                            2. Jailbreak
                           </button>
                           <button
                             type="button"
@@ -566,7 +566,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            3. PII Exfiltration
+                            3. PII Exfil
                           </button>
                         </div>
                       )}
