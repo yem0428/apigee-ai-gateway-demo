@@ -42,3 +42,13 @@ This repository is an enterprise demonstration and development platform for:
 6. **UI theming hazard**: [`ui/src/index.css`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/index.css) carries aggressive light-theme `!important` overrides (e.g. `html[data-theme="light"] .text-slate-200`). Never pair an inline dark `backgroundColor` with Tailwind slate text classes — it renders invisible text in light mode. Use `bg-white dark:bg-slate-900` class pairs instead.
 
 7. **Validation**: Test proxy bundles and Python ADK endpoints before proposing cloud deployment. Run `npm run build` and `npm run test:live` in [`ui/`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/) before shipping UI changes.
+
+8. **Documentation is part of the change — always update the docs.** Any change to proxy policies, API products, the model catalog, rate cards, or UI behaviour MUST update the affected files in [`docs/`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/) and [`README.md`](file:///Users/maloosatyam/Codebase/AI%20Code/README.md) in the *same* change. Do not defer this or offer it as a follow-up.
+
+9. **Never commit credentials.** No consumer key, token, or secret may appear as a literal in a version-controlled file — not even as a convenience fallback such as `${API_KEY:-<literal>}`. Scripts and tests must read from the environment or `/api/me` and fail loudly when unset. Note that removing a committed secret does **not** purge it from git history; it must also be revoked in Apigee.
+
+10. **Entitlements are named models only.** API products must never grant `model="*"` or use a `**` resource glob. Each model is granted explicitly by name.
+
+11. **Apigee resource glob trap**: `*` matches within a single path segment and requires **at least one** trailing character — so `/auto*` does **not** match a bare `/auto`. A trailing `*` placed directly after a model name also leaks siblings (`/models/gemini-2.5-flash*` grants `gemini-2.5-flash-lite`). Use the `:*` form, which absorbs only the `:generateContent` suffix, and grant suffix-less paths such as `/auto` as exact resources.
+
+12. **Verify model IDs against the live publisher catalog before referencing them.** Four IDs (`gemini-3-flash`, `claude-3-5-haiku`, `claude-3-5-sonnet`, `claude-3-7-sonnet`) were referenced throughout the proxy, products, UI and docs but do not exist in `bap-apac-demo2` and returned 404. There is no `claude-3-x` generation in this project at all.

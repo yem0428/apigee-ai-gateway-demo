@@ -35,9 +35,11 @@ before(async () => {
     mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
   }
 
-  if (!ADMIN_KEY) ADMIN_KEY = process.env.VITE_ADMIN_API_KEY || 'MNbLeAXCiSvIAu1XtCW6nbAxQWWksfAXyM98AOP6vRAvESOP';
-  if (!SALES_KEY) SALES_KEY = ADMIN_KEY;
-  if (!LOANS_KEY) LOANS_KEY = ADMIN_KEY;
+  // No hardcoded key fallback: this file is version controlled. Keys come
+  // from the environment or from /api/me. Do not substitute ADMIN_KEY for the
+  // lower-privilege personas either - that would mask entitlement differences
+  // between the Standard and Enterprise tiers and make denial tests pass
+  // for the wrong reason.
 
   assert.ok(SALES_KEY, 'SALES_KEY must be provided via env or /api/me for live gateway tests');
   assert.ok(ADMIN_KEY, 'ADMIN_KEY must be provided via env or /api/me for live gateway tests');

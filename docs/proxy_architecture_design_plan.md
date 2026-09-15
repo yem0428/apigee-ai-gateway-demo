@@ -5,6 +5,9 @@
 > **Apigee organization**: `bap-apac-demo2` · **Environments**: `dev`, `prod`
 > **Base path**: `/ai/v1` (see [default.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L183-L186))
 > **Public host**: `https://api.maloosatyam.demo.altostrat.com/ai/v1`
+> **Deployed revision**: `2` in `prod`. The revision history was reset on
+> 2026-09-15 — all 57 prior revisions were deleted and the bundle re-imported
+> as revision 1.
 
 Every policy name, flow condition, header and variable in this document was read
 directly out of the bundle. Anything not implemented is in
@@ -239,21 +242,56 @@ precedence and resolve from the API Product's
 `llmOperationGroup.operationConfigs[].llmTokenQuota` block after
 `VA-VerifyAPIKey` runs.
 
-Verified in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json):
+Every `operationConfig` carries **exactly one** `llmOperation` — the Management
+API rejects more than one with `Operations must contain exactly one entity`.
+Standard AI Tier therefore has **12 operationConfigs across 5 models**, and
+Enterprise AI Tier has **16 operationConfigs across 7 models**.
 
-| Resource | Model | Token quota |
-| :--- | :--- | :--- |
-| `/auto*` | `auto` | 2000 / 1 min |
-| `/models/auto*` | `auto` | 2000 / 1 min |
-| **`/models/gemini-2.5-flash*`** | `gemini-2.5-flash` | **100 / 1 min** |
-| `/models/gemini-3.1-flash-lite*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
-| `/models/gemini-3-flash*` | `gemini-3-flash` | 2000 / 1 min |
-| `/models/claude-3-5-haiku*` | `claude-3-5-haiku` | 2000 / 1 min |
-| `/v1/**` | `*` | 2000 / 1 min |
+Each entitled model gets two resources: the gateway-shaped path and the native
+Vertex-shaped path.
 
-[enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)
-grants 10000 / 1 min everywhere **except** `/models/gemini-2.5-flash*`, which is
-also pinned to **100 / 1 min**.
+```
+/models/<model>:*
+/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
+```
+
+`auto` is the exception — it gets four resources, because bare `/auto` has to be
+granted as an exact string (see [Section 5.3](#53-apigee-resource-glob-semantics)):
+
+```
+/auto          /auto:*          /models/auto          /models/auto:*
+```
+
+Verified in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
+and [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json):
+
+| Model | Resources | Standard | Enterprise |
+| :--- | :--- | :--- | :--- |
+| `auto` | `/auto`, `/auto:*`, `/models/auto`, `/models/auto:*` | 2000 / 1 min | 10000 / 1 min |
+| **`gemini-2.5-flash`** | `/models/gemini-2.5-flash:*` + google publisher path | **100 / 1 min** | **100 / 1 min** |
+| `gemini-3.1-flash-lite` | `/models/gemini-3.1-flash-lite:*` + google publisher path | 2000 / 1 min | 10000 / 1 min |
+| `gemini-3-flash-preview` | `/models/gemini-3-flash-preview:*` + google publisher path | 2000 / 1 min | 10000 / 1 min |
+| `claude-haiku-4-5@20251001` | `/models/claude-haiku-4-5@20251001:*` + anthropic publisher path | 2000 / 1 min | 10000 / 1 min |
+| `gemini-3.1-pro-preview` | `/models/gemini-3.1-pro-preview:*` + google publisher path | *not granted* | 10000 / 1 min |
+| `claude-opus-4-5@20251101` | `/models/claude-opus-4-5@20251101:*` + anthropic publisher path | *not granted* | 10000 / 1 min |
+
+Enterprise grants 10000 / 1 min everywhere **except** `gemini-2.5-flash`, which
+is pinned to **100 / 1 min** in both tiers.
+
+Neither product contains a catch-all entitlement any more: there is no `/v1/**`,
+no `/models/*`, no `/*`, and no `model="*"` operation in either JSON. Access is
+model-by-model.
+
+`gemini-3.1-ultra` appears in **no** API product — a grep of
+[apigee/products](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products)
+returns nothing. That is deliberate: it powers the "Restricted Model" demo, where
+even an Enterprise key is rejected at `VA-VerifyAPIKey` with 401 before any
+upstream call is made.
+
+`/models/auto` and `/models/auto:*` are entitled, but **no proxy flow routes
+them** — `AutoRoutingFlow` and the `JS-AutoRouting` PreFlow step both key off
+`/auto`, not `/models/auto`. Calling `/models/auto` returns 400. The entitlement
+exists for completeness only; the UI calls bare `/auto`.
 
 > [!IMPORTANT]
 > `gemini-2.5-flash` is the deliberate **token-limit demo model** at
@@ -266,6 +304,43 @@ also pinned to **100 / 1 min**.
 > `LTQ-TokenEnforce-100`) is stale. Those variants do not exist in this bundle.
 > There are exactly two LLM token quota policies: `LTQ-TokenEnforce` and
 > `LTQ-TokenCount`.
+
+### 5.3 Apigee resource glob semantics
+
+API Product `resource` strings are **not** regular expressions and they are not
+prefix matches. Two properties of the glob syntax decide whether an entitlement
+works, and both have bitten this demo.
+
+| Glob | Meaning | Consequence here |
+| :--- | :--- | :--- |
+| `*` | Matches within a single path segment and requires **at least one character** | `/auto*` does **not** match a bare `/auto` |
+| `**` | Matches across segments | Not used by either product — a `**` grant is effectively a catch-all |
+| `:*` | Matches the `:` verb suffix only | Absorbs `:generateContent` / `:streamGenerateContent` without leaking siblings |
+
+**Trap 1 — `*` needs a trailing character.** Because `*` will not match the empty
+string, a product holding only `/auto*` rejects `POST /ai/v1/auto` with 401 while
+`POST /ai/v1/auto:generateContent` succeeds. That is exactly how the Auto button
+broke: the UI calls bare `/auto`. Both products now grant `/auto` as an **exact**
+resource in addition to `/auto:*`.
+
+> [!CAUTION]
+> The proxy side is more forgiving than the product side, which is what makes
+> this failure mode confusing. `AutoRoutingFlow` and the `JS-AutoRouting` step
+> are conditioned on `(proxy.pathsuffix MatchesPath "/auto*") or
+> (proxy.pathsuffix JavaRegex "^/auto.*")` — the regex alternative matches bare
+> `/auto`, so the flow runs and the trace looks correct, yet `VA-VerifyAPIKey`
+> still returns 401 if the product lacks the exact `/auto` resource.
+
+**Trap 2 — a bare trailing `*` after a model name leaks siblings.** The old
+`/models/gemini-2.5-flash*` form also granted `gemini-2.5-flash-lite`, confirmed
+reaching the backend, because `-lite` is just more characters in the same
+segment. Every model resource therefore now uses the tightened `:*` form, which
+can only absorb the method suffix.
+
+```diff
+- /models/gemini-2.5-flash*     # also matched gemini-2.5-flash-lite
++ /models/gemini-2.5-flash:*    # only matches :generateContent, :streamGenerateContent
+```
 
 ---
 
@@ -426,10 +501,19 @@ All five live in
 [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js) ·
 invoked by `JS-AutoRouting` (`continueOnError="false"`).
 
-Reads `flow.userPrompt`, plus `verifyapikey.VA-VerifyAPIKey.tier` and
-`verifyapikey.VA-VerifyAPIKey.apiproduct.name`. A product counts as *standard*
-if the tier attribute is `standard` **or** the product name contains
-`"standard"`.
+Reads `flow.userPrompt`, plus `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` and
+`verifyapikey.VA-VerifyAPIKey.apiproduct.name`. `tier` is a custom attribute on
+the **API Product**, so it must be read from the `apiproduct` namespace; the bare
+`verifyapikey.VA-VerifyAPIKey.tier` form addresses *app* attributes and never
+resolves here.
+
+Tier resolution **fails closed**
+([AutoRouting.js#L9-L21](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L9-L21)):
+a request is treated as *enterprise* only on a positive signal — the tier
+attribute is exactly `enterprise`, or the attribute is absent **and** the product
+name contains `"enterprise"`. Everything else, including an unresolved tier,
+falls to the constrained Standard branch rather than handing out the expensive
+models by default.
 
 Three heuristics drive the decision:
 
@@ -440,24 +524,26 @@ Three heuristics drive the decision:
 | `isSimple` | prompt length < 200 **and** not coding **and** not deep reasoning |
 
 Routing table as implemented
-([AutoRouting.js#L18-L48](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L18-L48)):
+([AutoRouting.js#L32-L62](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L32-L62)):
 
 | Tier | Signal | `flow.target_model` | Provider | `flow.costTier` |
 | :--- | :--- | :--- | :--- | :--- |
 | Standard | simple | `gemini-3.1-flash-lite` | google | low |
-| Standard | anything else | `gemini-3-flash` | google | medium |
+| Standard | anything else | `gemini-3-flash-preview` | google | medium |
 | Enterprise | coding | `claude-opus-4-5@20251101` | anthropic | high |
 | Enterprise | deep reasoning | `gemini-3.1-pro-preview` | google | high |
 | Enterprise | simple | `gemini-3.1-flash-lite` | google | low |
-| Enterprise | anything else | `gemini-3-flash` | google | medium |
+| Enterprise | anything else | `gemini-3-flash-preview` | google | medium |
 
 Sets `flow.target_model`, `flow.model`, `flow.target_provider`,
-`flow.autoRouted = "true"`, `flow.costTier`.
+`flow.autoRouted = "true"`, `flow.costTier`, and `flow.routingTier`
+(`enterprise` / `standard`) so a downgrade caused by unresolved entitlement is
+visible in trace rather than silent.
 
 > [!NOTE]
 > The standard tier is deliberately **capped at flash models** — it can never
 > route to Claude or to Pro. The enterprise coding branch targets
-> `claude-opus-4-5@20251101`, not `claude-3-5-sonnet`.
+> `claude-opus-4-5@20251101`.
 
 ### 8.2 `CalculateCost.js`
 
@@ -473,13 +559,15 @@ again against the bundled property set:
 
 1. **KVM** — parse `flow.model_rates_json`; exact model key match.
 2. **KVM, version-stripped** — `claude-opus-4-5@20251101` → `claude-opus-4-5`.
-3. **KVM, prefix match** — against a fixed list: `gemini-3.1-flash-lite`,
-   `gemini-3.5-flash`, `gemini-3-flash`, `gemini-3.1-pro-preview`,
-   `gemini-2.5-pro`, `claude-opus-4-5`, `claude-opus`, `claude-3-7-sonnet`,
-   `claude-3-5-sonnet`, `claude-3-5-haiku`.
+3. **KVM, prefix match** — against a fixed list
+   ([CalculateCost.js#L35-L40](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L35-L40)):
+   `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3-flash-preview`,
+   `gemini-3.1-pro-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`,
+   `claude-opus-4-5`, `claude-opus`, `claude-haiku-4-5`.
 4. **KVM `default` key.**
 5. If still unresolved, repeat exact → version-stripped → prefix → `default`
-   against `propertyset.model_rates.*`
+   against `propertyset.model_rates.*` (same prefix list —
+   [CalculateCost.js#L72-L77](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L72-L77))
    ([model_rates.properties](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties)).
 6. Hard floor: `inputRate = 0.15`, `outputRate = 0.60` if everything fails.
 
@@ -503,24 +591,27 @@ From `model_rates.properties` (USD per 1M tokens):
 | Model key | Input | Output |
 | :--- | ---: | ---: |
 | `gemini-2.0-flash` | 0.10 | 0.40 |
+| `gemini-2.5-flash` | 0.30 | 2.50 |
 | `gemini-3.1-flash-lite` | 0.075 | 0.30 |
-| `gemini-3-flash` | 0.15 | 0.60 |
+| `gemini-3-flash-preview` | 0.15 | 0.60 |
 | `gemini-3.5-flash` | 0.15 | 0.60 |
 | `gemini-3.1-pro-preview` | 1.25 | 5.00 |
 | `gemini-2.5-pro` | 1.25 | 5.00 |
-| `claude-3-5-haiku` | 0.80 | 4.00 |
-| `claude-3-5-sonnet` | 3.00 | 15.00 |
-| `claude-3-7-sonnet` | 3.00 | 15.00 |
+| `claude-haiku-4-5` | 1.00 | 5.00 |
 | `claude-opus-4-5` | 15.00 | 75.00 |
 | `claude-opus` | 15.00 | 75.00 |
 | `default` | 0.15 | 0.60 |
 
+The file also carries a `currency=USD` entry. The `claude-3-5-*` / `claude-3-7-*`
+generation has been removed from the rate card — those models are not published
+to Vertex in this project.
+
 > [!NOTE]
 > This property set is the **fallback**. The environment KVM `ai-model-rates`
 > (key `rate_card`) wins when populated, which is what makes the rate card
-> editable at runtime without redeploying the bundle. There is no
-> `gemini-2.5-flash` entry in the property set, so that model falls through to
-> `default` unless the KVM supplies a rate.
+> editable at runtime without redeploying the bundle. Versioned IDs resolve via
+> the version-stripped key, so `claude-opus-4-5@20251101` bills off
+> `claude-opus-4-5` and `claude-haiku-4-5@20251001` bills off `claude-haiku-4-5`.
 
 ### 8.3 `ClaudeRequestPrep.js`
 
@@ -528,8 +619,10 @@ From `model_rates.properties` (USD per 1M tokens):
 invoked by `JS-ClaudeRequestPrep` in the `claude-vertex-target` PreFlow request.
 
 1. **Model normalisation.** If `flow.target_model` is empty, contains
-   `claude-3-5-sonnet`, or contains `claude-default`, it is rewritten to
-   `claude-opus-4-5@20251101`.
+   `claude-3-` (the whole legacy generation, which is no longer published to
+   Vertex in this project), or contains `claude-default`, it is rewritten to
+   `claude-opus-4-5@20251101`
+   ([ClaudeRequestPrep.js#L3-L9](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/ClaudeRequestPrep.js#L3-L9)).
 2. **Gemini → Claude translation.** If the body has `contents[]`, each entry is
    mapped to a Claude message (`role: "model"` → `"assistant"`, all `parts[].text`
    joined with a space). The new body is
@@ -742,15 +835,13 @@ terminating chunk.
 
 ### 11.2 Automated model failover — not implemented
 
-Both target endpoints declare `<FaultRules/>` — **empty**. There is no
-`JS-FailoverRouting` policy, no fallback cascade, and no
-`x-gateway-failover` header anywhere in the bundle. An upstream 429 or 503 is
-returned to the client as-is.
-
-Design intent was a cascade
-`gemini-3.1-pro-preview → gemini-3-flash → gemini-3.1-flash-lite` on 429/503,
-signalled with `x-gateway-failover: true` and `x-gateway-original-model`. None
-of that exists.
+Both target endpoints declare `<FaultRules/>` — **empty**
+([gemini-vertex-target.xml#L4](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/targets/gemini-vertex-target.xml#L4),
+[claude-vertex-target.xml#L4](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/targets/claude-vertex-target.xml#L4)).
+A recursive grep of the bundle for `failover`, `429` and `503` matches nothing
+outside those two empty `<FaultRules/>` elements: there is no failover policy, no
+failover JavaScript resource, no fallback cascade and no `x-gateway-failover`
+header. An upstream 429 or 503 is returned to the client as-is.
 
 ### 11.3 Model catalog endpoint — not implemented
 
@@ -852,7 +943,18 @@ not documentation.
 
 | Item | Detail |
 | :--- | :--- |
-| `test_token_limit.sh` does not exercise the token-limit flow | It calls `/models/gemini-2.0-flash:generateContent` and sends `x-enforce-token-limit: true`. `LLMTokenLimitFlow` triggers on **`gemini-2.5-flash`**, and no policy or condition anywhere in the bundle reads `x-enforce-token-limit`. The script's header comment also claims a hardcoded 100 tokens/min, which is now product-driven |
-| `gemini-2.5-flash` has no bundled rate | `model_rates.properties` has no `gemini-2.5-flash` key, so cost falls through to `default` (0.15 / 0.60) unless the `ai-model-rates` KVM supplies one |
 | Semantic cache infrastructure IDs are hardcoded | Index endpoint, index ID, and project are literals in the SCL/SCP policy XML — not parameterised per environment |
-| `AM-PrepClaudeDirect` default model is stale | Its `<Value>` fallback is `claude-3-5-sonnet`, but `ClaudeRequestPrep.js` immediately rewrites that value to `claude-opus-4-5@20251101` |
+| `/models/auto` is entitled but unroutable | Both products grant `/models/auto` and `/models/auto:*`, yet no proxy flow matches them, so the call returns 400. Either add a flow condition or drop the entitlement |
+| `AM-PrepGeminiDirect` hardcodes a default model | Its `<Value>` fallback is `gemini-3-flash-preview`, which must be updated by hand whenever the default Gemini model changes |
+
+Previously listed here and now **resolved in code**, verified today:
+
+- [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh)
+  targets `/models/gemini-2.5-flash:generateContent` — the model
+  `LLMTokenLimitFlow` is conditioned on — no longer sends the meaningless
+  `x-enforce-token-limit` header, and now requires `API_KEY` in the environment,
+  exiting 1 if it is unset.
+- `model_rates.properties` now carries a `gemini-2.5-flash` rate
+  (0.30 / 2.50), so the headline demo model no longer bills at the `default` rate.
+- `AM-PrepClaudeDirect` now falls back to `claude-opus-4-5@20251101`, matching
+  what `ClaudeRequestPrep.js` would coerce it to anyway.

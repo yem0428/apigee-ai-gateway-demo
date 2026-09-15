@@ -55,12 +55,30 @@ export const getEnvironment = (env?: string): EnvironmentInfo => {
   return ENVIRONMENTS.prod;
 };
 
+// Build-time values are referenced STATICALLY and are limited to non-secrets.
+//
+// Do not index into `import.meta.env` dynamically. Vite cannot statically
+// analyse a computed key, so it inlines the *entire* env object into the
+// client bundle. That previously shipped VITE_ADMIN_API_KEY,
+// VITE_SALES_API_KEY and VITE_LOANS_API_KEY to every browser that loaded the
+// app, handing any user an Enterprise-tier credential.
+//
+// API keys are never build-time values. They are resolved at runtime from
+// `/api/me`, which is server-side and IAP-protected.
+const BUILD_ENV: Record<string, string | undefined> = {
+  SSO_USER_EMAIL: import.meta.env.VITE_SSO_USER_EMAIL,
+  DEFAULT_ENV: import.meta.env.VITE_DEFAULT_ENV,
+  ADMIN_USER_EMAIL: import.meta.env.VITE_ADMIN_USER_EMAIL,
+  SALES_AGENT_EMAIL: import.meta.env.VITE_SALES_AGENT_EMAIL,
+  LOANS_AGENT_EMAIL: import.meta.env.VITE_LOANS_AGENT_EMAIL,
+};
+
 export const getRuntimeEnv = (key: string, fallback: string = ''): string => {
   if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.[key]) {
     return (window as any).__RUNTIME_CONFIG__[key];
   }
-  const viteVal = (import.meta.env as any)[`VITE_${key}`] || (import.meta.env as any)[key];
-  return viteVal !== undefined && viteVal !== '' ? viteVal : fallback;
+  const buildVal = BUILD_ENV[key];
+  return buildVal !== undefined && buildVal !== '' ? buildVal : fallback;
 };
 
 export const createSsoUserFromEmail = (
@@ -115,26 +133,30 @@ export const createSsoUserFromEmail = (
 const defaultInitialEmail = getRuntimeEnv('SSO_USER_EMAIL', 'maloosatyam@google.com');
 export const DEFAULT_SSO_USER: SsoUser = createSsoUserFromEmail(defaultInitialEmail);
 
+// NOTE: `apiKey` is intentionally empty here and is populated at runtime from
+// `/api/me` (see App.tsx and apigeeClient.ts, which write into this object).
+// Never seed a key from build-time env - it would be inlined into the client
+// bundle and handed to every browser.
 export const USERS: Record<UserPersona, UserInfo> = {
   admin: {
     id: 'admin',
     name: 'Admin User',
     email: getRuntimeEnv('ADMIN_USER_EMAIL', 'admin.user@google.com'),
-    apiKey: getRuntimeEnv('ADMIN_API_KEY', ''),
+    apiKey: '',
     badge: 'Admin',
   },
   sales_agent: {
     id: 'sales_agent',
     name: 'Sales Agent',
     email: getRuntimeEnv('SALES_AGENT_EMAIL', 'sales.agent@example.com'),
-    apiKey: getRuntimeEnv('SALES_API_KEY', ''),
+    apiKey: '',
     badge: 'Sales Agent',
   },
   loans_agent: {
     id: 'loans_agent',
     name: 'Loans Agent',
     email: getRuntimeEnv('LOANS_AGENT_EMAIL', 'loans.agent@example.com'),
-    apiKey: getRuntimeEnv('LOANS_API_KEY', ''),
+    apiKey: '',
     badge: 'Loans Agent',
   },
 };

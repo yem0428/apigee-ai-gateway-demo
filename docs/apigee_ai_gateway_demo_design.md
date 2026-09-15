@@ -138,9 +138,9 @@ Every step carries `request.verb != "OPTIONS"`.
 | 13 | `QC-EnforceBudgetLimit` | — |
 | 14 | `AM-RemoveAuthorization` | — |
 | 15 | `AM-InitCacheStatus` | — |
-| 16 | `JS-AutoRouting` | path matches `/auto*` |
-| 17 | `AM-PrepGeminiDirect` | `/models/gemini*` or `/v1/projects/**` |
-| 18 | `AM-PrepClaudeDirect` | `/models/claude*` or `/v1/messages/**` |
+| 16 | `JS-AutoRouting` | `/auto*` **or** regex `^/auto.*` (so bare `/auto` matches) |
+| 17 | `AM-PrepGeminiDirect` | `/models/gemini*`, regex `^/models/gemini.*`, or `/v1/projects/**` |
+| 18 | `AM-PrepClaudeDirect` | `/models/claude*`, regex `^/models/claude.*`, or `/v1/messages/**` |
 | 19 | `AM-SetCacheHitExpected` | `use-cache` or `x-use-cache` header is `true` |
 | 20 | `SCL-Semantic-Cache-Lookup` | same cache-header condition |
 
@@ -150,9 +150,9 @@ Every step carries `request.verb != "OPTIONS"`.
 | :--- | :--- | :--- |
 | `OptionsPreFlight` | `OPTIONS` + `Origin` + `Access-Control-Request-Method` | `CORS-Headers` |
 | `LLMTokenLimitFlow` | `/models/gemini-2.5-flash:generateContent`, or `flow.model == "gemini-2.5-flash"`, or regex `^/models/gemini-2.5-flash.*` | `LTQ-TokenEnforce` |
-| `AutoRoutingFlow` | `/auto*` | — |
-| `GeminiDirectFlow` | `/models/gemini*` | — |
-| `AnthropicDirectFlow` | `/models/claude*` or `/v1/messages/**` | — |
+| `AutoRoutingFlow` | `/auto*` or regex `^/auto.*` | — |
+| `GeminiDirectFlow` | `/models/gemini*` or regex `^/models/gemini.*` | — |
+| `AnthropicDirectFlow` | `/models/claude*`, regex `^/models/claude.*`, or `/v1/messages/**` | — |
 | `VertexPassthroughFlow` | `/v1/projects/**` | — |
 
 > [!WARNING]
@@ -270,9 +270,11 @@ https://api.maloosatyam.demo.altostrat.com/ai/v1/models/gemini-2.5-flash:generat
 ```
 
 > [!NOTE]
-> The UI client builds `{proxyPath}/models/{model}:generateContent` — see
-> [apigeeClient.ts#L84-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L84-L85).
-> There is **no** `AM-RouteModel` policy; upstream URL construction is done by
+> The UI client builds `{proxyPath}/models/{model}:generateContent` for a named model, and
+> the **bare** `{proxyPath}/auto` when `auto` is selected — see
+> [apigeeClient.ts#L81-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L81-L85).
+> `/models/auto` is entitled by both AI products but no proxy flow routes it, so it returns
+> 400. There is **no** `AM-RouteModel` policy; upstream URL construction is done by
 > `AM-PrepGeminiDirect`/`AM-PrepClaudeDirect` in the proxy PreFlow plus
 > `AM-RouteGeminiTarget`/`AM-RouteClaudeTarget` in the target PreFlow.
 
@@ -293,15 +295,15 @@ Identity and authorization are decoupled:
 
 ### 4.1 Persona registry
 
-Source: [defaultSettings.ts#L118-L187](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L118-L187),
+Source: [defaultSettings.ts#L118-L193](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L118-L193),
 [apigee/apps/](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps),
 [server.js#L185-L234](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L185-L234).
 
 | Persona (`UserPersona`) | Key tier | Developer app | Bound API products | Effect |
 | :--- | :--- | :--- | :--- | :--- |
-| `admin` *(default)* | `admin` — "Admin Unified Key" | `Unified Admin <username> App`, auto-provisioned per signed-in user | `Enterprise AI Tier`, `Enterprise Tools MCP` | All models, all MCP tools |
-| `sales_agent` | `sales` — "Sales Agent Unified Key" | [Unified Sales App](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_sales_app.json) | `Standard AI Tier`, `Sales Tools MCP` | Flash/auto models; discount tools only |
-| `loans_agent` | `loans` — "Loans Agent Unified Key" | [Unified Loans App](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_loans_app.json) | `Standard AI Tier`, `Loans Tools MCP` | Flash/auto models; loan tools only |
+| `admin` *(default)* | `admin` — "Admin Unified Key" | `Unified Admin <username> App`, auto-provisioned per signed-in user | `Enterprise AI Tier`, `Enterprise Tools MCP` | All seven entitled models, all MCP tools |
+| `sales_agent` | `sales` — "Sales Agent Unified Key" | [Unified Sales App](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_sales_app.json) | `Standard AI Tier`, `Sales Tools MCP` | `auto`, Flash / Flash-Lite, Haiku; discount tools only |
+| `loans_agent` | `loans` — "Loans Agent Unified Key" | [Unified Loans App](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps/unified_loans_app.json) | `Standard AI Tier`, `Loans Tools MCP` | `auto`, Flash / Flash-Lite, Haiku; loan tools only |
 
 A fourth key tier, `custom`, exists in `KEY_TIERS` for pasting an arbitrary key. There is no
 `bronze` or `silver` tier anywhere in the code.
@@ -321,19 +323,48 @@ The AI products carry `llmOperationGroup.llmTokenQuota`; the MCP products carry
 
 | Product | File | Scope |
 | :--- | :--- | :--- |
-| Standard AI Tier | `standard_ai_tier.json` | `tier: standard` — auto, Flash / Flash-Lite, Haiku |
-| Enterprise AI Tier | `enterprise_ai_tier.json` | `tier: enterprise` — all models via `/models/*` and `/*` |
+| Standard AI Tier | [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | `tier: standard` — **12 operationConfigs / 5 models**: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` |
+| Enterprise AI Tier | [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | `tier: enterprise` — **16 operationConfigs / 7 models**: the Standard five plus `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` |
 | Enterprise Tools MCP | `enterprise_tools_mcp.json` | `domain: enterprise` — all five MCP tools |
 | Sales Tools MCP | `sales_tools_mcp.json` | `domain: sales` — discount tools |
 | Loans Tools MCP | `loans_tools_mcp.json` | `domain: loans` — loan tools |
 
-Two facts matter for the architecture and the demo:
+Each `operationConfig` carries exactly **one** `llmOperation`; the Management API rejects
+more with `Operations must contain exactly one entity`. Per model, two resources are
+granted:
 
-- `/models/gemini-2.5-flash*` is capped at **100 tokens / 1 minute** on *both* AI tiers —
-  this is the deliberate token-limit demo model.
-- `gemini-3.1-pro-preview` is reachable on Enterprise (via `/models/*`) but has **no
-  matching operation on Standard**, which is why a Standard key calling Pro is rejected by
-  `VA-VerifyAPIKey` with HTTP 401.
+```
+/models/<model>:*
+/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
+```
+
+`auto` additionally gets four: `/auto`, `/auto:*`, `/models/auto`, `/models/auto:*`.
+
+#### Apigee glob semantics
+
+- `*` matches within a single path segment and requires **at least one character**, so
+  `/auto*` does *not* match a bare `/auto`. That is why `/auto` is granted as an exact
+  resource — and the bare form is exactly what the UI calls.
+- A trailing `*` placed directly after a model name leaks siblings: `/models/gemini-2.5-flash*`
+  also granted `gemini-2.5-flash-lite`. The tightened `:*` form absorbs only the
+  `:generateContent` / `:streamGenerateContent` suffix.
+- `**` (cross-segment) is **not used** by any product.
+
+> [!WARNING]
+> Three blanket entitlements were removed and must not be reintroduced: Standard's
+> `/v1/**` with `model="*"`, and Enterprise's `/models/*` and `/*`, both with `model="*"`.
+> No product may carry a `model="*"` entitlement or a `**` resource glob — they silently
+> granted every model, including ones no tier is supposed to reach.
+
+Three facts matter for the architecture and the demo:
+
+- `/models/gemini-2.5-flash:*` is capped at **100 tokens / 1 minute** on *both* AI tiers —
+  this is the deliberate token-limit demo model. Every other operation is 2000 tok/min on
+  Standard and 10000 tok/min on Enterprise.
+- `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` exist **only** in the Enterprise
+  product, which is why a Standard key calling either is rejected by `VA-VerifyAPIKey`
+  with HTTP 401.
+- `gemini-3.1-ultra` appears in **no** product, so it is rejected for every persona.
 
 > [!NOTE]
 > The canonical, verified catalog of API products, per-operation LLM token quotas,
@@ -368,7 +399,7 @@ the 100 comes from the product.
 
 ### 4.4 Request headers sent by the UI
 
-Source: [apigeeClient.ts#L131-L148](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L131-L148).
+Source: [apigeeClient.ts#L149-L166](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L149-L166).
 
 | Header | When sent |
 | :--- | :--- |
@@ -419,7 +450,7 @@ A second proxy endpoint, `oauth-prm-endpoint.xml`, serves OAuth Protected Resour
 
 Tools are registered in the Apigee MCP server upstream (not in this repository). The UI's
 preset catalog is in
-[MCP_PRESET_SCENARIOS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L397-L491);
+[MCP_PRESET_SCENARIOS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L411-L505);
 authorization is defined by the MCP API Products.
 
 | Tool | Domain | Inputs used by presets | Enterprise | Sales | Loans |
@@ -454,63 +485,102 @@ clicking **Refresh Tools** replaces it with the live catalog.
 
 ### 6.1 Model dropdown
 
-Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L205-L214).
+Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L211-L223).
 Eight entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L327)
-under the label **"Vertex AI Model"**.
+in the compact selector and again in the mobile panel under the label
+**"Vertex AI Model"** ([Navbar.tsx#L609](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L609)).
 
-| Model ID | Display name | Tag |
-| :--- | :--- | :--- |
-| `auto` *(default)* | Auto | Intelligent Routing |
-| `gemini-2.5-flash` | gemini-2.5-flash | Rate Limited (100 tok/min) |
-| `gemini-3.1-flash-lite` | gemini-3.1-flash-lite | Flash Lite |
-| `gemini-3.1-pro-preview` | gemini-3.1-pro-preview | Pro Preview |
-| `claude-opus-4-5@20251101` | claude-opus-4-5@20251101 | Claude Opus |
-| `claude-3-5-sonnet` | claude-3-5-sonnet | Claude 3.5 Sonnet |
-| `claude-3-5-haiku` | claude-3-5-haiku | Claude 3.5 Haiku |
-| `claude-3-7-sonnet` | claude-3-7-sonnet | Claude 3.7 Sonnet |
+| Model ID | Display name | Tag | Reachable? |
+| :--- | :--- | :--- | :--- |
+| `auto` *(default)* | Auto | Intelligent Routing | ✅ routed |
+| `gemini-2.5-flash` | gemini-2.5-flash | Rate Limited (100 tok/min) | ✅ |
+| `gemini-3.1-flash-lite` | gemini-3.1-flash-lite | Flash Lite | ✅ |
+| `gemini-3-flash-preview` | gemini-3-flash-preview | Flash | ✅ |
+| `gemini-3.1-pro-preview` | gemini-3.1-pro-preview | Pro Preview | ✅ Enterprise only |
+| `gemini-3.1-ultra` | gemini-3.1-ultra | Restricted (Not Entitled) | ❌ **by design** — 401 |
+| `claude-haiku-4-5@20251001` | claude-haiku-4-5@20251001 | Claude Haiku | ✅ |
+| `claude-opus-4-5@20251101` | claude-opus-4-5@20251101 | Claude Opus | ✅ Enterprise only |
+
+> [!NOTE]
+> `gemini-3.1-ultra` is deliberately absent from every API Product whitelist. It exists so
+> the "Restricted Model" scenario can show an entitlement block at `VA-VerifyAPIKey` before
+> any upstream call, even with the Enterprise key.
 
 `DEFAULT_SETTINGS` uses `model: 'auto'`, `environment: 'prod'`, `activeUser: 'admin'`,
-`projectId: 'bap-apac-demo2'`, `location: 'global'`, `useCache: false`.
+`keyTier: 'admin'`, `projectId: 'bap-apac-demo2'`, `location: 'global'`, `useCache: false`,
+`omitEmailHeader: false`
+([defaultSettings.ts#L195-L208](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L195-L208)).
+
+URL construction differs per selection
+([apigeeClient.ts#L81-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L81-L85)):
+
+| Selection | Endpoint the UI calls |
+| :--- | :--- |
+| `auto` | `{proxyPath}/auto` — the bare form, matched by `AutoRoutingFlow` |
+| any `gemini-*` | `{proxyPath}/models/{model}:generateContent` |
+| any `claude-*` | the separate Claude proxy path (`/api/claude-dev` / `/api/claude-prod`) |
 
 ### 6.2 Auto-routing heuristics
 
 Source: [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js).
-The script reads the prompt plus `verifyapikey.VA-VerifyAPIKey.tier` / `...apiproduct.name`,
-then sets `flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted`,
-`flow.costTier`.
+The script reads `flow.userPrompt` plus
+`verifyapikey.VA-VerifyAPIKey.apiproduct.tier` and `...apiproduct.name`, then sets
+`flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted`,
+`flow.costTier` and `flow.routingTier`.
 
 | Classification | Trigger | Standard tier | Enterprise tier |
 | :--- | :--- | :--- | :--- |
-| Coding | regex on `def / class / function / import / SELECT / ``` / refactor / regex / async …` | `gemini-3-flash` (medium) | `claude-opus-4-5@20251101`, provider `anthropic` (high) |
-| Deep reasoning | regex on `compare / architect / evaluate / trade-off / benchmark / optimize / root cause …` | `gemini-3-flash` (medium) | `gemini-3.1-pro-preview` (high) |
+| Coding | regex on `def / class / function / import / const / let / var / SELECT / FROM / WHERE / UPDATE / INSERT / DELETE / ``` / refactor / regex / async` | `gemini-3-flash-preview` (medium) | `claude-opus-4-5@20251101`, provider `anthropic` (high) |
+| Deep reasoning | regex on `compare / architect / deep / reasoning / evaluate / trade-off / multi-step / benchmark / optimize / root cause` | `gemini-3-flash-preview` (medium) | `gemini-3.1-pro-preview` (high) |
 | Simple | `< 200` chars and neither of the above | `gemini-3.1-flash-lite` (low) | `gemini-3.1-flash-lite` (low) |
-| Fallback | anything else | `gemini-3-flash` (medium) | `gemini-3-flash` (medium) |
+| Fallback | anything else | `gemini-3-flash-preview` (medium) | `gemini-3-flash-preview` (medium) |
 
-"Standard" is detected when the product `tier` attribute is `standard` **or** the product
-name contains `standard`.
+> [!IMPORTANT]
+> Tier resolution **fails closed**. Premium routing (Pro / Opus) requires a positive
+> enterprise signal: the product `tier` attribute equals `enterprise`, or the attribute is
+> absent *and* the product name contains `enterprise`. Anything else — including an
+> unresolved entitlement — falls back to the constrained Standard branch rather than
+> handing out the expensive models by default. The decision is exposed as
+> `flow.routingTier` so a silent downgrade is visible in a trace
+> ([AutoRouting.js#L6-L21](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L6-L21)).
+
+The tier attribute must be read from the `apiproduct` namespace. The bare
+`verifyapikey.VA-VerifyAPIKey.tier` form addresses **app** attributes and never resolves
+here.
 
 ### 6.3 Cost rate card
 
 [model_rates.properties](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties)
 is loaded by `KVM-GetModelRates` and consumed by `JS-CalculateCost`. USD per 1M tokens:
 
-| Model | Input | Output |
-| :--- | ---: | ---: |
-| `gemini-2.0-flash` | 0.10 | 0.40 |
-| `gemini-3.1-flash-lite` | 0.075 | 0.30 |
-| `gemini-3-flash` | 0.15 | 0.60 |
-| `gemini-3.5-flash` | 0.15 | 0.60 |
-| `gemini-3.1-pro-preview` | 1.25 | 5.00 |
-| `gemini-2.5-pro` | 1.25 | 5.00 |
-| `claude-3-5-haiku` | 0.80 | 4.00 |
-| `claude-3-5-sonnet` | 3.00 | 15.00 |
-| `claude-3-7-sonnet` | 3.00 | 15.00 |
-| `claude-opus-4-5` / `claude-opus` | 15.00 | 75.00 |
-| `default` fallback | 0.15 | 0.60 |
+| Key | Input | Output | Notes |
+| :--- | ---: | ---: | :--- |
+| `gemini-2.5-flash` | 0.30 | 2.50 | Token-limit demo model |
+| `gemini-3.1-flash-lite` | 0.075 | 0.30 | Low cost tier |
+| `gemini-3-flash-preview` | 0.15 | 0.60 | Medium cost tier |
+| `gemini-3.1-pro-preview` | 1.25 | 5.00 | High cost tier |
+| `claude-haiku-4-5` | 1.00 | 5.00 | Matches `claude-haiku-4-5@20251001` |
+| `claude-opus-4-5` | 15.00 | 75.00 | Matches `claude-opus-4-5@20251101` |
+| `claude-opus` | 15.00 | 75.00 | Prefix alias |
+| `gemini-2.0-flash` | 0.10 | 0.40 | Not in the UI dropdown |
+| `gemini-3.5-flash` | 0.15 | 0.60 | Not in the UI dropdown |
+| `gemini-2.5-pro` | 1.25 | 5.00 | Not in the UI dropdown |
+| `default` | 0.15 | 0.60 | Fallback |
 
 > [!NOTE]
-> `gemini-2.5-flash` has no entry in the rate card, so its cost falls through to the
-> `default` rate.
+> `gemini-2.5-flash` was previously **missing** from the rate card, so the headline demo
+> model was billed at the `default` rate (0.15 / 0.60) instead of its real 0.30 / 2.50.
+> It now has an explicit entry, and `x-gateway-cost-usd` reflects true Gemini 2.5 Flash
+> pricing.
+
+Version suffixes are stripped before lookup:
+[CalculateCost.js#L24-L31](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L24-L31)
+(KVM path) and
+[#L65-L69](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L65-L69)
+(property-set fallback) split on `@`, so `claude-opus-4-5@20251101` resolves via the
+`claude-opus-4-5` key. A prefix table then catches near-misses, and `default` is the last
+resort. The rate card contains **no** `claude-3-x` keys — that model generation is not
+published to Vertex in this project.
 
 ---
 
@@ -724,9 +794,12 @@ Chip: **`🚫 Auth (401): Missing Auth (1/2)`** → **`🚫 Auth (401): Restrict
    `omitEmailHeader: true`. Both `Authorization` and `X-User-Email` are dropped, so
    `RF-MissingUserEmail` returns **HTTP 401 UNAUTHENTICATED**. The chat shows
    `[Gateway Policy Fault]:` / `⚠️ **Gateway Notification (401)**`.
-2. *Restricted Model* — switches to `activeUser: sales_agent` with
-   `model: gemini-3.1-pro-preview`. `Standard AI Tier` has no operation matching
-   `/models/gemini-3.1-pro-preview*`, so `VA-VerifyAPIKey` returns **HTTP 401**.
+2. *Restricted Model* — keeps `activeUser: admin` and overrides
+   `model: gemini-3.1-ultra`. That model is absent from **every** API Product, so
+   `VA-VerifyAPIKey` returns **HTTP 401** even for the Enterprise key — the strongest
+   credential in the demo. Using the admin key here keeps the scenario deterministic
+   instead of depending on the sales key resolving. See
+   [UNAUTHORIZED_401_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L305-L318).
 
 `omitEmailHeader` is reset to `false` after the run, so the session is never left locked.
 
@@ -767,14 +840,14 @@ Chip: **`⚡ Token Quota: Pass (1/2)`** → **`🛑 Token Limit: Exceeded (2/2)`
    50 concise words."* — consumes roughly 90 tokens and returns **HTTP 200**.
 2. *"Summarize API gateway token bucket algorithms and rate limiting principles in
    50 concise words."* — the cumulative minute total crosses the **100 tokens/min** limit
-   defined on the API Product for `/models/gemini-2.5-flash*`, so `LTQ-TokenEnforce`
+   defined on the API Product for `/models/gemini-2.5-flash:*`, so `LTQ-TokenEnforce`
    returns **HTTP 429**. The **Token** card switches to amber.
 
 > [!IMPORTANT]
 > The 100-token limit lives in the API Product, not in the policy. To change it, edit
-> `llmTokenQuota` for the `/models/gemini-2.5-flash*` operation in
-> [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
-> and [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)
+> `llmTokenQuota` for the `/models/gemini-2.5-flash:*` operation in
+> [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L93-L126)
+> and [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L93-L126)
 > and re-provision — no proxy redeploy is required.
 
 ### Step 5 — Semantic cache and direct comparison
@@ -792,14 +865,17 @@ Chip: **`⚡ Cache: Seed (Miss)`** → **`⚡ Cache: Instant Hit ($0)`**, then
 ### Step 6 — Role-based governance across both gateways
 
 1. In the Navbar persona pills select **Sales**, model `gemini-3.1-flash-lite`, send any
-   prompt → **HTTP 200**.
-2. Keep **Sales**, switch to `gemini-3.1-pro-preview` → **HTTP 401** from `VA-VerifyAPIKey`.
+   prompt → **HTTP 200** (`Standard AI Tier` grants `/models/gemini-3.1-flash-lite:*`).
+2. Keep **Sales**, switch to `gemini-3.1-pro-preview` → **HTTP 401** from `VA-VerifyAPIKey`;
+   Pro Preview is only present in `Enterprise AI Tier`.
 3. Switch to **Admin** with `gemini-3.1-pro-preview` → **HTTP 200**.
-4. Move to the **MCP Gateway** tab and click **Refresh Tools** for each persona:
+4. Still on **Admin**, switch to `gemini-3.1-ultra` → **HTTP 401**. No product whitelists it,
+   so even the Enterprise key is rejected before any upstream call.
+5. Move to the **MCP Gateway** tab and click **Refresh Tools** for each persona:
    - **Sales** → discount tools only; `listAllDiscounts` returns 200, loan tools are denied.
    - **Loans** → loan tools only; `getLoanApplication` returns 200, discount tools are denied.
    - **Admin** → all five tools visible and executable.
-5. Run the **Rapid Burst (Quota 429)** MCP preset to breach `listAllDiscounts`
+6. Run the **Rapid Burst (Quota 429)** MCP preset to breach `listAllDiscounts`
    (1 call / 5 s on `Sales Tools MCP`) and observe `Q-Limit` returning **429**.
 
 ---
@@ -903,6 +979,13 @@ Helper scripts covering the same ground:
 [test_autorouting.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_autorouting.sh),
 [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh).
 
+> [!IMPORTANT]
+> No consumer key is hardcoded in any version-controlled file.
+> [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh#L19-L23)
+> reads `API_KEY` from the environment and exits `1` if it is unset. It drives
+> `/models/gemini-2.5-flash:generateContent` — the model the 100 tok/min product quota is
+> attached to.
+
 ### 10.4 Deployment and provisioning
 
 [deploy_all.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/deploy_all.sh) defaults to
@@ -987,9 +1070,12 @@ provisioned (Anthropic target, MCP upstream, Cloud Logging reader).
 | :--- | :--- |
 | `SemanticCacheView.tsx` | Never built. Specified in `docs/ui_semantic_cache_and_governance_spec.md` only |
 | OpenAI-compatible `/v1/chat/completions` and model catalog `/v1/models` | Present in the `apigee-go-gen` **template** only; not in the deployed `ai-gateway-v1` bundle |
-| `gemini-2.5-pro`, `gemini-3.5-flash`, `claude-haiku-4-5` | Listed in the template's `values.yaml` and/or the rate card, but not offered in the UI model dropdown |
+| `gemini-2.5-pro`, `gemini-3.5-flash`, `gemini-2.0-flash` | Priced in `model_rates.properties` (and referenced by the template's `_helpers.tmpl` routing tiers) but **not** offered in the UI model dropdown |
+| `gemini-3-flash`, `claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-7-sonnet` | **Retired model IDs.** They do not exist in `bap-apac-demo2` and return HTTP 404 from Vertex. No product, policy, rate-card key or UI entry references them |
+| `claude-sonnet-4-5@20250929` | Present in the Anthropic publisher catalog but returns 404 for this project. Not entitled, not in the dropdown |
+| `gemini-3.1-ultra` | Intentionally unentitled in **every** API Product. Shipped in the dropdown purely to drive the "Restricted Model" 401 scenario |
 | `LTQ-*-100` policy variants | Removed. Token limits are product-driven via `countRef` |
 | `bronze` / `silver` entitlement tiers | Do not exist. Tiers are `admin`, `sales`, `loans`, `custom` |
 | `AM-RouteModel` policy | Does not exist. See `AM-PrepGeminiDirect` / `AM-RouteGeminiTarget` |
 | Caller identity in the Gateway Telemetry pane | Not rendered by `GatewayTraceViewer`; the SSO chip lives in the Navbar |
-| `gemini-2.5-flash` cost rate | Absent from `model_rates.properties`; falls back to the `default` rate |
+| `/models/auto` | Entitled by both AI products, but no proxy flow routes it — it returns 400. The UI calls bare `/auto` |

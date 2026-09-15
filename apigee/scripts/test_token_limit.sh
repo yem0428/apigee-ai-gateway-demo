@@ -10,9 +10,18 @@ if [ "$1" == "-v" ]; then
   set -x
 fi
 
-BASE_URL="https://api.maloosatyam.demo.altostrat.com/ai/v1"
-API_KEY="${API_KEY:-MNbLeAXCiSvIAu1XtCW6nbAxQWWksfAXyM98AOP6vRAvESOP}"
-USER_EMAIL="maloosatyam@google.com"
+BASE_URL="${BASE_URL:-https://api.maloosatyam.demo.altostrat.com/ai/v1}"
+USER_EMAIL="${USER_EMAIL:-maloosatyam@google.com}"
+
+# Never hardcode a consumer key here - this file is version controlled.
+# Export one before running, e.g.
+#   export API_KEY=$(gcloud ... apps/<app> | jq -r '.credentials[0].consumerKey')
+API_KEY="${API_KEY:-}"
+if [ -z "$API_KEY" ]; then
+  echo "ERROR: API_KEY is not set." >&2
+  echo "       export API_KEY=<consumer key> before running this script." >&2
+  exit 1
+fi
 
 echo "=============================================================================="
 echo "⚡ APIGEE AI GATEWAY: LLM TOKEN RATE LIMIT TEST SUITE (100 TOKENS/MIN)"
@@ -23,13 +32,12 @@ echo "==========================================================================
 # Test Case 1: Success Within Quota (<100 Tokens)
 echo ""
 echo "------------------------------------------------------------------------------"
-echo "TEST 1: Request Within Quota Limit (Model: gemini-2.0-flash, <100 Tokens)"
+echo "TEST 1: Request Within Quota Limit (Model: gemini-2.5-flash, <100 Tokens)"
 echo "------------------------------------------------------------------------------"
-RESPONSE1=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.0-flash:generateContent" \
+RESPONSE1=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.5-flash:generateContent" \
   -H "Content-Type: application/json" \
   -H "X-User-Email: ${USER_EMAIL}" \
   -H "x-apikey: ${API_KEY}" \
-  -H "x-enforce-token-limit: true" \
   -d '{"contents":[{"role":"user","parts":[{"text":"What is an API gateway? Answer in 1 sentence."}]}]}')
 
 HTTP_STATUS1=$(echo "$RESPONSE1" | head -n 1 | awk '{print $2}')
@@ -49,11 +57,10 @@ echo "TEST 2: Exceeding Quota Limit (>100 Tokens/Min Rate Limit Interception)"
 echo "------------------------------------------------------------------------------"
 LONG_PROMPT="Generate an exhaustive 2,500 word architectural breakdown and step-by-step implementation guide covering zero-trust API management, OAuth2 JWT token claim validation, mutual TLS client certificates, Apigee AI Gateway model routing heuristics, Model Armor perimeter guardrails, semantic caching with Vertex Vector Search, and prepaid monetization wallets across multi-region Kubernetes clusters."
 
-RESPONSE2=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.0-flash:generateContent" \
+RESPONSE2=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.5-flash:generateContent" \
   -H "Content-Type: application/json" \
   -H "X-User-Email: ${USER_EMAIL}" \
   -H "x-apikey: ${API_KEY}" \
-  -H "x-enforce-token-limit: true" \
   -d "{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"${LONG_PROMPT}\"}]}]}")
 
 HTTP_STATUS2=$(echo "$RESPONSE2" | head -n 1 | awk '{print $2}')

@@ -74,32 +74,36 @@ defaults:
 routing:
   tiers:
     low: "gemini-3.1-flash-lite"
-    medium: "gemini-3-flash"
+    medium: "gemini-3-flash-preview"
     high: "gemini-3.1-pro-preview"
-    max: "claude-3-5-sonnet"
+    max: "claude-opus-4-5@20251101"
   tasks:
-    coding: "claude-3-5-sonnet"
+    coding: "claude-opus-4-5@20251101"
     reasoning: "gemini-3.1-pro-preview"
     summarization: "gemini-3.1-flash-lite"
-    simple_chat: "gemini-3-flash"
+    simple_chat: "gemini-3-flash-preview"
     classifier_model: "gemini-3.1-flash-lite"
   aliases:
     # Gemini Aliases
-    "gemini-flash": "gemini-3-flash"
+    "gemini-flash": "gemini-3-flash-preview"
     "gemini-flash-lite": "gemini-3.1-flash-lite"
     "gemini-pro": "gemini-3.1-pro-preview"
     "gemini-3.1-pro": "gemini-3.1-pro-preview"
-    # Claude Aliases on Vertex AI Model Garden
-    "claude-3-5-sonnet": "claude-3-5-sonnet-v2@20241022"
-    "claude-3-5-haiku": "claude-3-5-haiku@20241022"
-    "claude-3-7-sonnet": "claude-3-7-sonnet@20250219"
-    "claude-sonnet": "claude-3-5-sonnet-v2@20241022"
-    "claude-haiku": "claude-3-5-haiku@20241022"
+    # Claude Aliases on Vertex AI Model Garden.
+    # The claude-3-x generation is NOT published to Vertex in this project;
+    # only the 4-x models resolve. Legacy names are mapped forward so an old
+    # client gets a working model instead of a 404.
+    "claude-haiku": "claude-haiku-4-5@20251001"
+    "claude-opus": "claude-opus-4-5@20251101"
+    "claude-sonnet": "claude-opus-4-5@20251101"
+    "claude-3-5-sonnet": "claude-opus-4-5@20251101"
+    "claude-3-5-haiku": "claude-haiku-4-5@20251001"
+    "claude-3-7-sonnet": "claude-opus-4-5@20251101"
     # OpenAI & Auto Aliases
     "gpt-4o": "gemini-3.1-pro-preview"
     "gpt-4o-mini": "gemini-3.1-flash-lite"
-    "auto": "gemini-3-flash"
-    "gateway/auto": "gemini-3-flash"
+    "auto": "gemini-3-flash-preview"
+    "gateway/auto": "gemini-3-flash-preview"
 
 # ------------------------------------------------------------------------------
 # Model Catalog Definitions & Pricing Matrix

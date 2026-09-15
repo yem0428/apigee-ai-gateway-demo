@@ -31,18 +31,31 @@ product-driven LLM token quotas, and Apigee native monetization.
 
 [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
 classifies the prompt with regex heuristics and then picks a model **based on the caller's API
-product tier** (`verifyapikey.VA-VerifyAPIKey.tier`, or a product name containing `standard`).
+product tier**. The tier is read from
+[`verifyapikey.VA-VerifyAPIKey.apiproduct.tier`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L9-L17)
+— the `apiproduct` namespace matters, because the bare `…VA-VerifyAPIKey.tier` form addresses *app*
+attributes and never resolves. A product **name** containing `enterprise` is used only as a
+fallback when the attribute itself is empty.
 
 | Prompt class (heuristic) | Enterprise tier target | Standard tier target | Cost tier |
 | :--- | :--- | :--- | :--- |
-| Coding (`def `, `class `, `SELECT `, ` ``` `, `refactor`, `regex`, …) | `claude-opus-4-5@20251101` *(anthropic)* | `gemini-3-flash` | high / medium |
-| Deep reasoning (`compare`, `architect`, `trade-off`, `benchmark`, `root cause`, …) | `gemini-3.1-pro-preview` | `gemini-3-flash` | high / medium |
+| Coding (`def `, `class `, `SELECT `, ` ``` `, `refactor`, `regex`, …) | `claude-opus-4-5@20251101` *(anthropic)* | `gemini-3-flash-preview` | high / medium |
+| Deep reasoning (`compare`, `architect`, `trade-off`, `benchmark`, `root cause`, …) | `gemini-3.1-pro-preview` | `gemini-3-flash-preview` | high / medium |
 | Simple (< 200 chars, no coding or reasoning hits) | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` | low |
-| Everything else (≥ 200 chars, general) | `gemini-3-flash` | `gemini-3-flash` | medium |
+| Everything else (≥ 200 chars, general) | `gemini-3-flash-preview` | `gemini-3-flash-preview` | medium |
 
-Coding heuristics take precedence over deep-reasoning heuristics. The policy writes
-`flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted` and `flow.costTier`;
-`flow.target_provider == "anthropic"` is what selects the Claude Vertex target at route time.
+The Standard branch is **capped at `gemini-3-flash-preview`**: it has exactly two outcomes —
+`gemini-3.1-flash-lite` for simple prompts and `gemini-3-flash-preview` for everything else. A
+Standard key can never be routed to `gemini-3.1-pro-preview` or `claude-opus-4-5@20251101`.
+
+Tier resolution **fails closed**: premium routing requires a positive enterprise signal, so an
+unresolved tier is downgraded to the constrained Standard branch rather than handed the expensive
+models. The downgrade is visible in the trace via `flow.routingTier`.
+
+Coding heuristics take precedence over deep-reasoning heuristics on the Enterprise branch. The
+policy writes `flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted`,
+`flow.costTier` and `flow.routingTier`; `flow.target_provider == "anthropic"` is what selects the
+Claude Vertex target at route time.
 
 ### 2. 🛡️ Model Armor Guardrails & Zero-Trust Identity
 
@@ -85,17 +98,24 @@ The inline `count="1000"` / `1` / `minute` values are fallback defaults only —
 
 **`gemini-2.5-flash` is the deliberate token-limit demo model at 100 tokens / 1 minute.**
 Every other operation in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
-is 2000 tokens / 1 minute:
+is 2000 tokens / 1 minute. The product declares **12 `operationConfigs` across 5 models**, exactly
+one `llmOperation` per config (the Management API rejects more with
+`Operations must contain exactly one entity`):
 
 | Resource | Model | Token quota |
 | :--- | :--- | :--- |
-| `/auto*` | `auto` | 2000 / 1 min |
-| `/models/auto*` | `auto` | 2000 / 1 min |
-| **`/models/gemini-2.5-flash*`** | `gemini-2.5-flash` | **100 / 1 min** |
-| `/models/gemini-3.1-flash-lite*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
-| `/models/gemini-3-flash*` | `gemini-3-flash` | 2000 / 1 min |
-| `/models/claude-3-5-haiku*` | `claude-3-5-haiku` | 2000 / 1 min |
-| `/v1/**` | `*` | 2000 / 1 min |
+| `/auto` | `auto` | 2000 / 1 min |
+| `/auto:*` | `auto` | 2000 / 1 min |
+| `/models/auto` | `auto` | 2000 / 1 min |
+| `/models/auto:*` | `auto` | 2000 / 1 min |
+| **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100 / 1 min** |
+| **`/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100 / 1 min** |
+| `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
+| `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
+| `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 / 1 min |
+| `/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 / 1 min |
+| `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 / 1 min |
+| `/v1/projects/*/locations/*/publishers/anthropic/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 / 1 min |
 
 Enforcement is wired through the dedicated `LLMTokenLimitFlow` conditional flow, which fires on
 `/models/gemini-2.5-flash:generateContent`, on `flow.model == "gemini-2.5-flash"`, or on the
@@ -144,17 +164,46 @@ A Sales-persona key calling a Loans tool is rejected because the operation is ab
 
 ### Entitlement tiers — what the products actually grant
 
-| Product | Grants (resource → token quota) |
-| :--- | :--- |
-| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `/auto*`, `/models/auto*`, `gemini-3.1-flash-lite`, `gemini-3-flash`, `claude-3-5-haiku`, `/v1/**` → 2000 / min · `gemini-2.5-flash` → **100 / min** |
-| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | `/auto*`, `/models/auto*`, `/models/*`, `/*` → 10000 / min · `gemini-2.5-flash` → **100 / min** |
+Every grant is enumerated per model. There are **no `model="*"` entitlements and no `**` resource
+globs** — both were removed. Each model gets two resources:
+
+```
+/models/<model>:*
+/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
+```
+
+| Product | Models | Resources | Token quota |
+| :--- | :--- | :--- | :--- |
+| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **5** | 12 `operationConfigs` | 2000 / min · `gemini-2.5-flash` → **100 / min** |
+| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 5 plus `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` — **7** | 16 `operationConfigs` | 10000 / min · `gemini-2.5-flash` → **100 / min** |
+
+`auto` is special-cased with **four exact resources** in both products:
+
+```
+/auto        /auto:*        /models/auto        /models/auto:*
+```
+
+Apigee's `*` matches within a single path segment and requires **at least one character**, so
+`/auto*` does **not** match a bare `/auto` — hence `/auto` must be granted as its own exact
+resource. The tightened `:*` suffix form is deliberate too: a trailing `*` placed directly after a
+model name leaks siblings (`/models/gemini-2.5-flash*` also granted `gemini-2.5-flash-lite`),
+whereas `:*` only absorbs the `:generateContent` / `:streamGenerateContent` suffix.
+
+Only the bare `/auto` path is actually routable: `AutoRoutingFlow` matches
+`proxy.pathsuffix MatchesPath "/auto*"` or the regex `^/auto.*`, and that is what the UI calls.
+`/models/auto` is entitled by both products but returns **400** — no proxy flow routes it.
 
 > [!NOTE]
-> Standard AI Tier **does** include `claude-3-5-haiku`. It does **not** enumerate
-> `gemini-3.1-pro-preview` or `claude-opus-4-5`, so calls to those models with a Standard key are
-> rejected by `VA-VerifyAPIKey`. Enterprise AI Tier's `/models/*` and `/*` wildcards cover them.
-> Both products use `llmOperationGroup.operationConfigs[].llmTokenQuota`; neither uses the classic
-> product `quota` field. The 100 tokens/min `gemini-2.5-flash` demo cap applies in **both** tiers.
+> Standard AI Tier **does** include `claude-haiku-4-5@20251001`. It does **not** enumerate
+> `gemini-3.1-pro-preview` or `claude-opus-4-5@20251101`, so calls to those models with a Standard
+> key are rejected by `VA-VerifyAPIKey`. Both products use
+> `llmOperationGroup.operationConfigs[].llmTokenQuota` with exactly one `llmOperation` per config;
+> neither uses the classic product `quota` field. The 100 tokens/min `gemini-2.5-flash` demo cap
+> applies in **both** tiers.
+
+`gemini-3.1-ultra` is deliberately **unentitled in every product**. It powers the "Restricted Model"
+demo scenario: even an Enterprise key is rejected at `VA-VerifyAPIKey` with **HTTP 401** before any
+upstream call is made.
 
 ---
 
@@ -319,7 +368,7 @@ Two suites live in [ui/tests/](file:///Users/maloosatyam/Codebase/AI%20Code/ui/t
 
 | Suite | File | Command | Network | Current result |
 | :--- | :--- | :--- | :--- | :--- |
-| Auto-routing unit | [autorouting.unit.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/autorouting.unit.test.mjs) | `npm run test:unit` | Offline | **42 tests — 42 pass, 0 fail, 0 skipped** |
+| Auto-routing unit | [autorouting.unit.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/autorouting.unit.test.mjs) | `npm run test:unit` | Offline | **45 tests — 45 pass, 0 fail, 0 skipped** |
 | Live gateway integration | [gateway-live.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs) | `npm run test:live` | Live Apigee | **22 tests — 18 pass, 0 fail, 4 skipped** |
 
 The live suite is organised into four describe blocks:
@@ -393,6 +442,21 @@ Bundle packaging, validation and deployment are scripted in
 `package_bundle.sh`, `validate_bundle.py`, `deploy_proxy.sh`, `deploy_all.sh`, plus
 `provision_unified_credentials.{sh,py}` for developer/app/product provisioning and
 `test_autorouting.sh` / `test_token_limit.sh` for shell-based smoke tests.
+
+[test_autorouting.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_autorouting.sh)
+runs the offline unit suite and, when `ui/.env` exists, the live suite.
+
+[test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh)
+exercises the 100 tokens/min demo cap against `/models/gemini-2.5-flash:generateContent` — one
+request inside the quota and one long prompt expected to trip **HTTP 429**. No consumer key is
+committed to the repo, so `API_KEY` is a **required** environment variable: the script prints
+`ERROR: API_KEY is not set.` and exits `1` if it is missing. `BASE_URL` and `USER_EMAIL` are
+optional overrides, and `-v` enables `set -x` tracing.
+
+```bash
+export API_KEY=<consumer key>
+./apigee/scripts/test_token_limit.sh
+```
 
 ---
 

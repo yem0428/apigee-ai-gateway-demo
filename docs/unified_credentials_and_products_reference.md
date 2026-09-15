@@ -96,19 +96,27 @@ All five declare `approvalType: auto` and `environments: ["dev", "prod"]`.
 
 ### 2.1 Standard AI Tier — per-model token quotas
 
-Every `operationConfig` carries exactly one resource and its own `llmTokenQuota`.
+**12 `operationConfigs` covering 5 models.** Every `operationConfig` carries exactly
+**one** `llmOperation` and its own `llmTokenQuota`; the Management API rejects more with
+`Operations must contain exactly one entity`. Every operation is `apiSource:
+ai-gateway-v1`, method `POST`.
 
-| Resource | Methods | `model` | Token limit | Interval |
+| # | Resource | `model` | Token limit | Interval |
 | --- | --- | --- | --- | --- |
-| `/auto*` | POST | `auto` | 2000 | 1 minute |
-| `/models/auto*` | POST | `auto` | 2000 | 1 minute |
-| **`/models/gemini-2.5-flash*`** | POST | `gemini-2.5-flash` | **100** | 1 minute |
-| `/models/gemini-3.1-flash-lite*` | POST | `gemini-3.1-flash-lite` | 2000 | 1 minute |
-| `/models/gemini-3-flash*` | POST | `gemini-3-flash` | 2000 | 1 minute |
-| `/models/claude-3-5-haiku*` | POST | `claude-3-5-haiku` | 2000 | 1 minute |
-| `/v1/**` | POST | `*` | 2000 | 1 minute |
+| 1 | `/auto` | `auto` | 2000 | 1 minute |
+| 2 | `/auto:*` | `auto` | 2000 | 1 minute |
+| 3 | `/models/auto` | `auto` | 2000 | 1 minute |
+| 4 | `/models/auto:*` | `auto` | 2000 | 1 minute |
+| 5 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 6 | **`/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 7 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
+| 8 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
+| 9 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
+| 10 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
+| 11 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 | 1 minute |
+| 12 | `/v1/projects/*/locations/*/publishers/anthropic/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 | 1 minute |
 
-Source: [standard_ai_tier.json#L23-L145](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L23-L145).
+Source: [standard_ai_tier.json#L23-L230](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L23-L230).
 
 > [!IMPORTANT]
 > `gemini-2.5-flash` is deliberately capped at **100 tokens / minute** so the quota
@@ -117,22 +125,113 @@ Source: [standard_ai_tier.json#L23-L145](file:///Users/maloosatyam/Codebase/AI%2
 
 ### 2.2 Enterprise AI Tier — per-model token quotas
 
-| Resource | Methods | `model` | Token limit | Interval |
+**16 `operationConfigs` covering 7 models.** Same shape as Standard: one
+`llmOperation` per `operationConfig`, `apiSource: ai-gateway-v1`, method `POST`.
+
+| # | Resource | `model` | Token limit | Interval |
 | --- | --- | --- | --- | --- |
-| `/auto*` | POST | `auto` | 10000 | 1 minute |
-| `/models/auto*` | POST | `auto` | 10000 | 1 minute |
-| **`/models/gemini-2.5-flash*`** | POST | `gemini-2.5-flash` | **100** | 1 minute |
-| `/models/*` | POST | `*` | 10000 | 1 minute |
-| `/*` | POST, GET | `*` | 10000 | 1 minute |
+| 1 | `/auto` | `auto` | 10000 | 1 minute |
+| 2 | `/auto:*` | `auto` | 10000 | 1 minute |
+| 3 | `/models/auto` | `auto` | 10000 | 1 minute |
+| 4 | `/models/auto:*` | `auto` | 10000 | 1 minute |
+| 5 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 6 | **`/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 7 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
+| 8 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
+| 9 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
+| 10 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
+| 11 | `/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
+| 12 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
+| 13 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 10000 | 1 minute |
+| 14 | `/v1/projects/*/locations/*/publishers/anthropic/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 10000 | 1 minute |
+| 15 | `/models/claude-opus-4-5@20251101:*` | `claude-opus-4-5@20251101` | 10000 | 1 minute |
+| 16 | `/v1/projects/*/locations/*/publishers/anthropic/models/claude-opus-4-5@20251101:*` | `claude-opus-4-5@20251101` | 10000 | 1 minute |
 
-Source: [enterprise_ai_tier.json#L23-L111](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L23-L111).
+Source: [enterprise_ai_tier.json#L23-L297](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L23-L297).
 
-Enterprise reaches every model through the `/models/*` and `/*` wildcards, but it
-**inherits the same 100 tokens/min cap on `gemini-2.5-flash`** — the more specific
-operation wins. Standard has no wildcard entry for `/models/*`, which is why a
-Standard key calling `gemini-3.1-pro-preview` is rejected by `VA-VerifyAPIKey`.
+Enterprise is a **superset of Standard by enumeration**, not by wildcard: it adds
+`gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` and raises every non-capped
+limit from 2000 to 10000 tokens/minute. It **inherits the same 100 tokens/min cap on
+`gemini-2.5-flash`**, so the token-quota demo reproduces on every persona. Standard
+simply has no operation naming the Pro or Opus models, which is why a Standard key
+calling `gemini-3.1-pro-preview` is rejected by `VA-VerifyAPIKey`.
 
-### 2.3 MCP products — per-operation call quotas
+### 2.3 Resource patterns and glob semantics
+
+Each entitled model gets exactly two resources — the gateway-native path and the Vertex
+passthrough path:
+
+```text
+/models/<model>:*
+/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
+```
+
+`auto` is the exception, with four exact resources and no `/v1/...` form:
+
+```text
+/auto        /auto:*        /models/auto        /models/auto:*
+```
+
+Apigee glob rules that drive these shapes:
+
+| Pattern | Meaning | Consequence here |
+| --- | --- | --- |
+| `*` | matches **within one path segment** and requires at least one character | `/auto*` does **not** match a bare `/auto`, so `/auto` is granted as its own exact resource |
+| `:*` | absorbs only the method suffix after the model name | Grants `:generateContent` and `:streamGenerateContent` without reaching sibling models |
+| `**` | matches across segments | **Not used in any product** |
+
+> [!WARNING]
+> A trailing `*` placed directly after a model name leaks sibling models. The previous
+> `/models/gemini-2.5-flash*` also granted `gemini-2.5-flash-lite` — confirmed reaching
+> the backend — because `*` continues matching inside the same segment. Always anchor
+> the glob on the `:` separator (`/models/gemini-2.5-flash:*`) so the match stops at
+> the model name.
+
+The UI exercises both shapes: `auto` posts to bare `/auto`, everything else to
+`/models/{model}:generateContent`, and the legacy path to
+`/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent`
+([apigeeClient.ts#L13-L21](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L13-L21),
+[#L80-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L80-L85)).
+
+### 2.4 Removed wildcard entitlements — do not reintroduce
+
+Three blanket entitlements previously existed and have been deleted. They granted
+`model="*"`, i.e. **every** model the upstream project can serve, which defeats the
+entire entitlement story this demo exists to tell:
+
+| Product | Removed resource | Removed `model` |
+| --- | --- | --- |
+| Standard AI Tier | `/v1/**` | `*` |
+| Enterprise AI Tier | `/models/*` | `*` |
+| Enterprise AI Tier | `/*` | `*` |
+
+> [!CAUTION]
+> No product may reintroduce a `model="*"` entitlement or a `**` resource glob. Doing so
+> silently re-grants unreleased and restricted models — including `gemini-3.1-ultra` —
+> and breaks both the Restricted Model scenario and the Standard-vs-Enterprise
+> governance demo. Add an explicit pair of `:*` resources per model instead.
+
+### 2.5 `gemini-3.1-ultra` — the deliberately unentitled model
+
+`gemini-3.1-ultra` appears in **no** product file. Verify with:
+
+```bash
+grep -r "gemini-3.1-ultra" apigee/products/   # expected: no matches
+```
+
+It is offered in the UI model dropdown, tagged `Restricted (Not Entitled)`, purely to
+drive the **Restricted Model** step of the Unauthorized scenario: an Admin key bound to
+`Enterprise AI Tier` — the strongest credential in the demo — is still rejected at
+`VA-VerifyAPIKey` with **401** before any upstream call is made
+([defaultSettings.ts#L217-L220](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L217-L220),
+[#L305-L318](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L305-L318)).
+
+> [!NOTE]
+> This only stays true while §2.4 holds. Any wildcard entitlement would grant
+> `gemini-3.1-ultra` by accident and turn a 401 into an upstream error, which tells a
+> completely different — and wrong — story on stage.
+
+### 2.6 MCP products — per-operation call quotas
 
 | Operation | Sales Tools MCP | Loans Tools MCP | Enterprise Tools MCP |
 | --- | --- | --- | --- |
@@ -249,19 +348,23 @@ a recorded live run. It states what the committed configuration authorises.
 
 | Invocation | Admin (Enterprise) | Sales (Standard) | Loans (Standard) | Enforcing policy |
 | --- | --- | --- | --- | --- |
-| `gemini-3.1-flash-lite` | allowed | allowed | allowed | `VA-VerifyAPIKey` |
-| `gemini-3-flash` | allowed | allowed | allowed | `VA-VerifyAPIKey` |
+| `gemini-3.1-flash-lite` | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` |
+| `gemini-3-flash-preview` | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` |
 | `gemini-2.5-flash` | allowed, 100 tok/min | allowed, 100 tok/min | allowed, 100 tok/min | `VA-VerifyAPIKey` + `LTQ-TokenEnforce` |
-| `gemini-3.1-pro-preview` | allowed via `/models/*` | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
-| `claude-opus-4-5@20251101` | allowed via `/models/*` | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
-| `claude-3-5-haiku` | allowed via `/models/*` | allowed | allowed | `VA-VerifyAPIKey` |
-| `auto` | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` + `JS-AutoRouting` |
+| `claude-haiku-4-5@20251001` | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` |
+| `gemini-3.1-pro-preview` | allowed, 10000 tok/min | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
+| `claude-opus-4-5@20251101` | allowed, 10000 tok/min | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
+| `gemini-3.1-ultra` | **not in any product** → 401 | **not in any product** → 401 | **not in any product** → 401 | `VA-VerifyAPIKey` |
+| `auto` (bare `/auto`) | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` + `JS-AutoRouting` |
 | MCP `tools/list` | all 5 tools | 2 sales tools | 3 loan tools | `PP-MCP` + `VA-VerifyAPIKey` |
 | `listAllDiscounts` / `getDiscountForSku` | allowed | allowed | **not in product** | `PP-MCP` + `VA-VerifyAPIKey` |
 | `getLoanApplication` / `patchLoanApplication` / `submitLoanApplication` | allowed | **not in product** | allowed | `PP-MCP` + `VA-VerifyAPIKey` |
 | No resolvable user email | 401 | 401 | 401 | `RF-MissingUserEmail` |
 | Prompt trips Model Armor | 400 | 400 | 400 | `SUP-UserPrompt` |
 | Prepaid wallet exhausted | 403 | 403 | 403 | `MLC-EnforceMonetizationLimits` |
+
+Sales and Loans hold the same product (`Standard AI Tier`) on the AI side, so their AI
+rows are identical by construction; they differ only in their MCP tools product.
 
 Identity resolution order in the PreFlow is JWT `email` claim → `X-User-Email` header
 → `RF-MissingUserEmail` fault. `SUP-UserPrompt` (Model Armor) executes **before**
@@ -270,21 +373,34 @@ Identity resolution order in the PreFlow is JWT `email` claim → `X-User-Email`
 
 ### Auto-routing decisions
 
-[AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
-reads `verifyapikey.VA-VerifyAPIKey.tier` (falling back to a substring match on the
-product name) and branches:
+[AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L9-L21)
+reads the tier from `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` — `tier` is a
+**product** attribute, so the bare `...VA-VerifyAPIKey.tier` form (which addresses *app*
+attributes) never resolves. Only when that variable is empty does it fall back to a
+substring match on `...apiproduct.name`.
+
+> [!IMPORTANT]
+> Routing **fails closed**. Premium models (Pro / Opus) require a positive enterprise
+> signal; an unresolved tier downgrades to the constrained Standard branch rather than
+> handing out the expensive models. The decision is exposed as `flow.routingTier` for
+> tracing.
 
 | Prompt shape | Standard tier | Enterprise tier |
 | --- | --- | --- |
-| Coding indicators (`def `, `function `, `SELECT `, ```` ``` ````, `refactor`, …) | `gemini-3-flash` | `claude-opus-4-5@20251101` (provider `anthropic`) |
-| Deep-reasoning keywords (`compare`, `architect`, `trade-off`, `benchmark`, …) | `gemini-3-flash` | `gemini-3.1-pro-preview` |
+| Coding indicators (`def `, `function `, `SELECT `, ```` ``` ````, `refactor`, …) | `gemini-3-flash-preview` | `claude-opus-4-5@20251101` (provider `anthropic`) |
+| Deep-reasoning keywords (`compare`, `architect`, `trade-off`, `benchmark`, …) | `gemini-3-flash-preview` | `gemini-3.1-pro-preview` |
 | Simple — **length < 200 chars**, no coding, no reasoning keywords | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` |
-| Anything else | `gemini-3-flash` | `gemini-3-flash` |
+| Anything else | `gemini-3-flash-preview` | `gemini-3-flash-preview` |
+
+On the Enterprise branch the tests are evaluated in the order coding → deep reasoning →
+simple, so a short prompt containing a coding indicator still routes to Claude Opus.
+Every model the router can select is entitled in the tier that can reach it.
 
 The script sets `flow.target_model`, `flow.model`, `flow.target_provider`,
-`flow.autoRouted=true`, `flow.costTier`. Target selection then happens via the proxy
-`RouteRule` on `flow.target_provider == "anthropic"` — there is **no** `AM-RouteModel`
-policy in the bundle.
+`flow.autoRouted=true`, `flow.costTier` and `flow.routingTier`. Target selection then
+happens via the proxy `RouteRule` on `flow.target_provider == "anthropic"` — there is
+**no** `AM-RouteModel` policy in the bundle.
+
 
 ---
 
@@ -383,10 +499,26 @@ Variables written:
 | `perUnitPriceMultiplier`, `currency`, `transactionSuccess` | monetization rating engine inputs |
 | `flow.prepaid_balance_remaining` | `mint.limitscheck.prepaid_developer_balance` minus this transaction |
 
+Committed fallback rates in
+[model_rates.properties](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties),
+USD per 1M tokens (entries for models no product entitles are omitted here):
+
+| Key | Input | Output |
+| --- | --- | --- |
+| `gemini-2.5-flash` | 0.30 | 2.50 |
+| `gemini-3.1-flash-lite` | 0.075 | 0.30 |
+| `gemini-3-flash-preview` | 0.15 | 0.60 |
+| `gemini-3.1-pro-preview` | 1.25 | 5.00 |
+| `claude-haiku-4-5` | 1.00 | 5.00 |
+| `claude-opus-4-5` | 15.00 | 75.00 |
+| `default` | 0.15 | 0.60 |
+
 > [!NOTE]
-> `model_rates.properties` has **no entry for `gemini-2.5-flash`**, so unless the
-> `ai-model-rates` KVM defines one, that model is rated at the `default` rate
-> (0.15 / 0.60 USD per 1M tokens).
+> `gemini-2.5-flash` now has its own entry, so the headline demo model is no longer
+> billed at the `default` rate. The Claude keys are stored without an `@version`
+> suffix; `CalculateCost.js` strips the suffix before lookup, so
+> `claude-opus-4-5@20251101` resolves through `claude-opus-4-5`. The KVM
+> (`ai-model-rates`) still wins over this file when it defines the same key.
 
 ### 6.5 Response telemetry headers
 
@@ -583,6 +715,45 @@ and `--dev`.
 > so the monetization-aware version is the one that runs — but the first `main()` is
 > dead code and should be deleted. Do not edit the wrong copy.
 
+### 8.4 Credential handling in test scripts
+
+> [!CAUTION]
+> A real consumer key was once committed to this repository in
+> `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer
+> contains it, but it is still reachable through git history. Treat that key as
+> **compromised**: revoke/rotate it, and never paste a live key into a
+> version-controlled file, a doc, or a snippet you are about to share.
+
+Every runnable example takes its key from the environment:
+
+```bash
+# Resolve the key at run time from wherever you keep it (secret manager,
+# `gcloud apigee` lookup, shell history-less prompt). Never paste it into a file.
+read -rs API_KEY && export API_KEY
+
+# Token quota suite — exits 1 if API_KEY is unset
+bash apigee/scripts/test_token_limit.sh
+
+# Auto-routing suite: offline unit tests, plus live tests when ui/.env exists
+bash apigee/scripts/test_autorouting.sh --all
+```
+
+| Script | Credential source | Behaviour without it |
+| --- | --- | --- |
+| [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh#L13-L24) | `API_KEY` env var (`BASE_URL`, `USER_EMAIL` also overridable) | Prints `ERROR: API_KEY is not set.` and exits 1 |
+| [test_autorouting.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_autorouting.sh) | Runs `ui/tests/autorouting.unit.test.mjs` offline; live phase loads `ui/.env` via `node --env-file` | Skips the live phase when `ui/.env` is absent |
+| [gateway-live.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs#L4-L45) | `VITE_ADMIN_API_KEY` / `VITE_SALES_API_KEY` / `VITE_LOANS_API_KEY` (or the `*_API_KEY` forms), else `/api/me` | Asserts that `ADMIN_KEY` is present; sales/loans keys are never substituted with the admin key |
+
+`test_token_limit.sh` targets `/models/gemini-2.5-flash:generateContent` — the model the
+100 tokens/minute quota is attached to and the only one `LLMTokenLimitFlow` matches. It
+sends `X-User-Email` and `x-apikey` only; there is no `x-enforce-token-limit` header,
+because no policy in the bundle reads one.
+
+`ui/.env` is git-ignored — [.gitignore](file:///Users/maloosatyam/Codebase/AI%20Code/.gitignore)
+excludes `.env`, `.env.local`, `.env.*.local`, `*.pem`, `*.key` and `*-key.json` — and
+[ui/.env.example](file:///Users/maloosatyam/Codebase/AI%20Code/ui/.env.example) is the
+committed template.
+
 ---
 
 ## 9. Live Demo Walkthrough
@@ -596,15 +767,21 @@ All UI labels below are quoted exactly as they render today.
   in the compact control, **Admin** / **Sales Agent** / **Loans Agent** in the dropdown.
 - Quick-scenario chips in the chat pane are: **Unauthorized**, **Model Armor**,
   **Auto Routing**, **Token Limits**, **Semantic Cache**, **Direct LLM**
-  ([defaultSettings.ts#L334-L395](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L334-L395)).
-- Model dropdown values: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`,
-  `gemini-3.1-pro-preview`, `claude-opus-4-5@20251101`, `claude-3-5-sonnet`,
-  `claude-3-5-haiku`, `claude-3-7-sonnet`
-  ([defaultSettings.ts#L205-L214](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L205-L214)).
+  ([defaultSettings.ts#L348-L409](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L348-L409)).
+- Model dropdown values, in order: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`,
+  `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-ultra`,
+  `claude-haiku-4-5@20251001`, `claude-opus-4-5@20251101`
+  ([defaultSettings.ts#L211-L223](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L211-L223)).
+  Each entry renders with a tag: `Intelligent Routing`, `Rate Limited (100 tok/min)`,
+  `Flash Lite`, `Flash`, `Pro Preview`, `Restricted (Not Entitled)`, `Claude Haiku`,
+  `Claude Opus`.
 
 > [!NOTE]
-> `gemini-3-flash` is granted by both product tiers and is an auto-routing target, but
-> it is **not** in the UI model dropdown. You cannot select it manually.
+> Two dropdown entries are not usable by every persona on purpose.
+> `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` are Enterprise-only, and
+> `gemini-3.1-ultra` is entitled by no product at all. Selecting them on a Standard
+> key (or `gemini-3.1-ultra` on any key) is the intended way to demonstrate an
+> entitlement rejection.
 
 ### Act 1 — Zero-trust identity enforcement
 
@@ -613,7 +790,7 @@ All UI labels below are quoted exactly as they render today.
    Equivalent manual path: Settings (⚙️) → **"Simulate Missing Authorization (Tests 401
    Unauthorized rejection)"**.
 2. Send the prompt. The client omits `X-User-Email`
-   ([apigeeClient.ts#L142](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L142)).
+   ([apigeeClient.ts#L155-L161](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L155-L161)).
 3. `RF-MissingUserEmail` raises **HTTP 401** in the PreFlow, before `VA-VerifyAPIKey`.
 4. Talking point: no inference request is admitted without an attributable identity.
 
@@ -625,7 +802,7 @@ All UI labels below are quoted exactly as they render today.
 2. `SUP-UserPrompt` returns **HTTP 400** before `VA-VerifyAPIKey` — the prompt never
    reaches Vertex AI and consumes zero inference tokens.
 3. Two further variants exist in
-   [MODEL_ARMOR_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L307-L332):
+   [MODEL_ARMOR_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L321-L346):
    jailbreak / prompt injection, and PII exfiltration.
 
 ### Act 3 — Role-based model governance
@@ -633,12 +810,16 @@ All UI labels below are quoted exactly as they render today.
 1. Switch persona to **Sales**, select `gemini-3.1-flash-lite`, send any prompt →
    **HTTP 200**. The trace viewer shows prompt/candidate tokens and cost headers.
 2. Still as **Sales**, switch to `gemini-3.1-pro-preview` and send.
-   Standard AI Tier has no operation matching `/models/gemini-3.1-pro-preview*`, so
-   `VA-VerifyAPIKey` rejects with **HTTP 401**
-   (`InvalidApiKeyForGivenResource`). The **Unauthorized** chip's step-2 preset
-   (`model-forbidden`) automates exactly this.
-3. Switch persona to **Admin** and resend. Enterprise AI Tier matches via `/models/*`
-   → **HTTP 200**.
+   Standard AI Tier has no operation matching `/models/gemini-3.1-pro-preview:*`, so
+   `VA-VerifyAPIKey` rejects with **HTTP 401** (`InvalidApiKeyForGivenResource`).
+3. Switch persona to **Admin** and resend. Enterprise AI Tier grants
+   `/models/gemini-3.1-pro-preview:*` explicitly → **HTTP 200**.
+4. Run the stronger variant: the **Unauthorized** chip's step-2 preset
+   *"Unauthorized Model: Entitlement Block (401)"* (`model-forbidden`, badge
+   `Restricted Model`) forces `activeUser: 'admin'` and `model: 'gemini-3.1-ultra'`
+   ([defaultSettings.ts#L305-L318](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L305-L318)).
+   `gemini-3.1-ultra` is entitled by **no** product, so even the strongest credential in
+   the demo is rejected at `VA-VerifyAPIKey` — see [§2.5](#25-gemini-31-ultra--the-deliberately-unentitled-model).
 
 ### Act 4 — Intelligent auto-routing
 
@@ -653,8 +834,8 @@ All UI labels below are quoted exactly as they render today.
 4. Send the coding preset *"Write a Python function to validate JWT tokens and decode
    user claims."* → routed to `claude-opus-4-5@20251101` via the Anthropic `RouteRule`.
 5. Switch persona to **Sales** (still `auto`) and resend the deep-reasoning prompt.
-   `AutoRouting.js` detects `tier=standard` and caps the selection at `gemini-3-flash`
-   instead of failing.
+   `AutoRouting.js` resolves `tier=standard` and caps the selection at
+   `gemini-3-flash-preview` instead of failing.
 6. Talking point: entitlement-aware routing with no client code change.
 
 ### Act 5 — Semantic caching
@@ -681,7 +862,7 @@ All UI labels below are quoted exactly as they render today.
    `usageMetadata.totalTokenCount` to the shared `common-counter`.
 3. Step 2 *"Token Quota: Quota Exceeded (429)"* — the next prompt in the same minute
    breaches the **100 tokens / minute** budget declared on
-   `/models/gemini-2.5-flash*`, and `LTQ-TokenEnforce` returns **HTTP 429**.
+   `/models/gemini-2.5-flash:*`, and `LTQ-TokenEnforce` returns **HTTP 429**.
 4. Talking point: the 100-token limit lives in the API Product, not the proxy.
    `LTQ-TokenEnforce` resolves it through
    `verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.limit`, so raising a
@@ -731,8 +912,8 @@ Admin, Sales and Loans personas alike.
 | --- | --- |
 | `ModelRateCardView.tsx` | Present in the tree but never imported or rendered — dead code |
 | `LTQ-TokenEnforce` coverage | Only wired to `gemini-2.5-flash` via `LLMTokenLimitFlow`; other models are metered but not request-blocked |
-| `test_token_limit.sh` | Targets `gemini-2.0-flash` and sends `x-enforce-token-limit: true`. Neither matches the proxy: `LLMTokenLimitFlow` keys on `gemini-2.5-flash`, and no policy reads `x-enforce-token-limit`. The script does not exercise the current enforcement path |
 | Duplicate `main()` in `provision_unified_credentials.py` | Second definition wins; the first is unreachable |
-| `gemini-2.5-flash` rate card | Absent from `model_rates.properties`; rated at the `default` rate unless the KVM supplies one |
-| `gemini-3-flash` | Granted by both tiers and used by auto-routing, but not selectable in the UI dropdown |
+| `/models/auto` entitlement | Granted by both AI tiers, but no proxy flow routes it — `AutoRoutingFlow` matches only `/auto*`. A call to `/models/auto` passes entitlement and then fails downstream. The UI always calls bare `/auto` |
+| Stale product `description` attributes | `enterprise_ai_tier.json` still describes access as "unrestricted … (Flash, Pro, Sonnet)". No Sonnet model is entitled and access is explicitly enumerated, not unrestricted. Cosmetic metadata only — it grants nothing |
+| Leaked consumer key in git history | A literal consumer key was committed in `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer contains it, but git history does — treat that key as compromised and rotate it |
 | Budget quota variables | `QC-EnforceBudgetLimit` / `QC-DeductBudget` read `...apiproduct.developer.budget.*`, which no committed product JSON defines; both are `continueOnError="true"` and fall back to `100000000` micro-dollars / month |
