@@ -507,11 +507,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       </div>
 
                       {chip.promptId === 'unauthorized-toggle' && (
-                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleAuthStep(0, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               authStep === 0
                                 ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -522,7 +522,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleAuthStep(1, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               authStep === 1
                                 ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -534,11 +534,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       )}
 
                       {chip.promptId === 'model-armor-toggle' && (
-                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleArmorStep(0, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               armorStep === 0
                                 ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -549,7 +549,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleArmorStep(1, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               armorStep === 1
                                 ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -560,23 +560,23 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleArmorStep(2, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               armorStep === 2
                                 ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            PII Exfil
+                            PII Exfiltration
                           </button>
                         </div>
                       )}
 
                       {chip.promptId === 'auto-routing' && (
-                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleAutoRoutingStep(0, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               autoStep === 0
                                 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -587,7 +587,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleAutoRoutingStep(1, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               autoStep === 1
                                 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -598,7 +598,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleAutoRoutingStep(2, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               autoStep === 2
                                 ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -610,11 +610,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       )}
 
                       {chip.promptId === 'cache-toggle' && (
-                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleCacheStep(0, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               cacheStep === 0
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -625,7 +625,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleCacheStep(1, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               cacheStep === 1
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -637,11 +637,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       )}
 
                       {chip.promptId === 'token-limit-toggle' && (
-                        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleTokenStep(0, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               tokenStep === 0
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -652,7 +652,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleTokenStep(1, e)}
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono transition cursor-pointer ${
+                            className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer truncate ${
                               tokenStep === 1
                                 ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
