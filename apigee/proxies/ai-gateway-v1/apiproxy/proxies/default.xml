@@ -55,10 +55,6 @@
         <Condition>request.verb != "OPTIONS"</Condition>
       </Step>
       <Step>
-        <Name>LTQ-TokenEnforce</Name>
-        <Condition>request.verb != "OPTIONS"</Condition>
-      </Step>
-      <Step>
         <Name>AM-RemoveAuthorization</Name>
         <Condition>request.verb != "OPTIONS"</Condition>
       </Step>
@@ -76,7 +72,7 @@
       </Step>
       <Step>
         <Name>AM-PrepClaudeDirect</Name>
-        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages*"))</Condition>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages/**"))</Condition>
       </Step>
       <Step>
         <Name>AM-SetCacheHitExpected</Name>
@@ -100,14 +96,14 @@
       <Condition>request.verb == "OPTIONS" AND request.header.origin != null AND request.header.Access-Control-Request-Method != null</Condition>
     </Flow>
     <Flow name="LLMTokenLimitFlow">
-      <Description>Enforces Product-Level LLM Token Quota Limit (LTQ-TokenEnforce)</Description>
+      <Description>Strict Rate Limit Enforcement Flow for Token Limits Demo</Description>
       <Request>
         <Step>
           <Name>LTQ-TokenEnforce</Name>
         </Step>
       </Request>
       <Response/>
-      <Condition>(proxy.pathsuffix MatchesPath "/models/claude-opus-4-5*") or (proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash*") or (proxy.pathsuffix MatchesPath "/models/gemini-2.0-flash*")</Condition>
+      <Condition>(proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash:generateContent") or (flow.model == "gemini-2.5-flash") or (proxy.pathsuffix JavaRegex "^/models/gemini-2.5-flash.*")</Condition>
     </Flow>
     <Flow name="AutoRoutingFlow">
       <Description>Dedicated intelligent auto-routing flow</Description>
@@ -125,7 +121,7 @@
       <Description>Direct Anthropic Claude routing flow</Description>
       <Request/>
       <Response/>
-      <Condition>(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages*")</Condition>
+      <Condition>(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages/**")</Condition>
     </Flow>
     <Flow name="VertexPassthroughFlow">
       <Description>Direct Vertex AI native passthrough</Description>

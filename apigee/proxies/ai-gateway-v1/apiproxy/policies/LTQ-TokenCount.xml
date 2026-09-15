@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<LLMTokenQuota continueOnError="true" enabled="true" name="LTQ-TokenCount">
+<LLMTokenQuota continueOnError="true" enabled="true" name="LTQ-TokenCount" type="rollingwindow">
   <DisplayName>LTQ-TokenCount</DisplayName>
   <Allow count="1000" countRef="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.limit"/>
   <Interval ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.interval">1</Interval>
   <TimeUnit ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.timeunit">minute</TimeUnit>
   <Distributed>true</Distributed>
   <Synchronous>true</Synchronous>
-  <LLMTokenUsageSource>{flow.totalTokenCount}</LLMTokenUsageSource>
+  <Identifier ref="verifyapikey.VA-VerifyAPIKey.client_id"/>
+  <LLMTokenUsageSource>{jsonPath('$.usageMetadata.totalTokenCount',response.content,true)}</LLMTokenUsageSource>
   <LLMModelSource>{flow.model}</LLMModelSource>
   <CountOnly>true</CountOnly>
   <SharedName>common-counter</SharedName>

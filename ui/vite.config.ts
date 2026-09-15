@@ -1103,7 +1103,7 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
         '/api/claude-prod': {
-          target: 'https://api.maloosatyam.demo.altostrat.com/ai/v1',
+          target: 'https://api.maloosatyam.demo.altostrat.com/v1/messages',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/claude-prod/, ''),
           secure: false,

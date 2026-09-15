@@ -58,11 +58,10 @@ export async function sendPromptToApigee(
 
   if (isClaude) {
     if (settings.environment === 'custom') {
-      endpointUrl = `${baseUrl}/models/${targetModel}:generateContent`;
+      endpointUrl = `${baseUrl}/v1/messages`;
     } else {
       const envInfo = getEnvironment(settings.environment);
-      const claudeBase = envInfo.claudeProxyPath || '/api/claude-prod';
-      endpointUrl = `${claudeBase}/models/${targetModel}:generateContent`;
+      endpointUrl = envInfo.claudeProxyPath || '/api/claude-prod';
     }
     requestBody = {
       model: targetModel,
@@ -147,12 +146,6 @@ export async function sendPromptToApigee(
   if (settings.useCache) {
     headersSent['use-cache'] = 'true';
   }
-
-  if (settings.model === 'claude-opus-4-5@20251101' || settings.model === 'gemini-2.5-flash' || settings.model === 'gemini-2.0-flash') {
-    headersSent['x-enforce-token-limit'] = 'true';
-  }
-
-
 
   let responseStatus = 0;
   let responseStatusText = '';
@@ -375,31 +368,31 @@ export async function exhaustLlmQuota(settings: GatewaySettings): Promise<void> 
     baseUrl = getEnvironment(settings.environment).proxyPath || '/api/ai-prod';
   }
 
-  const endpointUrl = `${baseUrl}/models/gemini-2.5-flash:generateContent`;
+  const isAgnosticAi = baseUrl.includes('/ai') || !baseUrl.includes('vertexai');
+  const endpointUrl = isAgnosticAi
+    ? `${baseUrl}/models/gemini-3.1-flash-lite:generateContent`
+    : `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/gemini-3.1-flash-lite:generateContent`;
   const userInfo = getUserInfo(settings.activeUser);
   const effectiveApiKey = settings.apiKey || userInfo.apiKey;
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
 
-  const longPrompt = 'Write an exhaustive 1,500-word deep-dive technical architectural document covering distributed API rate limiting, token bucket algorithms, spike arrest, and zero-trust security governance in microservice architectures.';
-
   try {
-    // Send 3 parallel requests with maxOutputTokens: 1 for sub-second quota exhaustion
-    const payload = JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: longPrompt }] }],
-      generationConfig: { maxOutputTokens: 1 },
+    await fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': effectiveApiKey,
+        'X-User-Email': effectiveEmail,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Write a comprehensive 500-word analysis of enterprise API gateway security.' }],
+          },
+        ],
+      }),
     });
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-apikey': effectiveApiKey,
-      'X-User-Email': effectiveEmail,
-      'x-enforce-token-limit': 'true',
-    };
-
-    await Promise.all([
-      fetch(endpointUrl, { method: 'POST', headers, body: payload }),
-      fetch(endpointUrl, { method: 'POST', headers, body: payload }),
-      fetch(endpointUrl, { method: 'POST', headers, body: payload }),
-    ]);
   } catch {
     // Ignore error if already exhausted
   }

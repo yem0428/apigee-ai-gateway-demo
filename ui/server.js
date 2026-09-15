@@ -7,6 +7,24 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, 'dist');
+
+// Load environment variables from .env if present
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+      const idx = trimmed.indexOf('=');
+      const key = trimmed.substring(0, idx).trim();
+      const val = trimmed.substring(idx + 1).trim();
+      if (key && !process.env[key]) {
+        process.env[key] = val;
+      }
+    }
+  }
+}
+
 const PORT = process.env.PORT || 8080;
 
 // In-memory token cache for Apigee Management API
@@ -189,7 +207,6 @@ async function provisionUserDeveloperAndApp(org, token, email, name) {
           },
           body: JSON.stringify({
             name: targetAppName,
-            displayName: targetAppName,
             apiProducts: ['Enterprise AI Tier', 'Enterprise Tools MCP'],
             attributes: [
               { name: 'DisplayName', value: targetAppName },
@@ -236,7 +253,6 @@ async function provisionUserDeveloperAndApp(org, token, email, name) {
             },
             body: JSON.stringify({
               name: matchedApp.name,
-              displayName: matchedApp.name,
               apiProducts: updatedProducts,
               attributes: mergedAttrs,
             }),
@@ -1110,7 +1126,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname.startsWith('/api/claude-prod')) {
     const targetPath = pathname.replace(/^\/api\/claude-prod/, '');
-    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/ai/v1${targetPath}${parsedUrl.search}`);
+    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/v1/messages${targetPath}${parsedUrl.search}`);
     return;
   }
 

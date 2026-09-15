@@ -270,7 +270,7 @@ export const TOKEN_LIMIT_EXAMPLES = [
     tag: 'Pass (200 OK)',
     prompt: 'Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words.',
     description: 'Single prompt consuming ~90 tokens within quota (200 OK).',
-    model: 'claude-opus-4-5@20251101',
+    model: 'gemini-2.5-flash',
   },
   {
     step: 2,
@@ -279,7 +279,7 @@ export const TOKEN_LIMIT_EXAMPLES = [
     tag: 'Exceeded (429)',
     prompt: 'Summarize API gateway token bucket algorithms and rate limiting principles in 50 concise words.',
     description: 'Subsequent request under the same key breaching cumulative minute quota (429 Rate Limit).',
-    model: 'claude-opus-4-5@20251101',
+    model: 'gemini-2.5-flash',
   },
 ];
 
@@ -360,7 +360,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     prompt: AUTO_ROUTING_EXAMPLES[0].prompt,
     badgeText: 'Intelligent',
     badgeColor: 'violet',
-    settingsOverride: { model: 'auto', useCache: false },
+    settingsOverride: { model: 'auto', useCache: false, activeUser: 'admin' },
   },
   {
     id: 'token-limit-toggle',
@@ -370,7 +370,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     prompt: TOKEN_LIMIT_EXAMPLES[0].prompt,
     badgeText: 'Pass → Limit',
     badgeColor: 'emerald',
-    settingsOverride: { model: 'claude-opus-4-5@20251101', useCache: false },
+    settingsOverride: { model: 'gemini-2.5-flash', useCache: false, activeUser: 'admin' },
   },
   {
     id: 'cache-toggle',

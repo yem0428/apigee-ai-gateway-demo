@@ -388,14 +388,13 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
   });
 
   it('⚡ Scenario: Token Limits Step 1 (Pass 200 OK) - tracks token consumption under limit', async () => {
-    const claudeUrl = `${vertexBaseUrl}/models/claude-opus-4-5@20251101:generateContent`;
-    const res = await fetchWithRetry(claudeUrl, {
+    const tokenModelUrl = `${vertexBaseUrl}/models/gemini-2.5-flash:generateContent`;
+    const res = await fetch(tokenModelUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
         'X-User-Email': TEST_EMAIL,
-        'x-enforce-token-limit': 'true',
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Explain API gateway rate limiting in 20 concise words.' }] }],
@@ -404,41 +403,25 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
 
     assert.ok(res.status === 200 || res.status === 429, `Expected 200 OK or 429 Rate Limit, got ${res.status}`);
     if (res.status === 200) {
-      assert.strictEqual(res.headers.get('x-gateway-model'), 'claude-opus-4-5@20251101');
-      assert.strictEqual(res.headers.get('x-gateway-provider'), 'anthropic');
+      assert.strictEqual(res.headers.get('x-gateway-model'), 'gemini-2.5-flash');
+      assert.strictEqual(res.headers.get('x-gateway-provider'), 'google');
       assert.ok(res.headers.get('x-gateway-total-tokens'), 'Total tokens header should be present');
       const data = await res.json();
-      assert.ok(data.candidates?.[0]?.content?.parts?.[0]?.text, 'Claude response should contain candidate text');
+      assert.ok(data.candidates?.[0]?.content?.parts?.[0]?.text, 'Gemini response should contain candidate text');
     }
   });
 
   it('⚠️ Scenario: Token Limits Step 2 (Exceeded 429) - rejects request when quota limit is breached', async () => {
-    const claudeUrl = `${vertexBaseUrl}/models/claude-opus-4-5@20251101:generateContent`;
-    // 1. Pre-flight quota exhaustion
-    await fetchWithRetry(claudeUrl, {
+    const tokenModelUrl = `${vertexBaseUrl}/models/gemini-2.5-flash:generateContent`;
+    const res = await fetch(tokenModelUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
         'X-User-Email': TEST_EMAIL,
-        'x-enforce-token-limit': 'true',
       },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Write an exhaustive 2,000 word technical architectural document covering distributed API rate limiting, token bucket algorithms, spike arrest, and zero-trust security governance in microservice architectures.' }] }],
-      }),
-    });
-
-    // 2. Immediate follow-up request to trigger 429 quota exhaustion
-    const res = await fetch(claudeUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
-        'x-enforce-token-limit': 'true',
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting.' }] }],
+        contents: [{ role: 'user', parts: [{ text: 'Summarize API gateway token bucket algorithms and rate limiting principles in 50 concise words.' }] }],
       }),
     });
 

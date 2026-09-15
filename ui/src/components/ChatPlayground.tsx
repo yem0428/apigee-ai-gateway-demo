@@ -140,10 +140,19 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
+    let settingsToUse = { ...settings, omitEmailHeader: false };
+    if (settings.model === 'auto' && settings.activeUser !== 'admin') {
+      settingsToUse = {
+        ...settingsToUse,
+        activeUser: 'admin',
+        keyTier: 'admin',
+        apiKey: USERS.admin.apiKey,
+      };
+    }
     if (settings.omitEmailHeader) {
       setSettings((prev) => ({ ...prev, omitEmailHeader: false }));
     }
-    handleExecute(inputText, { ...settings, omitEmailHeader: false });
+    handleExecute(inputText, settingsToUse);
   };
 
   const handleSelectSample = (preset: ScenarioPreset) => {
@@ -319,14 +328,21 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     if (e) e.stopPropagation();
     setAutoStep(step);
     const example = AUTO_ROUTING_EXAMPLES[step];
+    const targetPersona = 'admin';
     const effectiveSettings: GatewaySettings = {
       ...settings,
+      activeUser: targetPersona,
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
       model: 'auto',
       useCache: false,
       omitEmailHeader: false,
     };
     setSettings((prev) => ({
       ...prev,
+      activeUser: targetPersona,
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
       model: 'auto',
       useCache: false,
       omitEmailHeader: false,
@@ -361,15 +377,19 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     const effectiveSettings: GatewaySettings = {
       ...settings,
       activeUser: targetPersona,
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
       useCache: false,
-      model: 'claude-opus-4-5@20251101',
+      model: 'gemini-2.5-flash',
       omitEmailHeader: false,
     };
     setSettings((prev) => ({
       ...prev,
       activeUser: targetPersona,
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
       useCache: false,
-      model: 'claude-opus-4-5@20251101',
+      model: 'gemini-2.5-flash',
       omitEmailHeader: false,
     }));
     handleExecute(example.prompt, effectiveSettings);
