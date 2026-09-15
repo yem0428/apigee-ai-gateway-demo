@@ -61,7 +61,8 @@ export async function sendPromptToApigee(
       endpointUrl = `${baseUrl}/models/${targetModel}:generateContent`;
     } else {
       const envInfo = getEnvironment(settings.environment);
-      endpointUrl = envInfo.claudeProxyPath || '/api/claude-prod';
+      const claudeBase = envInfo.claudeProxyPath || '/api/claude-prod';
+      endpointUrl = `${claudeBase}/models/${targetModel}:generateContent`;
     }
     requestBody = {
       model: targetModel,
