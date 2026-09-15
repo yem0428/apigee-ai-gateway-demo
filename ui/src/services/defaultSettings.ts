@@ -30,7 +30,7 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     proxyPath: '/api/ai-prod',
     upstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1',
     claudeProxyPath: '/api/claude-prod',
-    claudeUpstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/v1/messages',
+    claudeUpstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1',
     mcpProxyPath: '/api/mcp-prod',
     mcpUpstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/mcp',
     tag: 'Prod',

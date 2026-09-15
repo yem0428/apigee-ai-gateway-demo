@@ -1110,7 +1110,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname.startsWith('/api/claude-prod')) {
     const targetPath = pathname.replace(/^\/api\/claude-prod/, '');
-    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/v1/messages${targetPath}${parsedUrl.search}`);
+    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/ai/v1${targetPath}${parsedUrl.search}`);
     return;
   }
 
