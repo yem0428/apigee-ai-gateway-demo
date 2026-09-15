@@ -500,7 +500,7 @@ const server = http.createServer(async (req, res) => {
         if (!apiRes.ok) {
           const errText = await apiRes.text();
           res.statusCode = apiRes.status;
-          res.end(JSON.stringify({ error: `Apigee KVM error (${apiRes.status}): ${errText}` }));
+          res.end(JSON.stringify({ error: `KVM error (${apiRes.status}): ${errText}` }));
           return;
         }
         const data = await apiRes.json();
@@ -552,7 +552,7 @@ const server = http.createServer(async (req, res) => {
           if (!updateRes.ok) {
             const errText = await updateRes.text();
             res.statusCode = updateRes.status;
-            res.end(JSON.stringify({ error: `Failed to update Apigee KVM (${updateRes.status}): ${errText}` }));
+            res.end(JSON.stringify({ error: `Failed to update KVM (${updateRes.status}): ${errText}` }));
             return;
           }
 

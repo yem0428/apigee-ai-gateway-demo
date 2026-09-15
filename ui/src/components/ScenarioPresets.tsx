@@ -52,7 +52,7 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
           <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-          <span>Apigee AI Demo Presets:</span>
+          <span>AI Demo Presets:</span>
           <span className="text-[10px] text-slate-500 font-normal ml-1">
             Click block to load, or click ▶ to test immediately
           </span>
@@ -100,7 +100,7 @@ export const ScenarioPresets: React.FC<ScenarioPresetsProps> = ({
                   onSelectPreset(preset, true);
                 }}
                 className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs transition"
-                title="Send immediately to Apigee Gateway"
+                title="Send immediately to the Gateway"
               >
                 <Play className="w-2.5 h-2.5 fill-current" />
                 <span>Run</span>

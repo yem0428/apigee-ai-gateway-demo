@@ -39,7 +39,7 @@ const THEME_OPTIONS: ThemeOption[] = [
   },
   {
     id: 'sunset',
-    name: 'Apigee Sunset',
+    name: 'Sunset',
     tag: 'Warm Dark',
     icon: Sunset,
     accentColor: 'text-orange-400',

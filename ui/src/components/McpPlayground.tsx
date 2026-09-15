@@ -67,7 +67,7 @@ const createInitialMcpTelemetry = (settings: GatewaySettings): McpTelemetry => (
   headersReceived: {
     'content-type': 'application/json',
     'x-request-id': 'c21b1190-8f58-4363-881c-03090d5ac18d',
-    'server': 'Apigee',
+    'via': '1.1 google',
   },
   rawRequest: {
     jsonrpc: '2.0',
@@ -280,7 +280,7 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                      Apigee Native MCP Server
+                      Native MCP Server
                       <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30">
                         JSON-RPC 2.0
                       </span>
@@ -361,7 +361,7 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
                     No Tools Discovered Yet
                   </div>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
-                    Click <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Refresh Tools</span> to connect to the Apigee MCP endpoint and fetch registered tools.
+                    Click <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Refresh Tools</span> to connect to the MCP endpoint and fetch registered tools.
                   </p>
                 </div>
               ) : (

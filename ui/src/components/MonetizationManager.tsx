@@ -134,7 +134,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [subscribingProduct, setSubscribingProduct] = useState<string | null>(null);
   const [liveAttributions, setLiveAttributions] = useState<UserMonetizationAttribution[]>([]);
 
-  // Available Developers loaded dynamically from Apigee Management API
+  // Available Developers loaded dynamically from Management API
   const availableDevelopers = useMemo(() => {
     if (liveAttributions.length > 0) {
       return liveAttributions.map((a) => ({
@@ -190,7 +190,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         setCalcModel(Object.keys(data.rates)[0] || 'default');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load model rate card from Apigee KVM');
+      setError(err.message || 'Failed to load model rate card from KVM');
     } finally {
       setRatesLoading(false);
     }
@@ -213,7 +213,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
     }
   };
 
-  // Load Developer Attributions from Apigee Management API
+  // Load Developer Attributions from Management API
   const loadAttributions = async () => {
     try {
       const data = await fetchDeveloperAttributions();
@@ -235,7 +235,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       loadAttributions(),
     ]);
     if (isManual) {
-      setSuccessMessage('Synchronized all monetization and pricing data with Apigee');
+      setSuccessMessage('Synchronized all monetization and pricing data with the gateway');
       setTimeout(() => setSuccessMessage(null), 3500);
     }
   };
@@ -309,10 +309,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
     try {
       await updateModelRates(env, rates);
       setInitialRates(JSON.parse(JSON.stringify(rates)));
-      setSuccessMessage(`Saved model rates to Apigee ${env.toUpperCase()} KVM (ai-model-rates)`);
+      setSuccessMessage(`Saved model rates to ${env.toUpperCase()} KVM (ai-model-rates)`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
-      setError(err.message || 'Failed to update rates in Apigee KVM');
+      setError(err.message || 'Failed to update rates in KVM');
     } finally {
       setRatesSaving(false);
     }
@@ -465,7 +465,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-                  Apigee Monetization & Pricing Manager
+                  Monetization & Pricing Manager
                 </h1>
                 <span className="text-[10px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-mono font-semibold px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-800 flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-teal-600 dark:text-teal-400" />
@@ -477,7 +477,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Manage developer prepaid wallets, token pricing rate cards, and published rate plans enforced by Apigee Monetization policies.
+                Manage developer prepaid wallets, token pricing rate cards, and published rate plans enforced by gateway monetization policies.
               </p>
             </div>
           </div>
@@ -525,7 +525,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               onClick={() => handleRefreshAll(true)}
               disabled={walletLoading || ratesLoading || plansLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
-              title="Synchronize all data from Apigee Management API"
+              title="Synchronize all data from Management API"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${walletLoading || ratesLoading || plansLoading ? 'animate-spin text-emerald-500' : 'text-slate-500'}`} />
               <span className="hidden sm:inline">Sync</span>
@@ -998,7 +998,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       <tr>
                         <td colSpan={7} className="py-12 text-center text-slate-500">
                           <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-500" />
-                          Loading live rate cards from Apigee KVM...
+                          Loading live rate cards from KVM...
                         </td>
                       </tr>
                     ) : filteredModels.length === 0 ? (
@@ -1102,13 +1102,13 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </div>
             </div>
 
-            {/* Interactive Apigee Cost & Budget Simulator */}
+            {/* Interactive Cost & Budget Simulator */}
             <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calculator className="w-4 h-4 text-amber-500" />
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                    Interactive Apigee Cost & Wallet Deduction Simulator
+                    Interactive Cost & Wallet Deduction Simulator
                   </h2>
                 </div>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
@@ -1167,7 +1167,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col justify-center">
-                  <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Apigee Calculated Cost</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Calculated Cost</div>
                   <div className="text-lg font-bold text-amber-600 dark:text-amber-400 font-mono mt-0.5">
                     ${calculatedCost.total.toFixed(6)} <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">USD</span>
                   </div>
@@ -1188,10 +1188,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <FileSpreadsheet className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span>Published Apigee Product Rate Plans</span>
+                    <span>Published Product Rate Plans</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Apigee Native Monetization rate plans attached to API Products for consumption rating
+                    Native Monetization rate plans attached to API Products for consumption rating
                   </p>
                 </div>
               </div>
@@ -1199,7 +1199,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               {plansLoading ? (
                 <div className="py-12 text-center text-slate-500">
                   <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-purple-500" />
-                  Loading rate plans from Apigee...
+                  Loading rate plans from the gateway...
                 </div>
               ) : ratePlans.length === 0 ? (
                 <div className="py-8 text-center text-slate-500">
@@ -1368,7 +1368,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                     Credit Amount (USD)
                   </label>
-                  <span className="text-[10px] text-slate-400 font-mono">Instant Apigee Credit</span>
+                  <span className="text-[10px] text-slate-400 font-mono">Instant Credit</span>
                 </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-mono text-sm">$</span>

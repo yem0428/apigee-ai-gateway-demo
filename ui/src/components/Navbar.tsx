@@ -127,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
-              title="Apigee AI Gateway (Model Routing, Guardrails, Cache & Auto-Routing)"
+              title="AI Gateway (Model Routing, Guardrails, Cache & Auto-Routing)"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>AI Gateway</span>
@@ -140,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-cyan-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
-              title="Apigee Native MCP Tools Server (/mcp)"
+              title="Native MCP Tools Server (/mcp)"
             >
               <Terminal className="w-3.5 h-3.5" />
               <span>MCP Gateway</span>
@@ -169,7 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ? 'bg-amber-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                 }`}
-                title="Apigee Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
+                title="Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
               >
                 <Coins className="w-3.5 h-3.5" />
                 <span>Monetization</span>
@@ -250,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={analyticsControls.onRefresh}
                 disabled={analyticsControls.loading}
                 className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-purple-600 transition cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
-                title="Refresh live metrics from Apigee Management API"
+                title="Refresh live metrics from Management API"
               >
                 {analyticsControls.loading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
@@ -472,7 +472,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                   <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
                     {ssoUser.idToken
-                      ? 'Authenticated via Google SSO Bearer token. Identity is validated by Apigee on every request for zero-trust governance.'
+                      ? 'Authenticated via Google SSO Bearer token. Identity is validated by the gateway on every request for zero-trust governance.'
                       : 'Authenticated user email associated with the active session token.'}
                   </p>
                 </div>

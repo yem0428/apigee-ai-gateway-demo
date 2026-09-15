@@ -85,20 +85,14 @@ export const ApigeeColorSymbol: React.FC<{ className?: string }> = ({ className 
 export const ApigeeLogo: React.FC<ApigeeLogoProps> = ({ className = 'h-7', showStudio = false }) => {
   return (
     <div className={`flex items-center gap-2 select-none ${className}`}>
-      {/* Official Google Cloud Apigee Product Icon */}
+      {/* Official Google Cloud Apigee Product Icon (logo only, no wordmark) */}
       <ApigeeColorSymbol className="w-7 h-7 shrink-0 drop-shadow-xs" />
 
-      {/* Brand Wordmark */}
-      <div className="flex items-center gap-2">
-        <span className="font-semibold text-lg tracking-tight text-slate-800 dark:text-slate-100 font-sans">
-          Apigee
+      {showStudio && (
+        <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/80 dark:border-blue-800 tracking-wider uppercase font-mono">
+          Studio
         </span>
-        {showStudio && (
-          <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/80 dark:border-blue-800 tracking-wider uppercase font-mono">
-            Studio
-          </span>
-        )}
-      </div>
+      )}
     </div>
   );
 };

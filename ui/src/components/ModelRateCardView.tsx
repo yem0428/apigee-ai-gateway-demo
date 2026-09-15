@@ -81,7 +81,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
         setCalcModel(Object.keys(data.rates)[0] || 'default');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load model rate card from Apigee KVM');
+      setError(err.message || 'Failed to load model rate card from KVM');
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
       setSuccessMessage(`Saved ${Object.keys(rates).length} model rates to ${env.toUpperCase()} KVM in ${elapsed}ms!`);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
-      setError(err.message || 'Failed to update rates in Apigee KVM');
+      setError(err.message || 'Failed to update rates in KVM');
     } finally {
       setSaving(false);
     }
@@ -219,7 +219,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
                 )}
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Manage token pricing ($/1M tokens) stored in Apigee Key-Value Map. Read in real-time by Apigee for dynamic cost & quota calculation.
+                Manage token pricing ($/1M tokens) stored in Key-Value Map. Read in real-time by the gateway for dynamic cost & quota calculation.
               </p>
             </div>
           </div>
@@ -238,7 +238,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
               onClick={() => loadRates(env)}
               disabled={loading || saving}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-medium transition cursor-pointer disabled:opacity-50"
-              title="Reload rates from Apigee KVM"
+              title="Reload rates from KVM"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
@@ -280,7 +280,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
               }`}
             >
               <Save className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
-              <span>{saving ? 'Saving to KVM...' : 'Save to Apigee KVM'}</span>
+              <span>{saving ? 'Saving to KVM...' : 'Save to KVM'}</span>
             </button>
           </div>
         </div>
@@ -318,7 +318,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
           <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
             <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5 mb-1">
               <Database className="w-3.5 h-3.5 text-blue-400" />
-              Apigee KVM Scope
+              KVM Scope
             </div>
             <div className="text-sm font-bold text-slate-100 font-mono">
               bap-apac-demo2 / {env}
@@ -350,7 +350,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
               (in/1M × rate) + (out/1M × rate)
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
-              Converted to micro-dollars for Apigee Quota deduction
+              Converted to micro-dollars for quota deduction
             </div>
           </div>
 
@@ -361,7 +361,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
             </div>
             <div className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Synchronized with Apigee
+              Synchronized with the gateway
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
               Last fetched: {lastSynced || 'Just now'}
@@ -450,7 +450,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-500">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-400" />
-                      Loading live rate card from Apigee KVM...
+                      Loading live rate card from KVM...
                     </td>
                   </tr>
                 ) : filteredModels.length === 0 ? (
@@ -566,7 +566,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calculator className="w-4 h-4 text-amber-400" />
-              <h2 className="text-sm font-bold text-white tracking-tight">Interactive Apigee Cost & Budget Simulator</h2>
+              <h2 className="text-sm font-bold text-white tracking-tight">Interactive Cost & Budget Simulator</h2>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">
               Live calculation verified against <span className="text-emerald-400">flow.tx_cost_usd</span>
@@ -628,7 +628,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
 
             {/* Computed Cost Metrics */}
             <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-center">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Apigee Calculated Cost</div>
+              <div className="text-[10px] uppercase font-bold text-slate-400">Calculated Cost</div>
               <div className="text-lg font-bold text-amber-400 font-mono mt-0.5">
                 ${calculatedCost.total.toFixed(6)} <span className="text-xs text-slate-400 font-normal">USD</span>
               </div>

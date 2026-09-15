@@ -51,7 +51,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
         <Activity className="w-10 h-10 mb-3 text-slate-700 animate-pulse" />
         <p className="font-semibold text-slate-400 text-sm">Ready for Gateway Traffic</p>
         <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
-          Select a sample prompt below or type your query to inspect live Apigee Model Armor, Semantic Cache, and Token metrics.
+          Select a sample prompt below or type your query to inspect live Model Armor, Semantic Cache, and Token metrics.
         </p>
       </div>
     );
@@ -304,7 +304,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
           </div>
         </div>
 
-        {/* 6. Wallet (renamed from Apigee Monetization & Wallet) */}
+        {/* 6. Wallet (renamed from Monetization & Wallet) */}
         <div className={`p-2.5 bg-white dark:bg-slate-900/80 border rounded-xl shadow-2xs ${
           telemetry.status === 403 && (telemetry.headersReceived['x-gateway-monetization-status'] || JSON.stringify(telemetry.rawResponse || {}).includes('Monetization') || JSON.stringify(telemetry.rawResponse || {}).includes('prepaid'))
             ? 'border-rose-300 bg-rose-50/70 dark:border-rose-500/60 dark:bg-rose-950/30'
@@ -373,7 +373,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
               <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
                 <div className="font-bold text-slate-800 dark:text-slate-300 mb-2 flex items-center gap-1.5">
                   <Activity className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
-                  Apigee Response Headers (<span className="text-emerald-600 dark:text-emerald-400">x-gateway-*</span>):
+                  Gateway Response Headers (<span className="text-emerald-600 dark:text-emerald-400">x-gateway-*</span>):
                 </div>
                 <div className="space-y-1 divide-y divide-slate-100 dark:divide-slate-800/60 max-h-48 overflow-y-auto pr-1">
                   {Object.entries(telemetry.headersReceived)

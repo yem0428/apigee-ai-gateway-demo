@@ -212,7 +212,7 @@ export async function sendPromptToApigee(
       guardrailMessage =
         fault?.faultstring ||
         fault?.message ||
-        'Request blocked by Apigee Model Armor guardrail due to potential safety violation.';
+        'Request blocked by Model Armor guardrail due to potential safety violation.';
     } else if (responseStatus >= 200 && responseStatus < 300) {
       guardrailStatus = 'PASSED';
     }
@@ -306,9 +306,9 @@ export async function sendPromptToApigee(
     }
 
     // Handle fault cases (e.g. RF-MissingUserEmail, Model Armor, Invalid API Key)
-    let errorMessage = `Apigee Gateway returned HTTP ${responseStatus} (${responseStatusText})`;
+    let errorMessage = `Gateway returned HTTP ${responseStatus} (${responseStatusText})`;
     if (fault?.faultstring) {
-      errorMessage = `[Apigee Policy Fault]: ${fault.faultstring}`;
+      errorMessage = `[Gateway Policy Fault]: ${fault.faultstring}`;
     } else if (fault?.message) {
       errorMessage = `[Gateway Error]: ${fault.message}`;
     } else if (rawResponseBody?.message) {
@@ -319,13 +319,13 @@ export async function sendPromptToApigee(
       success: false,
       text: isModelArmorBlock
         ? `🛡️ **Model Armor Guardrail Triggered**:\n${errorMessage}`
-        : `⚠️ **Apigee Gateway Notification (${responseStatus})**:\n${errorMessage}`,
+        : `⚠️ **Gateway Notification (${responseStatus})**:\n${errorMessage}`,
       telemetry,
       error: errorMessage,
     };
   } catch (networkErr: any) {
     const durationMs = Math.round(performance.now() - startTime);
-    const errorMsg = networkErr.message || 'Failed to communicate with Apigee Gateway';
+    const errorMsg = networkErr.message || 'Failed to communicate with the Gateway';
 
     const telemetry: GatewayTelemetry = {
       status: 0,
@@ -349,7 +349,7 @@ export async function sendPromptToApigee(
 
     return {
       success: false,
-      text: `🚫 **Network Error**: Unable to reach Apigee Gateway endpoint. Details: ${errorMsg}.`,
+      text: `🚫 **Network Error**: Unable to reach the Gateway endpoint. Details: ${errorMsg}.`,
       telemetry,
       error: errorMsg,
     };

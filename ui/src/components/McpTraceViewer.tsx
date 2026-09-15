@@ -248,12 +248,12 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
 
         {activeTab === 'headers' && (
           <div className="space-y-4">
-            {/* Headers Received from Apigee */}
+            {/* Headers Received from Gateway */}
             <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-2xs">
               <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-200 dark:border-slate-800">
                 <div className="text-xs font-bold text-slate-800 dark:text-slate-200 font-sans uppercase tracking-wider flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                  <span>Headers Received from Apigee</span>
+                  <span>Headers Received from Gateway</span>
                 </div>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-medium shadow-2xs">
                   {Object.keys(telemetry.headersReceived).length} headers

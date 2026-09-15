@@ -62,7 +62,7 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Apigee Gateway Configuration</h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Gateway Configuration</h2>
           </div>
           <button
             onClick={onClose}
@@ -236,7 +236,7 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
               />
               <span className="text-[11px] font-medium flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span>Simulate Missing Authorization (Tests Apigee 401 Unauthorized rejection)</span>
+                <span>Simulate Missing Authorization (Tests 401 Unauthorized rejection)</span>
               </span>
             </label>
           </div>

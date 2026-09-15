@@ -275,8 +275,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       promptId: 'cache-toggle',
       title:
         cacheStep === 0
-          ? 'Step 1: Complex prompt executed live and seeded into Apigee semantic vector cache'
-          : 'Step 2: Semantically equivalent prompt served instantly from Apigee vector cache with $0 token cost',
+          ? 'Step 1: Complex prompt executed live and seeded into semantic vector cache'
+          : 'Step 2: Semantically equivalent prompt served instantly from vector cache with $0 token cost',
       color: 'hover:border-emerald-500 hover:text-emerald-500',
       icon: Database,
       iconColor: 'text-emerald-500',
@@ -488,7 +488,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
               <div className="w-11 h-11 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-center mb-2.5">
                 <ApigeeColorSymbol className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Apigee AI Gateway</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">AI Gateway</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-5 text-center">
                 Select a live capability scenario below or enter a custom prompt to inspect gateway governance:
               </p>
@@ -778,7 +778,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-semibold">
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping" />
-                  <span>Sending prompt to Apigee AI Gateway ({settings.environment.toUpperCase()})...</span>
+                  <span>Sending prompt to AI Gateway ({settings.environment.toUpperCase()})...</span>
                 </div>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 uppercase font-bold">
                   POST
