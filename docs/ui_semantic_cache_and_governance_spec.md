@@ -1,220 +1,471 @@
-# Frontend UI Specification: Semantic Cache Explorer & Gateway Governance
+# Frontend UI Reference: Gateway Governance & Semantic Cache Surfaces
 
-> **Target Audience**: Frontend Engineer / UI Subagent  
-> **Status**: Ready for Implementation  
-> **Repository Path**: `ui/`  
-> **Target Environments**: Apigee X `dev` (`/api/ai-dev`) and `prod` (`/api/ai-prod`)  
-> **Associated Proxy**: `apigee/proxies/ai-gateway-v1` (Active: Revision 41 on `prod`, Revision 40 on `dev`)
+> **Repository path**: `ui/`
+> **Status**: Reconciled against source on 2026-09-15. Sections are explicitly labelled
+> **Implemented** or **Proposal (not built)**.
+> **Associated proxies**: [`apigee/proxies/ai-gateway-v1`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1),
+> [`apigee/proxies/mcp`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp)
 
----
-
-## 1. Executive Summary & Goals
-
-This document specifies the exact UI architecture, component requirements, and data contracts for introducing a dedicated **Semantic Cache Explorer** screen to the demonstration application and aligning the existing **Live Gateway Trace Inspector** with our standardized telemetry headers.
-
-### Objectives for the UI Agent:
-1. **Add a 4th Studio Tab (`semantic-cache`)**: Integrate a dedicated *Semantic Cache Explorer* navigation item in `Navbar.tsx`.
-2. **Build `SemanticCacheView.tsx`**: A dashboard visualizing:
-   - Real-time cache performance KPIs (Hit Ratio %, Latency Reduction %, Cost Avoided in $ USD).
-   - Interactive Cache Playground demonstrating the contrast between a sub-50ms Cache Hit ($0.00 cost) and a multi-second live LLM generation.
-   - Vector Search similarity inspection (Vertex AI Vector Search index `3211563513570918400`, Endpoint `3889166141490200576`, Threshold `0.95`).
-   - Query history & simulated cache invalidation controls.
-3. **Align `GatewayTraceViewer.tsx`**:
-   - Ensure the cache badge and telemetry inspects `x-gateway-cache-status: "HIT" | "MISS" | "DISABLED"` and `x-gateway-cached: "true" | "false"`.
-   - Note: The redundant `x-cache` header has been deprecated and removed in Apigee proxy revisions 40/41.
+> [!IMPORTANT]
+> This document previously specified a `SemanticCacheView.tsx` component and a fifth
+> `semantic-cache` studio tab. **Neither was ever implemented.** Semantic cache behaviour
+> ships today through the [ChatPlayground](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx)
+> scenario chips and the Semantic Cache card in
+> [GatewayTraceViewer](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L217-L266).
+> The unbuilt design is preserved — clearly marked — in [Section 9](#9-proposal--not-built-semanticcacheviewtsx).
 
 ---
 
-## 2. API Contract & Header Specifications
+## 1. What ships today
 
-### 2.1 Request Headers
-When triggering requests to Apigee AI Gateway (`/api/ai-prod/auto` or `/api/ai-dev/auto`):
-| Header Name | Type | Value / Description | Required? |
-| :--- | :--- | :--- | :--- |
-| `x-apikey` | String | Consumer developer API key (e.g. Bronze, Silver, Gold product key) | **Yes** |
-| `X-User-Email` | String | Caller identity (e.g. `demo.user@google.com` or decoded from Bearer token) | **Yes** |
-| `use-cache` | String / Boolean | Set to `'true'` to trigger Vertex AI Vector Search semantic cache lookup | Optional |
-| `x-use-cache` | String / Boolean | Alternate header alias supported identically by Apigee | Optional |
-| `Content-Type` | String | `application/json` | **Yes** |
-
-### 2.2 Response Headers Injected by Apigee
-All gateway telemetry is standardized under the `x-gateway-*` namespace:
-| Header Name | Sample Value | Meaning |
-| :--- | :--- | :--- |
-| `x-gateway-cached` | `"true"` or `"false"` | Boolean string indicating whether response was served from cache |
-| `x-gateway-cache-status` | `"HIT"`, `"MISS"`, `"DISABLED"` | Exact cache outcome |
-| `x-gateway-model` | `gemini-3.1-flash-lite`, `claude-opus-4-5` | The foundation model resolved or retrieved |
-| `x-gateway-provider` | `google` or `anthropic` | Upstream provider |
-| `x-auto-routed` | `"true"` or `"false"` | Whether dynamic auto-routing selected the model |
-| `x-gateway-cost-tier` | `low`, `medium`, `high` | Cost classification tier |
-| `x-gateway-cost-usd` | `"0.000000"` (HIT) or `"0.000003"` (MISS) | Computed transaction cost in USD |
-| `x-gateway-prompt-tokens` | `45` | Integer prompt token count |
-| `x-gateway-completion-tokens` | `128` | Integer completion token count |
-| `x-gateway-total-tokens` | `173` | Total token volume |
-| `x-gateway-monetization-status` | `"limits_check_success"` | Status of the Apigee Monetization limits check (`MLC-EnforceMonetizationLimits`) |
-| `x-gateway-prepaid-balance` | `"109.996920"` | Starting prepaid wallet balance in USD prior to transaction |
-| `x-gateway-prepaid-currency` | `"USD"` | Currency of the prepaid developer account |
-| `x-gateway-balance-remaining` | `"109.996866"` | Exact balance remaining after deducting current transaction cost |
-
-### 2.3 UI Backend Monetization Proxy Endpoints
-The local Vite server (`ui/vite.config.ts`) provides authenticated backend proxy endpoints interfacing directly with the Apigee Monetization Management API:
-1. **`GET /api/monetization/balance`**:
-   - **Response Payload**:
-     ```json
-     {
-       "success": true,
-       "balance": 109.99692,
-       "currency": "USD",
-       "developer": "maloosatyam@google.com",
-       "billingType": "PREPAID"
-     }
-     ```
-   - **Usage**: Invoked on UI load and tab navigation to display current available funds.
-2. **`POST /api/monetization/credit`**:
-   - **Request Payload**:
-     ```json
-     {
-       "amount": 50,
-       "currency": "USD"
-     }
-     ```
-   - **Response Payload**:
-     ```json
-     {
-       "success": true,
-       "balance": 159.99692,
-       "currency": "USD",
-       "transactionId": "topup-1726309876",
-       "developer": "maloosatyam@google.com"
-     }
-     ```
-   - **Usage**: Interactive wallet top-up button to restore or add balance during live customer demos.
-
+| Capability | Where it actually lives | Built? |
+| --- | --- | --- |
+| Semantic cache demo (seed → hit) | Two-step chip in `ChatPlayground` + `useCache` setting | ✅ |
+| Cache outcome display | `GatewayTraceViewer` "Semantic Cache" + "Latency" cards | ✅ |
+| Cache on/off toggle | `GatewayTraceViewer` header pill and `ChatPlayground` footer pill | ✅ |
+| MCP JSON-RPC tracing | `McpPlayground` + `McpTraceViewer` | ✅ |
+| Prepaid wallet balance readout | `GatewayTraceViewer` "Wallet" card (from response headers) | ✅ |
+| Wallet top-up | `MonetizationManager` "Top-Up Prepaid Wallet" modal | ✅ |
+| Dedicated cache explorer screen | — | ❌ never built |
+| Cache KPI dashboard / vector entries table | — | ❌ never built |
+| Fifth `semantic-cache` navigation tab | — | ❌ never built |
 
 ---
 
-## 3. UI Component Architecture
+## 2. Component inventory (Implemented)
 
-## 3. UI Component Architecture
+Thirteen components exist under
+[`ui/src/components/`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components).
+
+| Component | Purpose | Mounted today? |
+| --- | --- | --- |
+| [AnalyticsDashboard.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/AnalyticsDashboard.tsx) | Fleet consumption / cost KPIs | Yes — `analytics` tab |
+| [ApigeeLogo.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ApigeeLogo.tsx) | Exports `ApigeeLogo` and `ApigeeColorSymbol` | Yes — Navbar, ChatPlayground |
+| [ChatPlayground.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx) | Chat pane + scenario chips + trace pane | Yes — `ai-gateway` tab |
+| [DonutPieChart.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DonutPieChart.tsx) | Chart primitive | Yes — AnalyticsDashboard |
+| [GatewaySettingsModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewaySettingsModal.tsx) | Settings modal, heading **"Gateway Configuration"** | Yes — App |
+| [GatewayTraceViewer.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx) | AI Gateway telemetry panel | Yes — ChatPlayground |
+| [McpPlayground.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpPlayground.tsx) | MCP tool catalog + execution | Yes — `mcp-gateway` tab |
+| [McpTraceViewer.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx) | JSON-RPC request/response/headers tabs | Yes — McpPlayground |
+| [ModelRateCardView.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ModelRateCardView.tsx) | Standalone KVM rate-card screen | **No — not imported anywhere** |
+| [MonetizationManager.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx) | Wallets, rate cards, rate plans | Yes — `monetization` tab |
+| [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) | Header, tabs, quick config | Yes — App |
+| [ScenarioPresets.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ScenarioPresets.tsx) | Grid renderer for `SCENARIO_PRESETS` | **No — not imported anywhere** |
+| [ThemeSelector.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ThemeSelector.tsx) | Theme switcher | Yes — App |
+
+> [!NOTE]
+> `ModelRateCardView.tsx` and `ScenarioPresets.tsx` compile but are never rendered. Rate cards
+> are served by the `rate-cards` sub-tab inside `MonetizationManager`, and the chat scenario grid
+> is built inline in `ChatPlayground` from the `sampleChips` array. Treat both files as dead code
+> pending a decision to wire them up or delete them.
+
+### 2.1 Component graph
 
 ```mermaid
 flowchart TD
     App["App.tsx"]
-    Navbar["Navbar.tsx\n[Tabs: ai-gateway | mcp-gateway | analytics | monetization]"]
-    ChatPlayground["ChatPlayground.tsx\n[Dual-Pane Chat + TraceViewer]"]
-    McpPlayground["McpPlayground.tsx\n[MCP Tools Governance]"]
-    AnalyticsDashboard["AnalyticsDashboard.tsx\n[Apigee Analytics Fleet KPIs + Active Developer Filter]"]
-    MonetizationManager["MonetizationManager.tsx\n[Subtabs: wallets | rate-cards | rate-plans]"]
+    Navbar["Navbar.tsx (logo, 4 tabs, quick config)"]
+    Chat["ChatPlayground.tsx (chat + scenario chips)"]
+    GTV["GatewayTraceViewer.tsx (AI telemetry)"]
+    Mcp["McpPlayground.tsx (tool catalog)"]
+    MTV["McpTraceViewer.tsx (JSON-RPC + Headers)"]
+    Analytics["AnalyticsDashboard.tsx"]
+    Donut["DonutPieChart.tsx"]
+    Money["MonetizationManager.tsx (wallets | rate-cards | rate-plans)"]
+    Modal["GatewaySettingsModal.tsx"]
+    Theme["ThemeSelector.tsx"]
 
     App --> Navbar
-    App --> ChatPlayground
-    App --> McpPlayground
-    App --> AnalyticsDashboard
-    App --> MonetizationManager
+    App --> Chat
+    App --> Mcp
+    App --> Analytics
+    App --> Money
+    App --> Modal
+    App --> Theme
+    Chat --> GTV
+    Mcp --> MTV
+    Analytics --> Donut
 ```
 
-### 3.1 `AppTab` Type Definition (`ui/src/types/index.ts`)
-The top-level `AppTab` type:
-```typescript
-export type AppTab = 'ai-gateway' | 'mcp-gateway' | 'analytics' | 'monetization';
+---
+
+## 3. Tab routing (Implemented)
+
+### 3.1 `AppTab` type
+
+[`ui/src/types/index.ts#L131`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L131):
+
+```ts
+export type AppTab =
+  | 'ai-gateway'
+  | 'mcp-gateway'
+  | 'kvm-pricing'
+  | 'monetization'
+  | 'analytics'
+  | 'rate-cards';
 ```
 
-### 3.2 Navbar Integration (`ui/src/components/Navbar.tsx`)
-Add the tab button next to `rate-cards`:
-- **Label**: `Semantic Cache`
-- **Icon**: `Database` or `Zap` from `lucide-react`
-- **Badge / Subtitle**: Sub-100ms / $0.00 Spend
+`kvm-pricing` and `rate-cards` are legacy aliases: all three monetization-family values render the
+same [MonetizationManager](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L350-L351).
+
+The initial tab can be deep-linked with `?tab=`, but
+[App.tsx#L169-L177](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L169-L177) only accepts
+`ai-gateway`, `mcp-gateway`, `monetization`, `kvm-pricing`, `analytics` — `rate-cards` is **not**
+accepted from the URL. Anything else falls back to `ai-gateway`.
+
+Non-admin personas are bounced off the monetization family back to a permitted tab
+([App.tsx#L294-L298](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L294-L298)).
+
+### 3.2 Navbar tabs
+
+[Navbar.tsx#L120-L178](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L120-L178)
+renders the 4-colour logo symbol (no wordmark) followed by these buttons:
+
+| Order | Visible label | Target tab | Icon | Visibility |
+| --- | --- | --- | --- | --- |
+| 1 | `AI Gateway` | `ai-gateway` | `Sparkles` | Always |
+| 2 | `MCP Gateway` | `mcp-gateway` | `Terminal` | Always |
+| 3 | `Analytics & Cost` | `analytics` | `BarChart3` | Always |
+| 4 | `Monetization` | `monetization` | `Coins` | Admin view only |
+
+Admin view is `analyticsControls?.viewMode === 'admin'` on the analytics tab, otherwise
+`settings.activeUser === 'admin'`
+([Navbar.tsx#L107-L110](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L107-L110)).
+
+> [!CAUTION]
+> The word "Apigee" is deliberately absent from all rendered UI text; only the logo symbol remains.
+> Quote only the strings above. Code identifiers (`ApigeeLogo`, `sendPromptToApigee`,
+> `apigeeClient.ts`) intentionally retain the name and are not user-facing.
 
 ---
 
-## 4. `SemanticCacheView.tsx` Component Specification
+## 4. Request header contract (Implemented)
 
-Create `ui/src/components/SemanticCacheView.tsx` with the following sub-views:
+### 4.1 AI Gateway — [`apigeeClient.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L131-L148)
 
-### 4.1 Top KPI Metrics Cards
-Grid of 4 cards highlighting the business value of Apigee Semantic Caching:
-1. **Cache Hit Rate**:
-   - Value: `68.4%` (or computed dynamically from live session requests).
-   - Subtext: `Sub-100ms response fast-path`.
-   - Color: Emerald green (`text-emerald-400`).
-2. **Latency Reduction**:
-   - Value: `~98.5% Speedup`.
-   - Subtext: `35ms cached vs ~2,100ms live inference`.
-   - Color: Cyan (`text-cyan-400`).
-3. **Cumulative Cost Avoidance**:
-   - Value: `$12.84 Saved`.
-   - Subtext: `Billed at $0.000000 USD on cache hit`.
-   - Color: Amber (`text-amber-400`).
-4. **Vector Search Health**:
-   - Value: `Deployed & Active`.
-   - Subtext: `Threshold: 0.95 | Model: text-embedding-004`.
-   - Color: Blue (`text-blue-400`).
+```ts
+const headersSent: Record<string, string> = {
+  'Content-Type': 'application/json',
+  'x-apikey': effectiveApiKey,
+};
+if (!settings.omitEmailHeader) {
+  if (effectiveIdToken) headersSent['Authorization'] = `Bearer ${effectiveIdToken}`;
+  if (effectiveEmail) headersSent['X-User-Email'] = effectiveEmail;
+}
+if (settings.useCache) headersSent['use-cache'] = 'true';
+```
 
-### 4.2 Two-Stage Interactive Cache Simulator
-An interactive panel allowing executives and engineers to see semantic caching in action:
-- **Seed Prompt Input**:
-  - Sample button 1: *"Why should enterprise developers use Apigee for AI Gateway?"*
-  - Sample button 2: *"How does Apigee protect LLMs with Model Armor?"*
-- **Step 1: Execute Seed Request (`use-cache: true`)**:
-  - Sends query to `/api/ai-prod/auto` with `use-cache: true`.
-  - First execution returns `x-gateway-cache-status: MISS` and takes ~1,500ms.
-  - UI displays: `🌱 Cache Miss: Prompt vector embeddings generated & stored in Vertex AI Vector Search`.
-- **Step 2: Execute Semantic Near-Match Query**:
-  - User can type a slight variation: *"Tell me why enterprise teams choose Apigee as an AI gateway"*
-  - Sends query with `use-cache: true`.
-  - Second execution returns `x-gateway-cache-status: HIT` in **< 50ms** with `x-gateway-cost-usd: 0.000000`.
-  - UI displays: `⚡ Cache Hit! Vector cosine similarity matched with sub-50ms latency and $0 cost!`.
+| Header | Sent when | Notes |
+| --- | --- | --- |
+| `Content-Type: application/json` | Always | — |
+| `x-apikey` | Always | Resolved from `settings.apiKey`, the active persona, or `/api/me` |
+| `Authorization: Bearer <id_token>` | SSO token present **and** `omitEmailHeader` false | Used by the 401 identity demo when omitted |
+| `X-User-Email` | Email present **and** `omitEmailHeader` false | Fallback identity for the proxy |
+| `use-cache: true` | `settings.useCache === true` | Only emitted when true; never sent as `false` |
 
-### 4.3 Cached Vector Entries Table
-A table displaying recently cached prompts:
-| Prompt / Query | Similarity Threshold | Model Cached | Status | Latency | Cost | Actions |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| "Why should enterprises use Apigee AI Gateway?" | $\ge 0.95$ | `gemini-3-flash` | `ACTIVE` | 32ms | $0.000000 | [Test Hit] |
-| "Write a python function for fibonacci" | $\ge 0.95$ | `claude-opus-4-5` | `ACTIVE` | 41ms | $0.000000 | [Test Hit] |
-| "Compare BigQuery and Cloud Spanner trade-offs" | $\ge 0.95$ | `gemini-3.1-pro-preview` | `ACTIVE` | 48ms | $0.000000 | [Test Hit] |
+> [!NOTE]
+> The `ai-gateway-v1` proxy also accepts `x-use-cache` as an alias
+> ([default.xml#L79-L83](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L79-L83)),
+> but the UI never sends it. Do not document `x-use-cache` as a UI behaviour.
+
+[`exhaustLlmQuota()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L363-L399)
+is a helper that fires a large `gemini-3.1-flash-lite` prompt with only
+`Content-Type`, `x-apikey`, `X-User-Email`.
+
+### 4.2 MCP Gateway — [`mcpClient.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/mcpClient.ts#L27-L48)
+
+Identical identity contract, minus the cache header:
+`Content-Type`, `x-apikey`, optional `Authorization: Bearer …`, optional `X-User-Email`.
+Both `tools/list` and `tools/call` POST JSON-RPC 2.0 envelopes to the resolved MCP endpoint.
 
 ---
 
-## 5. Updates to `GatewayTraceViewer.tsx`
+## 5. Response headers the UI consumes (Implemented)
 
-In `ui/src/components/GatewayTraceViewer.tsx`:
-1. **Cache Status Badge**:
-   ```tsx
-   const isCacheHit = telemetry?.cacheStatus === 'HIT';
-   const isCacheMiss = telemetry?.cacheStatus === 'MISS';
-   ```
-   Render distinct visual badges:
-   - `HIT`: `⚡ Vector Cache Hit` (Green pill, emerald border).
-   - `MISS`: `Cache Miss (Seeded)` (Yellow pill, amber border).
-   - `DISABLED`: `Cache Bypassed` (Gray pill).
-2. **Cost Display**:
-   - If `isCacheHit`: Highlight cost in green: `$0.000000 (Free / Cached)`.
-### 5.2 Prepaid Balance & Consumption Visualization (`GatewayTraceViewer.tsx` & Header Bar)
-1. **Wallet Balance Chip / Meter**:
-   - In the header or trace viewer, display the developer's prepaid wallet balance:
-     ```tsx
-     <div className="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-       <Wallet className="w-4 h-4 text-emerald-400" />
-       <span className="text-xs text-slate-400">Prepaid Wallet:</span>
-       <span className="text-sm font-semibold text-emerald-300">
-         ${balanceRemaining || prepaidBalance || "0.00"} {currency}
-       </span>
-     </div>
-     ```
-2. **Consumption Against Balance**:
-   - Trace viewer shows both starting balance (`x-gateway-prepaid-balance`) and remaining balance (`x-gateway-balance-remaining`).
-   - Transaction deduction delta: `-$0.000054 USD` tagged against the current call.
-   - If `x-gateway-cached === "true"`, highlight `$0.000000 deducted (Zero Balance Impact)`.
-3. **Top-Up Modal / Trigger**:
-   - Provide a quick "Add Credits" / "Top-Up Balance" trigger invoking `POST /api/monetization/credit` with selectable amounts ($10, $50, $100) to demonstrate replenishing a depleted wallet.
+The gateway sets these in
+[`AM-SetResponseHeaders.xml`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/AM-SetResponseHeaders.xml).
+`apigeeClient` lower-cases and stores **every** response header in `telemetry.headersReceived`, then
+reads the following explicitly:
 
+| Header | Read at | Used for |
+| --- | --- | --- |
+| `x-gateway-cache-status` | [apigeeClient.ts#L195-L204](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L195-L204) | `telemetry.cacheStatus` (`HIT` / `MISS` / `DISABLED`) |
+| `x-gateway-cached` | same | Fallback when `x-gateway-cache-status` is absent |
+| `x-gateway-model` | L264 | Resolved model name |
+| `x-gateway-provider` | L242 | Upstream provider |
+| `x-auto-routed` | L247, L266 | Auto-routing badge |
+| `x-gateway-cost-usd` | L243 | Cost readout (client-side estimate if absent) |
+| `x-gateway-cost-tier` | L244 | Cost tier label |
+| `x-gateway-prompt-tokens` | L239 | Prompt tokens when the body has no usage block |
+| `x-gateway-completion-tokens` | L240 | Completion tokens |
+| `x-gateway-total-tokens` | L241 | Total tokens |
+| `x-gateway-category` / `x-gateway-intent` | L245 | Routing intent label |
+| `x-gateway-monetization-status` | [GatewayTraceViewer.tsx#L309](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L309) | Wallet-depleted (403) styling |
+| `x-gateway-prepaid-balance` | [L340](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L340) | "Start Balance" tile |
+| `x-gateway-balance-remaining` | [L346](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L346) | "Remaining" tile |
+
+The proxy also emits `x-gateway-currency` and `x-gateway-prepaid-currency`; the UI does not read
+them today, though both appear in the raw headers accordion.
+
+> [!WARNING]
+> Both balance tiles fall back to the hardcoded literal `109.988` when the headers are missing, so a
+> plausible-looking balance can render even with no monetization data. Do not read those tiles as
+> authoritative during a demo without confirming the headers are present.
+
+MCP responses are filtered — [`extractResponseHeaders()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/mcpClient.ts#L53-L75)
+keeps only: `content-type`, `x-request-id`, `x-cloud-trace-context`, `x-b3-traceid`, `x-b3-spanid`,
+`date`, `server`, `via`, `x-powered-by`. `x-gateway-*` headers are therefore **not** visible in the
+MCP trace even if the gateway sends them.
 
 ---
 
-## 6. Development & Verification Checklist for the UI Agent
+## 6. Backend proxy endpoints (Implemented)
 
-When starting work:
-- [ ] Run `npm run build` in `ui/` to ensure no TypeScript or packaging errors exist.
-- [ ] Ensure the Vite dev server is running on `http://localhost:3000`.
-- [ ] Verify that switching tabs between *Chat Playground*, *MCP Agent*, *Rate Cards*, and the new *Semantic Cache* is seamless and responsive.
-- [ ] Run automated tests: `node --env-file=ui/.env ui/tests/gateway-live.test.mjs` and ensure all 16 tests continue to pass.
+Two equivalent implementations exist: Vite dev middleware in
+[`ui/vite.config.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L385-L1080)
+and the production Node server [`ui/server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js).
+Both mint a GCP access token server-side and call the Apigee Management API.
+
+| Route | Methods | Server handler | Client wrapper |
+| --- | --- | --- | --- |
+| `/api/me` | GET | [server.js#L438](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L438) | inline `fetch` in `apigeeClient` |
+| `/api/kvm/rates` | GET, PUT | [server.js#L476](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L476) | `fetchModelRates`, `updateModelRates` |
+| `/api/monetization/balance` | GET (`?dev=`) | [server.js#L579](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L579) | `fetchDeveloperBalance` |
+| `/api/monetization/credit` | POST | [server.js#L611](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L611) | `creditDeveloperBalance` |
+| `/api/monetization/rateplans` | GET | [server.js#L673](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L673) | `fetchRatePlans` |
+| `/api/monetization/subscriptions` | GET, POST | [server.js#L725](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L725) | `fetchDeveloperSubscriptions`, `subscribeDeveloper` |
+| `/api/monetization/config` | GET, PUT | [server.js#L794](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L794) | `fetchDeveloperMonetizationConfig`, `updateDeveloperMonetizationConfig` |
+| `/api/analytics/fleet-stats` | GET (`?timeRange=&env=`) | [server.js#L852](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L852) | `fetchFleetAnalytics` |
+| `/api/monetization/attributions` | GET | [server.js#L1006](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1006) | `fetchDeveloperAttributions` |
+
+Pass-through proxies (prefix match,
+[server.js#L1109-L1157](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1109-L1157)):
+`/api/ai-dev`, `/api/ai-prod`, `/api/claude-dev`, `/api/claude-prod`, `/api/vertexai-dev`,
+`/api/vertexai-prod`, `/api/mcp-dev`, `/api/mcp-prod`.
+
+### 6.1 Actual payload shapes
+
+`GET /api/monetization/balance` returns the raw Apigee response nested under `data` — **not** a
+flattened `balance` number:
+
+```json
+{
+  "status": "ok",
+  "developer": "maloosatyam@google.com",
+  "org": "bap-apac-demo2",
+  "data": {
+    "wallets": [
+      { "balance": { "currencyCode": "USD", "units": "109", "nanos": 996920000 } }
+    ]
+  }
+}
+```
+
+`POST /api/monetization/credit` takes `{ "units": "50", "developer": "…" }` (units is a **string**;
+there is no `amount` or `currency` field) and returns:
+
+```json
+{
+  "status": "ok",
+  "developer": "maloosatyam@google.com",
+  "credited": "50",
+  "transactionId": "topup-1726309876",
+  "data": { }
+}
+```
+
+Currency is hardcoded to `USD` server-side
+([server.js#L645-L652](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L645-L652)).
+
+---
+
+## 7. How semantic cache is actually demonstrated (Implemented)
+
+### 7.1 Gateway side
+
+| Policy | Detail |
+| --- | --- |
+| [`SCL-Semantic-Cache-Lookup`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SCL-Semantic-Cache-Lookup.xml) | Embeddings via `text-embedding-004`; `findNeighbors` on index endpoint `3889166141490200576`; deployed index `semantic_cache`; `Threshold` `0.95` |
+| [`SCP-Semantic-Cache-Populate`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SCP-Semantic-Cache-Populate.xml) | `upsertDatapoints` on index `3211563513570918400`; `TTLInSeconds` `600` |
+
+Both run only when `use-cache` (or `x-use-cache`) is `true`.
+
+### 7.2 UI side — the two-step chip
+
+[ChatPlayground.tsx#L270-L283](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L270-L283)
+renders a single **Semantic Cache** chip whose label flips with `cacheStep`:
+
+| Step | Chip label | Prompt source | Effect |
+| --- | --- | --- | --- |
+| 0 | `⚡ Cache: Seed (Miss)` | `CACHE_EXAMPLES[0]` | Long zero-trust security prompt, executed live and seeded |
+| 1 | `⚡ Cache: Instant Hit ($0)` | `CACHE_EXAMPLES[1]` | Semantically equivalent paraphrase, expected to hit |
+
+[`handleCacheStep()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L353-L370)
+forces `useCache: true`, `model: 'gemini-3.1-flash-lite'`, `omitEmailHeader: false` before executing,
+and clicking the chip body auto-advances 0 → 1 → 0. Two sub-buttons labelled `Seed (Miss)` and
+`Instant Hit ($0)` let a presenter jump directly to either step
+([L635-L659](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L635-L659)).
+
+A sibling chip labelled `🌐 Direct (No Cache)` runs the same seed prompt with `useCache: false` for
+latency contrast (preset `no-cache` in
+[defaultSettings.ts#L385-L394](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L385-L394)).
+
+The chat footer also carries a persistent toggle rendering `Cache:` + `ENABLED` / `OFF`
+([L878-L894](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L878-L894)).
+
+> [!NOTE]
+> The six chips are defined inline as `sampleChips`; their titles and badges are looked up from
+> `SCENARIO_PRESETS` in [defaultSettings.ts#L334-L395](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L334-L395).
+> The default session starts with `useCache: false`
+> ([defaultSettings.ts#L200](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L200)).
+
+---
+
+## 8. Trace viewers (Implemented)
+
+### 8.1 `GatewayTraceViewer.tsx`
+
+Empty state reads **"Ready for Gateway Traffic"**. Once telemetry exists, the panel header shows
+`Gateway Telemetry` plus an `HTTP <status> <statusText>` pill, followed by six cards:
+
+| # | Card heading | Key behaviour |
+| --- | --- | --- |
+| 1 | `Model Routing` | Model, provider, cost tier, intent, `Auto-Routed` pill, cost chip |
+| 2 | `Token` | Prompt / Output / Total tiles; on 429 swaps to a quota-exceeded banner |
+| 3 | `Latency` | Round-trip ms, colour-banded; on a hit shows `Vector Cache (~90% Faster)` |
+| 4 | `Semantic Cache` | Toggle pill + outcome line (see below) |
+| 5 | `Model Armor` | `Secured` or `Blocked (400)` with the guardrail message |
+| 6 | `Wallet` | `Prepaid Active` or `❌ Depleted (403)`; Start Balance / Remaining tiles |
+
+Semantic Cache card states
+([L217-L266](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L217-L266)):
+
+| Condition | Toggle pill | Outcome text |
+| --- | --- | --- |
+| `useCache` on, `cacheStatus === 'HIT'` | `use-cache: true` | `Vector Cache Hit` + `$0 Token Cost` |
+| `useCache` on, not a hit | `use-cache: true` | `Cache Miss (Seeded to Vector DB)` |
+| `useCache` off | `use-cache: omitted` | `Bypassed (Direct LLM Inference)` |
+
+The pill is a button wired to `onToggleCache`, so cache can be flipped mid-demo from the trace pane.
+
+A collapsible **"Inspect HTTP Headers & Raw JSON"** accordion
+([L353-L435](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L353-L435))
+exposes three blocks:
+
+- **Gateway Response Headers (`x-gateway-*`)** — filtered to keys starting `x-gateway`, `x-auto`,
+  `content-type`, `x-accel`.
+- **Request Headers Sent** — any key containing `apikey` is masked as `first8…last6`; a `Bearer`
+  value renders as `Bearer <12 chars>…<8 chars> (Google SSO Token)`.
+- **Raw JSON Response** — with a `Copy` button that copies `telemetry.rawResponse` only.
+
+### 8.2 `McpTraceViewer.tsx`
+
+Header banner shows the JSON-RPC method, a status pill, the endpoint URL and a latency chip. An
+identity strip below it shows `Caller:`, the active persona badge, and `Request ID:` when
+`x-request-id` is present.
+
+Three tabs: **JSON-RPC Response**, **JSON-RPC Request**, **Headers**. The initial tab can be
+deep-linked via `?subtab=response|request|headers`
+([L49-L55](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx#L49-L55)).
+The two JSON tabs render through a custom highlighter (cyan keys, emerald strings, amber numbers,
+purple booleans, rose `null`) on a fixed `#0f172a` surface.
+
+The **Headers** tab was rebuilt for contrast
+([L249-L311](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx#L249-L311)):
+
+- Two theme-aware cards — **"Headers Received from Gateway"** (cyan `Activity` icon) and
+  **"Headers Sent by Client"** (blue `Send` icon) — each styled for both light and dark themes.
+- Each card header carries a live count badge rendered as `{n} headers`.
+- Received keys are cyan; sent keys use neutral slate. All values render in high-contrast chips
+  with `select-all`, so a single click copies a value.
+- `x-apikey` is masked to `first8...last4` when longer than 12 characters. The match is on the exact
+  lower-cased key `x-apikey`; `Authorization` is **not** masked in this viewer.
+- Empty states read `No headers received in response` and `No headers sent`.
+
+The shared **Copy** button is tab-aware: on Headers it exports both sections as one JSON object
+([L200-L219](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/McpTraceViewer.tsx#L200-L219)):
+
+```ts
+{ headersReceived: telemetry.headersReceived, headersSent: telemetry.headersSent }
+```
+
+Values are copied unmasked — the mask is presentation-only.
+
+---
+
+## 9. Proposal — NOT BUILT: `SemanticCacheView.tsx`
+
+> [!WARNING]
+> Everything in this section is an unimplemented design proposal retained for historical context.
+> No file, tab, route, or component described here exists in the repository. Do not cite it as
+> current behaviour.
+
+The original proposal called for:
+
+1. A fifth studio tab `semantic-cache` in `Navbar.tsx`, labelled `Semantic Cache`, using a
+   `Database` or `Zap` icon.
+2. A new `ui/src/components/SemanticCacheView.tsx` containing:
+   - Four KPI cards: Cache Hit Rate, Latency Reduction, Cumulative Cost Avoidance, Vector Search
+     Health.
+   - A two-stage interactive simulator (seed request, then a paraphrased near-match query).
+   - A table of cached vector entries with per-row "Test Hit" actions.
+   - Query history and simulated cache-invalidation controls.
+3. A wallet balance chip in the header or trace viewer, plus an in-trace "Add Credits" trigger
+   posting to `/api/monetization/credit` with preset amounts.
+
+What was delivered instead:
+
+| Proposed | Delivered |
+| --- | --- |
+| `semantic-cache` tab | None — cache demo lives in the `ai-gateway` tab |
+| KPI cards | Aggregate cache hit-rate / savings surface only in `AnalyticsDashboard` via `/api/analytics/fleet-stats` |
+| Two-stage simulator | Two-step chip in `ChatPlayground` (Section 7.2) |
+| Cached vector entries table | Not built — no UI enumerates cache datapoints |
+| Cache invalidation controls | Not built — the only expiry is the 600 s `TTLInSeconds` in `SCP-Semantic-Cache-Populate` |
+| Wallet chip + in-trace top-up | Trace viewer shows read-only balance tiles and the text `Prepaid balance exhausted ($0.00). Top up in Monetization tab.` Top-up lives in the `MonetizationManager` modal **"Top-Up Prepaid Wallet"** with quick amounts `+$10 / +$25 / +$50 / +$100` and a `Confirm Top-Up` button |
+
+The proposed KPI figures (`68.4%` hit rate, `~98.5% Speedup`, `$12.84 Saved`) were illustrative
+placeholders and were never backed by data. Any revived design should compute them from
+`/api/analytics/fleet-stats`, which already returns `cacheHitRate` and `cacheCostSavingsUsd`
+([api.ts#L219-L230](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/api.ts#L219-L230)).
+
+---
+
+## 10. Development & verification checklist
+
+Completed:
+
+- [x] `SemanticCacheView.tsx` decision resolved — not built; documented as a proposal above.
+- [x] Tab routing verified: 4 Navbar buttons over a 6-value `AppTab` union.
+- [x] Request/response header contracts verified against `apigeeClient.ts` and `mcpClient.ts`.
+- [x] Monetization and analytics routes verified against `server.js` and `vite.config.ts`.
+- [x] `McpTraceViewer` Headers tab rebuilt: theme-aware cards, header counts, `x-apikey` masking,
+      combined JSON export on Copy.
+- [x] Brand word removed from rendered UI text; logo symbol retained.
+
+Still to run per change:
+
+- [ ] `npm run build` in `ui/` (`tsc && vite build`) — must pass with no TypeScript errors.
+- [ ] `npm run dev` — Vite dev server listens on `http://localhost:3000`
+      ([vite.config.ts#L1085](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1085)).
+- [ ] Exercise tab switching across *AI Gateway*, *MCP Gateway*, *Analytics & Cost* and
+      *Monetization* (admin persona required for the last one).
+- [ ] `npm run test:live` — runs
+      [`tests/gateway-live.test.mjs`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs)
+      (**22 tests**; last recorded run 18 passed, 0 failed, 4 skipped for environmental reasons).
+- [ ] `npm run test:unit` — runs
+      [`tests/autorouting.unit.test.mjs`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/autorouting.unit.test.mjs).
+
+---
+
+## 11. Known UI inaccuracies worth fixing in code
+
+These are defects in the application, not in this document:
+
+| Location | Issue |
+| --- | --- |
+| [GatewayTraceViewer.tsx#L160](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L160) | 429 banner hardcodes "200 tokens/min limit on Standard tier"; the Standard AI Tier product sets **100** tokens/min for `gemini-2.5-flash`, and other operations are 2000/min |
+| [apigeeClient.ts#L359-L362](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L359-L362) | `exhaustLlmQuota` docstring repeats the stale "200 token/min" figure |
+| [GatewayTraceViewer.tsx#L340-L346](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L340-L346) | Wallet tiles fall back to a hardcoded `109.988` |
+| [GatewayTraceViewer.tsx#L387](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L387) | Empty-state guard destructures an array of key **strings** as `([k]) =>`, so `k` is only the first character and the filter is always empty — the "No custom x-gateway headers" notice renders even when such headers are present |
+| `ModelRateCardView.tsx`, `ScenarioPresets.tsx` | Dead components — exported but never imported |

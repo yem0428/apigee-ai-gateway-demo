@@ -9,7 +9,7 @@ This file registers all specialized subagents, procedural skills, and operationa
 
 ## 2. Available Skills (`.gemini/skills/`)
 - [`apigee-proxy-builder`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/skills/apigee-proxy-builder/SKILL.md): Scaffold, validate, package, and deploy Apigee X proxy bundles.
-- [`ai-gateway-policy-manager`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/skills/ai-gateway-policy-manager/SKILL.md): Manage model routing (Flash/Pro), token quotas, PII redaction, and semantic caching.
+- [`ai-gateway-policy-manager`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/skills/ai-gateway-policy-manager/SKILL.md): Manage model routing and auto-routing, LLM token quotas, prompt guardrails, PII redaction, and semantic caching.
 - [`tools-gateway-manager`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/skills/tools-gateway-manager/SKILL.md): Tool execution governance, schema validation, authorization, and MCP/REST bridging.
 - [`adk-agent-developer`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/skills/adk-agent-developer/SKILL.md): Python ADK agent implementation using the Dual-Pattern.
 
@@ -21,7 +21,12 @@ This file registers all specialized subagents, procedural skills, and operationa
 - [`git_and_ci_cd_workflow.md`](file:///Users/maloosatyam/Codebase/AI%20Code/.gemini/rules/git_and_ci_cd_workflow.md)
 
 ## 4. Key Implementation Specifications (`docs/`)
-- [`ui_semantic_cache_and_governance_spec.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/ui_semantic_cache_and_governance_spec.md): Complete frontend UI specification for the Semantic Cache Explorer screen, trace inspector telemetry, and API data contracts.
-- [`proxy_architecture_design_plan.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/proxy_architecture_design_plan.md): End-to-end Apigee AI Gateway architecture, OpenAPI 3.0 validation, Model Armor perimeter defense, and auto-routing rules.
-- [`unified_credentials_and_products_reference.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/unified_credentials_and_products_reference.md): API Products (Standard & Enterprise AI, MCP Tools), unified developer keys, Apigee Monetization prepaid rate plans & wallets, quotas, and customer walkthrough scripts.
+- [`proxy_architecture_design_plan.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/proxy_architecture_design_plan.md): End-to-end AI Gateway proxy architecture — PreFlow and response-flow ordering, the policy catalog, OpenAPI 3.0 request validation, Model Armor perimeter defense, and auto-routing rules.
+- [`unified_credentials_and_products_reference.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/unified_credentials_and_products_reference.md): Canonical reference for API Products (Standard & Enterprise AI, MCP Tools), unified developer keys, Apigee Monetization prepaid rate plans & wallets, per-operation LLM token quotas, and customer walkthrough scripts.
+- [`apigee_ai_gateway_demo_design.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/apigee_ai_gateway_demo_design.md): Broad platform design doc spanning proxies, products, UI, and ADK agents, plus the end-to-end demo narrative.
+- [`ui_semantic_cache_and_governance_spec.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/ui_semantic_cache_and_governance_spec.md): Frontend UI specification — trace inspector telemetry and API data contracts, plus the proposed Semantic Cache Explorer screen.
+- [`cloud_run_iap_deployment_guide.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/cloud_run_iap_deployment_guide.md): Deploying the demo UI to Cloud Run behind IAP — build, deploy, service account, ingress, and troubleshooting.
+- [`best_practices_guide.md`](file:///Users/maloosatyam/Codebase/AI%20Code/docs/best_practices_guide.md): Agentic development conventions — rule scoping, progressive disclosure in skills, subagent specialization, and verification before declaration.
 
+> [!IMPORTANT]
+> `SemanticCacheView.tsx` does not exist in [`ui/src/components/`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/). Semantic cache behaviour is surfaced today through `ChatPlayground` scenario presets and `GatewayTraceViewer`. Treat the Semantic Cache Explorer as a proposal, not shipped code.

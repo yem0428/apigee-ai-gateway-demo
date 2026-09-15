@@ -1,63 +1,69 @@
 # Cloud Run UI & Identity-Aware Proxy (IAP) Deployment Guide
 
-> **Document Status**: Production / Active Baseline  
-> **Last Updated**: 2026-09-08  
-> **Environment**: Google Cloud Platform (`bap-apac-demo2`)  
-> **Region**: `asia-southeast1` (Cloud Run) / `global` (Load Balancer & IAP)  
-> **Primary Domain**: `ai-ui.maloosatyam.demo.altostrat.com`
+> **Document status**: Production / active baseline
+> **Last verified**: 2026-09-15 (against live GCP state and repository source)
+> **Environment**: Google Cloud project `bap-apac-demo2` (project number `1058667481809`)
+> **Region**: `asia-southeast1` (Cloud Run) / `global` (load balancer, IAP, SSL)
+> **Primary domain**: `ai-ui.maloosatyam.demo.altostrat.com`
 
 ---
 
 ## 1. Architecture Overview
 
-This deployment hosts the **Apigee AI & Tools Gateway Demonstration UI** as an enterprise-hardened, internal-only web application on Google Cloud. 
+This deployment hosts the **Apigee AI & Tools Gateway demonstration UI** as an internal-only web
+application on Google Cloud. Four controls make that true:
 
-To satisfy enterprise compliance and prevent public exposure:
-1. **Zero Direct Public Access**: The Cloud Run service enforces `--no-allow-unauthenticated` and `--ingress=internal-and-cloud-load-balancing`. The raw `*.run.app` URL returns `403 Forbidden` to the open internet.
-2. **Identity-Aware Proxy (IAP)**: All browser sessions are authenticated via Google Workspace SSO and authorized strictly for **`domain:google.com`** accounts.
-3. **Dedicated Application Load Balancer**: A Global External HTTPS Application Load Balancer terminates SSL with a Google-managed certificate and forwards authorized traffic to Cloud Run via a Serverless Network Endpoint Group (NEG).
-4. **Google Secret Manager Integration (Zero Hardcoded / Plaintext Secrets)**: No API keys or credentials exist in the Git repository or as plaintext environment variables. Cloud Run binds secrets directly from **Google Secret Manager** (`apigee-bronze-api-key`, `apigee-silver-api-key`, `apigee-sales-agent-api-key`). An entrypoint script at container boot reads these injected secrets and exposes them to the frontend runtime in browser memory.
-5. **Dedicated IAP Service Agent**: Cloud Run authorizes the Google-managed IAP service agent (`service-[PROJECT_NUMBER]@gcp-sa-iap.iam.gserviceaccount.com`) with `roles/run.invoker` to seamlessly proxy authenticated user sessions.
+1. **No direct public access** — the Cloud Run service runs with `--no-allow-unauthenticated` and
+   `--ingress=internal-and-cloud-load-balancing`. The raw `*.run.app` URLs
+   (`https://apigee-ai-gateway-ui-1058667481809.asia-southeast1.run.app`) return `403 Forbidden`
+   to the open internet.
+2. **Identity-Aware Proxy** — browser sessions authenticate via Google Workspace SSO. IAP is enabled
+   on the `apigee-ai-ui-backend` backend service and authorization is granted to `domain:google.com`
+   plus `user:maloosatyam@google.com`.
+3. **Dedicated global Application Load Balancer** — a Global External HTTPS ALB terminates TLS with a
+   Google-managed certificate and forwards to Cloud Run through a Serverless NEG.
+4. **Workload identity, not static keys** — the container holds **no API keys**. The Cloud Run
+   service account calls the Apigee Management API using a token obtained from the Cloud Run
+   metadata server, and mints per-user Apigee developer credentials on demand.
+
+> [!IMPORTANT]
+> The container image is **`node:20-alpine` running `node server.js`**. There is no NGINX, no
+> web-server config file, and no entrypoint shell script in the runtime image. Any instruction
+> elsewhere that references NGINX access/error logs for this service is stale.
 
 ```mermaid
 flowchart TB
-    User["Googler Browser\n(@google.com)"]
-    
-    subgraph Edge Layer [Google Cloud Global Edge]
-        DNS["DNS: ai-ui.maloosatyam.demo.altostrat.com\n(A-Record -> 136.68.103.117)"]
-        Port80["Port 80 Forwarding Rule\n(HTTP -> HTTPS 301 Redirect)"]
-        Port443["Port 443 Forwarding Rule\n(Global External HTTPS LB)"]
-        Cert["Google-Managed SSL Cert\n(apigee-ai-ui-single-cert)"]
-        
+    User["Googler Browser (@google.com)"]
+
+    subgraph edge["Google Cloud Global Edge"]
+        DNS["DNS: ai-ui.maloosatyam.demo.altostrat.com\nA-record -> 136.68.103.117"]
+        Port80["apigee-ai-ui-http-forwarding-rule\nPort 80 -> 301 redirect"]
+        Port443["apigee-ai-ui-forwarding-rule\nPort 443 (EXTERNAL_MANAGED)"]
+        Cert["Google-managed SSL cert\napigee-ai-ui-single-cert"]
+
         DNS --> Port80
         DNS --> Port443
-        Port80 -->|301 Redirect| Port443
+        Port80 -->|301 redirect| Port443
         Port443 --- Cert
     end
 
-    subgraph Security Layer [Google Cloud IAP]
-        IAP["Identity-Aware Proxy (IAP)\n(OAuth Client: 1058667481809-...)\nEnforces: domain:google.com"]
-        GoogleLogin["accounts.google.com\n(Google Workspace SSO)"]
-        IAP_SA["IAP Service Agent\n(service-1058667481809@gcp-sa-iap.iam.gserviceaccount.com)"]
-        
+    subgraph sec["Google Cloud IAP"]
+        IAP["IAP on apigee-ai-ui-backend\nOAuth client 1058667481809-6skumftl...\nAllows domain:google.com"]
+        GoogleLogin["accounts.google.com\nGoogle Workspace SSO"]
+        IAP_SA["IAP service agent\nservice-1058667481809@gcp-sa-iap.iam.gserviceaccount.com"]
+
         Port443 --> IAP
-        IAP -.->|Unauthenticated| GoogleLogin
-        GoogleLogin -.->|Auth Callback| IAP
+        IAP -.->|unauthenticated| GoogleLogin
+        GoogleLogin -.->|auth callback| IAP
         IAP --> IAP_SA
     end
 
-    subgraph Secret Layer [Google Secret Manager]
-        SM_Bronze["Secret: apigee-bronze-api-key:latest"]
-        SM_Silver["Secret: apigee-silver-api-key:latest"]
-        SM_Sales["Secret: apigee-sales-agent-api-key:latest"]
-    end
-
-    subgraph Compute Layer [Serverless Backend - asia-southeast1]
-        NEG["Serverless NEG\n(apigee-ai-ui-neg)"]
-        CloudRun["Cloud Run Service: apigee-ai-gateway-ui\n(Ingress: internal-and-cloud-load-balancing)\n(Port: 8080)\n(Service Account: apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com)"]
-        NodeServer["Node 20 Server\n(server.js)"]
-        Static["Compiled React + Vite SPA\n(dist/)"]
-        ManagementProxy["Dynamic Management API Proxy\n(getGcpAccessToken via ADC)"]
+    subgraph compute["Serverless backend - asia-southeast1"]
+        NEG["Serverless NEG\napigee-ai-ui-neg"]
+        CloudRun["Cloud Run: apigee-ai-gateway-ui\nIngress internal-and-cloud-load-balancing\nPort 8080\nSA apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com"]
+        NodeServer["Node 20 HTTP server\nui/server.js"]
+        Static["Compiled React + Vite SPA\ndist/"]
+        ManagementProxy["Apigee Management API calls\ntoken from metadata server"]
 
         IAP_SA -->|roles/run.invoker| NEG
         NEG --> CloudRun
@@ -66,166 +72,334 @@ flowchart TB
         NodeServer --> ManagementProxy
     end
 
-    subgraph Apigee AI Gateway Layer [External Proxies]
-        DevProxy["Dev Gateway:\nbap.api.maloosatyam.demo.altostrat.com/ai/v1"]
-        ProdProxy["Prod Gateway:\napi.maloosatyam.demo.altostrat.com/ai/v1"]
-        McpProxy["MCP Gateway:\napi.maloosatyam.demo.altostrat.com/mcp"]
-        
-        NodeServer -->|Reverse Proxy: /api/ai-dev| DevProxy
-        NodeServer -->|Reverse Proxy: /api/ai-prod| ProdProxy
-        NodeServer -->|Reverse Proxy: /api/mcp-prod| McpProxy
+    subgraph gw["Apigee gateways - external"]
+        DevProxy["Dev: bap.api.maloosatyam.demo.altostrat.com"]
+        ProdProxy["Prod: api.maloosatyam.demo.altostrat.com"]
+
+        NodeServer -->|/api/ai-dev, /api/claude-dev,\n/api/vertexai-dev, /api/mcp-dev| DevProxy
+        NodeServer -->|/api/ai-prod, /api/claude-prod,\n/api/vertexai-prod, /api/mcp-prod, /v1| ProdProxy
     end
+
+    User --> DNS
+    ManagementProxy --> Apigee["apigee.googleapis.com"]
 ```
 
 ---
 
-## 2. Infrastructure Inventory & Resources
+## 2. Infrastructure Inventory
 
-All resources are provisioned in Google Cloud project **`bap-apac-demo2`**:
+All resources are provisioned in project `bap-apac-demo2` and were re-verified with `gcloud` on
+2026-09-15.
 
-| Component | Resource Name / ID | Configuration Details |
+| Component | Resource name / ID | Configuration |
 | :--- | :--- | :--- |
-| **Static External IP** | `apigee-ai-ui-ip` | **`136.68.103.117`** (Global IPv4) |
-| **Cloud Run Service** | `apigee-ai-gateway-ui` | Region: `asia-southeast1`<br>Port: `8080`<br>Ingress: `internal-and-cloud-load-balancing`<br>Auth: `--no-allow-unauthenticated` |
-| **Cloud Run Management SA** | `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` | Directly queries Apigee Management API via Metadata Server (no static API key env vars required) |
+| **Static external IP** | `apigee-ai-ui-ip` | `136.68.103.117` (global IPv4, `IN_USE`) |
+| **Cloud Run service** | `apigee-ai-gateway-ui` | Region `asia-southeast1`<br>Port `8080`<br>Ingress `internal-and-cloud-load-balancing`<br>Auth `--no-allow-unauthenticated` |
+| **Cloud Run runtime config** | — | CPU `1000m`, memory `512Mi`, container concurrency `80`, min scale `0`, max scale `100`, request timeout `300s`, startup CPU boost on |
+| **Cloud Run service account** | `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` | Calls the Apigee Management API via the metadata server; no static key env vars |
 | **Artifact Registry** | `cloud-run-source-deploy` | `asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest` |
-| **Serverless NEG** | `apigee-ai-ui-neg` | Region: `asia-southeast1`<br>Target: Cloud Run `apigee-ai-gateway-ui` |
-| **Backend Service** | `apigee-ai-ui-backend` | Scheme: `EXTERNAL_MANAGED`<br>Backend: `apigee-ai-ui-neg`<br>IAP: **Enabled** |
-| **IAP OAuth Client** | `Apigee AI UI` | Client ID: `1058667481809-6skumftl6n16t2r2phgua0i989j4seji.apps.googleusercontent.com` |
-| **IAP Service Agent** | `service-1058667481809@gcp-sa-iap.iam.gserviceaccount.com` | Provisioned via `iap.googleapis.com`<br>Role: `roles/run.invoker` on Cloud Run |
-| **IAP Access IAM** | `roles/iap.httpsResourceAccessor` | `domain:google.com`<br>`user:maloosatyam@google.com` |
-| **SSL Certificate** | `apigee-ai-ui-single-cert` | Google-managed for `ai-ui.maloosatyam.demo.altostrat.com`<br>Status: **ACTIVE** |
-| **URL Map (HTTPS)** | `apigee-ai-ui-url-map` | Default service: `apigee-ai-ui-backend` |
-| **Target HTTPS Proxy** | `apigee-ai-ui-target-proxy` | Map: `apigee-ai-ui-url-map`<br>Cert: `apigee-ai-ui-single-cert` |
-| **HTTPS Forwarding Rule** | `apigee-ai-ui-forwarding-rule` | IP: `136.68.103.117`, Port: `443` |
-| **HTTP Redirect URL Map** | `apigee-ai-ui-http-redirect` | `httpsRedirect: true`, `redirectResponseCode: MOVED_PERMANENTLY_DEFAULT` |
-| **Target HTTP Proxy** | `apigee-ai-ui-http-proxy` | Map: `apigee-ai-ui-http-redirect` |
-| **HTTP Forwarding Rule** | `apigee-ai-ui-http-forwarding-rule` | IP: `136.68.103.117`, Port: `80` |
+| **Serverless NEG** | `apigee-ai-ui-neg` | Region `asia-southeast1`, type `SERVERLESS`, target Cloud Run `apigee-ai-gateway-ui` |
+| **Backend service** | `apigee-ai-ui-backend` | Scheme `EXTERNAL_MANAGED`, protocol `HTTP`, `timeoutSec: 30`, backend `apigee-ai-ui-neg`, **IAP enabled** |
+| **IAP OAuth client** | — | `1058667481809-6skumftl6n16t2r2phgua0i989j4seji.apps.googleusercontent.com` |
+| **IAP service agent** | `service-1058667481809@gcp-sa-iap.iam.gserviceaccount.com` | Holds `roles/run.invoker` on the Cloud Run service |
+| **IAP access IAM** | `roles/iap.httpsResourceAccessor` | `domain:google.com`, `user:maloosatyam@google.com` |
+| **SSL certificate** | `apigee-ai-ui-single-cert` | Google-managed for `ai-ui.maloosatyam.demo.altostrat.com` — status **ACTIVE** |
+| **URL map (HTTPS)** | `apigee-ai-ui-url-map` | Default service `apigee-ai-ui-backend` |
+| **Target HTTPS proxy** | `apigee-ai-ui-target-proxy` | Map `apigee-ai-ui-url-map`, cert `apigee-ai-ui-single-cert` |
+| **HTTPS forwarding rule** | `apigee-ai-ui-forwarding-rule` | `136.68.103.117:443` |
+| **HTTP redirect URL map** | `apigee-ai-ui-http-redirect` | `httpsRedirect: true` |
+| **Target HTTP proxy** | `apigee-ai-ui-http-proxy` | Map `apigee-ai-ui-http-redirect` |
+| **HTTP forwarding rule** | `apigee-ai-ui-http-forwarding-rule` | `136.68.103.117:80` |
+
+Cloud Run `roles/run.invoker` is currently granted to `domain:google.com`,
+`user:maloosatyam@google.com`, the IAP service agent, and
+`1058667481809-compute@developer.gserviceaccount.com`.
 
 ---
 
 ## 3. UI Container & Runtime Architecture
 
-### A. Production Node.js Server & Runtime Injection ([`ui/server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js))
-The UI container uses a lightweight Node.js runtime server ([`ui/server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js)) serving static SPA assets and acting as an API gateway proxy & management server.
+### A. Container image
 
-1. **Dynamic `/env-config.js` Generation**:
-   At runtime, GET `/env-config.js` generates JavaScript setting `window.__RUNTIME_CONFIG__` on the client browser.
+[ui/Dockerfile](file:///Users/maloosatyam/Codebase/AI%20Code/ui/Dockerfile) is twelve lines and does
+no building — it copies a **pre-built** `dist/` directory:
 
-2. **Management API & User Auto-Provisioning (`/api/me`)**:
-   On website load, `/api/me` extracts the SSO identity header (`X-Goog-Authenticated-User-Email`) passed by IAP. Using the Cloud Run Service Account (`apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com`), it automatically:
-   - Verifies/creates the user's Apigee Developer profile (`userName: username`).
-   - Provisions a user-specific `Unified Admin <USERNAME> App` attached to `Enterprise AI Tier` and `Enterprise Tools MCP`.
-   - Configures `PREPAID` monetization and adds a **$20 USD** initial wallet balance.
-   - Fetches shared consumer keys for the global [`Unified Sales App`](https://pantheon.corp.google.com/apigee/apps/view/8d1ec4bd-c872-4764-bf50-c64728fe95ec?e=13802955&mods=monitoring_api_prod&project=bap-apac-demo2) and [`Unified Loans App`](https://pantheon.corp.google.com/apigee/apps/view/c04f8fee-0484-471b-84b6-3c961c79d777?e=13802955&mods=monitoring_api_prod&project=bap-apac-demo2).
+```dockerfile
+FROM node:20-alpine
 
-3. **Management API Proxy Handlers**:
-   Management endpoints (`/api/analytics/fleet-stats`, `/api/monetization/attributions`, `/api/monetization/rateplans`, `/api/monetization/subscriptions`, `/api/monetization/config`, `/api/monetization/credit`, `/api/kvm/rates`) acquire OAuth access tokens directly from the Cloud Run Metadata Server (`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token`) and execute Apigee REST calls server-side.
+WORKDIR /app
+ENV PORT=8080
 
-4. **Gateway Reverse Proxying & Header Sanitization**:
-   - `/api/ai-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/ai/v1/*`
-   - `/api/claude-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/v1/messages/*`
-   - `/api/vertexai-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/vertexai/v1/*`
-   - `/api/mcp-prod/*` $\rightarrow$ `https://api.maloosatyam.demo.altostrat.com/mcp/*`
-   - Automatically strips hop-by-hop and encoding headers (`content-encoding`, `content-length`, `transfer-encoding`) to prevent client browser decompression mismatches.
+COPY dist ./dist
+COPY server.js ./
+
+EXPOSE 8080
+
+CMD ["node", "server.js"]
+```
+
+> [!WARNING]
+> `npm run build` must be run in `ui/` **before** `gcloud builds submit`. If `ui/dist` is stale, the
+> deployed image silently ships the previous UI. The image contains no `node_modules`,
+> so `server.js` uses only Node built-ins (`node:http`, `node:fs`, `node:path`, `node:crypto`,
+> `node:child_process`, `node:url`) plus global `fetch`.
+
+`ui/nginx.conf.template` and `ui/generate-env.sh` still exist in the repository but are referenced by
+nothing — not the Dockerfile, not any script. They are dead artefacts of an earlier NGINX-based
+container.
+
+### B. Production Node server ([ui/server.js](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js))
+
+A single `http.createServer` handler listens on `process.env.PORT || 8080` and dispatches on
+pathname in the order below. On startup it also reads an optional `.env` file next to `server.js`
+and populates `process.env` for any key not already set.
+
+#### 1. Runtime config — `GET /env-config.js`
+
+Returns JavaScript that assigns `window.__RUNTIME_CONFIG__`, built from environment variables with
+inline defaults:
+
+| Key | Env var | Default |
+| :--- | :--- | :--- |
+| `ADMIN_USER_EMAIL` | `ADMIN_USER_EMAIL` | `admin.user@google.com` |
+| `SALES_AGENT_EMAIL` | `SALES_AGENT_EMAIL` | `sales.agent@example.com` |
+| `LOANS_AGENT_EMAIL` | `LOANS_AGENT_EMAIL` | `loans.agent@example.com` |
+| `SSO_USER_EMAIL` | `SSO_USER_EMAIL` | `demo.user@google.com` |
+| `DEFAULT_ENV` | `DEFAULT_ENV` | `prod` |
+
+No API keys are injected here — keys are fetched at runtime through `/api/me`.
+
+#### 2. Identity and auto-provisioning — `GET /api/me`
+
+Reads the `X-Goog-Authenticated-User-Email` header injected by IAP and strips the
+`accounts.google.com:` prefix. If the header is absent it falls back to `VITE_SSO_USER_EMAIL`,
+`SSO_USER_EMAIL`, then `demo.user@google.com`.
+
+It then acquires a Google access token via
+[`getGcpAccessToken()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L34-L130), which
+tries, in order:
+
+1. A service-account key file (`APIGEE_SA_KEY_PATH`, `GOOGLE_APPLICATION_CREDENTIALS`,
+   `./apigee-ui-mgmt-sa-key.json`, `../apigee-ui-mgmt-sa-key.json`) — self-signs a JWT and exchanges
+   it at `https://oauth2.googleapis.com/token`.
+2. The **Cloud Run metadata server**
+   (`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token`) —
+   this is the path taken in production.
+3. `gcloud auth print-access-token` with SA impersonation, then plain `gcloud` — local fallback only.
+
+Tokens are cached in memory (50 min for key-file JWTs, `expires_in - 300s` for metadata tokens).
+
+With that token,
+[`provisionUserDeveloperAndApp()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L149-L332):
+
+- creates the Apigee developer if `GET /developers/{email}` returns 404 (`userName` = local part of
+  the email);
+- creates or repairs a developer app named **`Unified Admin <username> App`** attached to the
+  `Enterprise AI Tier` and `Enterprise Tools MCP` products, with a `DisplayName` attribute and
+  `persona: admin`;
+- fetches the shared consumer keys for the global `Unified Sales App` and `Unified Loans App` owned
+  by `maloosatyam@google.com`;
+- sets `monetizationConfig.billingType = PREPAID` when it is unset or different;
+- credits a **$20 USD** starting balance if the wallet has never been credited.
+
+The JSON response is
+`{ email, token, name, username, apiKey, apiKeys: { admin, sales_agent, loans_agent }, provider, raw }`.
+
+> [!NOTE]
+> In the production Node server `token` is always the empty string and `provider` is
+> `"Google Cloud Identity SSO (IAP)"` when the IAP header is present, otherwise `"Local Default SSO"`.
+> Only the Vite dev server shells out to `gcloud auth print-identity-token` and returns a real
+> bearer token, which is why the Bearer-JWT test scenarios are local-only.
+
+#### 3. Apigee Management API handlers
+
+Each of these acquires a token the same way and performs the Apigee REST call server-side against
+organization `bap-apac-demo2`:
+
+| Route | Methods | Upstream |
+| :--- | :--- | :--- |
+| `/api/kvm/rates` | `GET`, `PUT`, `POST` | KVM `ai-model-rates`, entry `rate_card`, env `prod` or `dev` |
+| `/api/monetization/balance` | `GET` | `/developers/{dev}/balance` |
+| `/api/monetization/credit` | `POST` | `/developers/{dev}/balance:credit` (USD, default 50 units) |
+| `/api/monetization/rateplans` | `GET` | `/apiproducts/{Standard AI Tier,Enterprise AI Tier}/rateplans` |
+| `/api/monetization/subscriptions` | `GET`, `POST` | `/developers/{dev}/subscriptions` |
+| `/api/monetization/config` | `GET`, `PUT`, `POST` | `/developers/{dev}/monetizationConfig` |
+| `/api/analytics/fleet-stats` | `GET` | Analytics `stats/dc_user_email,dc_model_name` and `stats/apiproxy`, plus the KVM rate card for cost maths |
+| `/api/monetization/attributions` | `GET` | Developer list joined with balances and `dc_user_email` stats |
+
+The `env` query parameter accepts `dev`, `bap` (mapped to `dev`) or anything else (mapped to `prod`).
+Unsupported methods return `405`; a missing token returns `500`.
+
+#### 4. Gateway reverse proxy routes
+
+[`proxyRequest()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L362-L415) forwards the
+method, body and headers upstream, dropping `host`, `content-length`, `connection` and
+`accept-encoding` on the way out, and dropping `content-encoding`, `content-length`,
+`transfer-encoding` and `connection` on the way back before setting an accurate `Content-Length`.
+This is what prevents browser decompression mismatches.
+
+| Route prefix | Upstream |
+| :--- | :--- |
+| `/api/ai-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/ai/v1/*` |
+| `/api/ai-prod/*` | `https://api.maloosatyam.demo.altostrat.com/ai/v1/*` |
+| `/api/claude-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/v1/messages/*` |
+| `/api/claude-prod/*` | `https://api.maloosatyam.demo.altostrat.com/v1/messages/*` |
+| `/api/vertexai-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1/*` |
+| `/api/vertexai-prod/*` | `https://api.maloosatyam.demo.altostrat.com/vertexai/v1/*` |
+| `/api/mcp-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/mcp/*` |
+| `/api/mcp-prod/*` | `https://api.maloosatyam.demo.altostrat.com/mcp/*` |
+| `/v1/*` | `https://api.maloosatyam.demo.altostrat.com/v1/*` (path preserved verbatim) |
+
+Query strings are preserved on every route.
+
+#### 5. Static SPA fallback
+
+Anything else is served from `dist/`. Missing paths and directories fall back to `dist/index.html`
+so client-side routing works; content type comes from a small extension map
+(`.html .js .css .json .png .jpg .gif .svg .ico .woff .woff2`), defaulting to
+`application/octet-stream`. A read failure returns `404 Not Found`.
+
+### C. Credentials posture
+
+There are **no API keys in the image, in the repository, or in the Cloud Run environment**. The
+deployed revision declares no environment variables and no Secret Manager volumes or references —
+only `PORT=8080`, baked in by the Dockerfile.
+
+> [!CAUTION]
+> `apigee-ui-mgmt-sa-key.json` sits at the repository root and `server.js` will load it if present in
+> the working directory. It is a live service-account private key. It must never be baked into an
+> image or committed to a shared branch; production relies on the metadata server instead.
 
 ---
 
 ## 4. DNS Mapping & Domain Status
 
-The DNS `A` record for **`maloosatyam.demo.altostrat.com`** is active:
-
-| Hostname / Subdomain | Record Type | Value / IPv4 Address | Status |
+| Hostname | Record | Value | Status |
 | :--- | :--- | :--- | :--- |
-| **`ai-ui`** | **A** | **`136.68.103.117`** | **Active / Propagated** |
+| `ai-ui.maloosatyam.demo.altostrat.com` | `A` | `136.68.103.117` | Active |
 
-- **HTTPS (Port 443)**: Terminated by `apigee-ai-ui-forwarding-rule` using `apigee-ai-ui-single-cert` (**Status: ACTIVE**).
-- **HTTP (Port 80)**: Terminated by `apigee-ai-ui-http-forwarding-rule`, automatically returning `301 Moved Permanently` redirecting to `https://ai-ui.maloosatyam.demo.altostrat.com:443/`.
+- **HTTPS (443)** — terminated by `apigee-ai-ui-forwarding-rule` using `apigee-ai-ui-single-cert`
+  (managed status `ACTIVE`).
+- **HTTP (80)** — `apigee-ai-ui-http-forwarding-rule` returns `301 Moved Permanently` to the HTTPS
+  origin.
+
+The separate `apigee-lb-cert` certificate covers the gateway hosts
+`api.maloosatyam.demo.altostrat.com` and `bap.api.maloosatyam.demo.altostrat.com`; those are the
+Apigee data-plane endpoints, not this UI.
 
 ---
 
 ## 5. Operations & Maintenance Playbook
 
-### A. Rebuilding & Updating the UI
-Whenever you modify UI code under `ui/`:
-
-1. **Build production SPA assets locally**:
-   ```bash
-   cd ui
-   npm run build
-   ```
-2. **Submit container build to Google Cloud Build**:
-   ```bash
-   gcloud builds submit --tag asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest ui --project=bap-apac-demo2
-   ```
-3. **Deploy updated image to Cloud Run**:
-   ```bash
-   gcloud run deploy apigee-ai-gateway-ui \
-     --image=asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest \
-     --region=asia-southeast1 \
-     --platform=managed \
-     --no-allow-unauthenticated \
-     --ingress=internal-and-cloud-load-balancing \
-     --service-account=apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com \
-     --project=bap-apac-demo2
-   ```
-3. **Deploy the updated container to Cloud Run**:
-   ```bash
-   gcloud run deploy apigee-ai-gateway-ui \
-     --image=asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest \
-     --region=asia-southeast1 \
-     --platform=managed
-   ```
-
-### B. Rotating Secrets in Secret Manager
-To rotate API keys without touching the repository or rebuilding images:
+### A. Rebuilding and updating the UI
 
 ```bash
-# Add a new version of the secret
-echo -n "<NEW_BRONZE_API_KEY>" | gcloud secrets versions add apigee-bronze-api-key --data-file=-
+# 1. Build the SPA — the Dockerfile copies dist/, it does not build it
+cd ui
+npm run build
+cd ..
 
-# Redeploy or update Cloud Run revision to consume latest version
+# 2. Build and push the container image with Cloud Build
+gcloud builds submit --tag asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest ui --project=bap-apac-demo2
+
+# 3. Deploy the image to Cloud Run
+gcloud run deploy apigee-ai-gateway-ui \
+  --image=asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest \
+  --region=asia-southeast1 \
+  --platform=managed \
+  --no-allow-unauthenticated \
+  --ingress=internal-and-cloud-load-balancing \
+  --service-account=apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com \
+  --project=bap-apac-demo2
+```
+
+Always pass the full flag set on step 3. Omitting `--ingress` or `--no-allow-unauthenticated` on a
+redeploy can relax the service's security posture.
+
+### B. Forcing a new revision without an image change
+
+```bash
 gcloud run services update apigee-ai-gateway-ui \
   --region=asia-southeast1 \
+  --project=bap-apac-demo2 \
   --update-annotations="last-updated=$(date +%s)"
 ```
 
-### C. Modifying IAP Access Permissions
-To grant access to additional Google Workspace groups or specific team members:
+### C. Modifying IAP access permissions
+
 ```bash
 # Grant access to a Google Group
 gcloud iap web add-iam-policy-binding \
   --resource-type=backend-services \
   --service=apigee-ai-ui-backend \
+  --project=bap-apac-demo2 \
   --member="group:ai-team@google.com" \
   --role="roles/iap.httpsResourceAccessor"
 
-# Grant access to a specific individual
+# Grant access to an individual
 gcloud iap web add-iam-policy-binding \
   --resource-type=backend-services \
   --service=apigee-ai-ui-backend \
+  --project=bap-apac-demo2 \
   --member="user:engineer@google.com" \
   --role="roles/iap.httpsResourceAccessor"
+
+# Review the current policy
+gcloud iap web get-iam-policy \
+  --resource-type=backend-services \
+  --service=apigee-ai-ui-backend \
+  --project=bap-apac-demo2
 ```
 
-### D. Viewing Live Logs & Telemetry
-```bash
-# Tail Cloud Run container logs (NGINX access and errors)
-gcloud run services logs tail apigee-ai-gateway-ui --region=asia-southeast1
+### D. Viewing live logs and telemetry
 
-# Inspect Load Balancer request logs
-gcloud logging read 'resource.type="http_load_balancer" AND resource.labels.forwarding_rule_name="apigee-ai-ui-forwarding-rule"' --limit=20
+```bash
+# Tail Cloud Run container logs — these are Node.js stdout/stderr from server.js
+gcloud run services logs tail apigee-ai-gateway-ui --region=asia-southeast1 --project=bap-apac-demo2
+
+# Inspect load balancer request logs
+gcloud logging read 'resource.type="http_load_balancer" AND resource.labels.forwarding_rule_name="apigee-ai-ui-forwarding-rule"' --limit=20 --project=bap-apac-demo2
+```
+
+Useful log prefixes emitted by `server.js`: `[Server] Production Node server listening on port 8080`
+at boot, `[Server] Creating app ...`, `[Server] Adding $20 starting balance ...`,
+`[Server] Proxy error to <url>: ...`, and `[Server] Failed to get gcloud auth token: ...`.
+
+### E. Inspecting the deployed configuration
+
+```bash
+gcloud run services describe apigee-ai-gateway-ui --region=asia-southeast1 --project=bap-apac-demo2 --format=yaml
+gcloud compute backend-services describe apigee-ai-ui-backend --global --project=bap-apac-demo2 --format="yaml(iap,backends,timeoutSec)"
+gcloud compute ssl-certificates describe apigee-ai-ui-single-cert --global --project=bap-apac-demo2
 ```
 
 ---
 
 ## 6. Troubleshooting Matrix
 
-| Symptom | Probable Cause | Resolution |
+| Symptom | Probable cause | Resolution |
 | :--- | :--- | :--- |
-| **`The IAP service account is not provisioned`** | The Google-managed IAP service agent does not exist or lacks invocation permissions | 1. Create agent: `gcloud beta services identity create --service=iap.googleapis.com`<br>2. Grant role: `gcloud run services add-iam-policy-binding apigee-ai-gateway-ui --region=asia-southeast1 --member="serviceAccount:service-[PROJECT_NUMBER]@gcp-sa-iap.iam.gserviceaccount.com" --role="roles/run.invoker"`<br>3. Redeploy Cloud Run service revision. |
-| **`Permission denied on secret: ... for Revision service account`** | Cloud Run service account lacks Secret Manager read access | Run `gcloud projects add-iam-policy-binding bap-apac-demo2 --member="serviceAccount:1058667481809-compute@developer.gserviceaccount.com" --role="roles/secretmanager.secretAccessor"`. |
-| **`403 Forbidden` on raw `*.run.app`** | Normal security behavior | Cloud Run direct public access is blocked. Users must navigate via `https://ai-ui.maloosatyam.demo.altostrat.com`. |
-| **`You don't have access` (Google Sign-In page)** | User account not in `@google.com` or missing IAP role | Ensure the user logs in with an authorized `@google.com` account or grant `roles/iap.httpsResourceAccessor`. |
-| **SSL Certificate Error (`ERR_SSL_VERSION_OR_CIPHER_MISMATCH` / `ERR_CONNECTION_CLOSED`)** | Certificate still in provisioning state | Verify status via `gcloud compute ssl-certificates describe apigee-ai-ui-single-cert --global`. Must show `status: ACTIVE`. |
-| **Network Error calling Apigee in UI** | Apigee proxy down or invalid key | Check Gateway Settings modal in UI or inspect `/api/vertexai-dev` proxy rules in Cloud Run. |
+| `The IAP service account is not provisioned` | The Google-managed IAP service agent is missing or lacks invoke permission | 1. `gcloud beta services identity create --service=iap.googleapis.com --project=bap-apac-demo2`<br>2. `gcloud run services add-iam-policy-binding apigee-ai-gateway-ui --region=asia-southeast1 --member="serviceAccount:service-1058667481809@gcp-sa-iap.iam.gserviceaccount.com" --role="roles/run.invoker"`<br>3. Redeploy the service |
+| `403 Forbidden` on the raw `*.run.app` URL | Expected security behaviour | Direct Cloud Run access is blocked by ingress policy. Use `https://ai-ui.maloosatyam.demo.altostrat.com` |
+| `You don't have access` on the Google sign-in page | Account is outside `@google.com` or missing the IAP role | Sign in with an authorized account or grant `roles/iap.httpsResourceAccessor` (section 5C) |
+| `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` / `ERR_CONNECTION_CLOSED` | Managed certificate still provisioning | `gcloud compute ssl-certificates describe apigee-ai-ui-single-cert --global` must report `status: ACTIVE` |
+| UI loads but shows stale content after a deploy | `ui/dist` was not rebuilt before `gcloud builds submit` | Run `npm run build` in `ui/`, then rebuild and redeploy |
+| `/api/me` returns empty `apiKey` / `apiKeys` | The service account could not obtain a token or the Apigee Management API call failed | Check logs for `[Server] Failed to get gcloud auth token` or `[Server] Error provisioning user developer and apps`. Confirm `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` retains Apigee admin permissions |
+| Management or analytics panels return HTTP 500 | Token acquisition failed inside a `/api/...` handler | Same as above — every handler returns `{"error": "Could not obtain GCP access token"}` on token failure |
+| Network error calling the gateway from the UI | Apigee proxy unavailable, or an invalid API key | Verify the environment selected in the settings modal, then test the upstream directly: `curl -i https://api.maloosatyam.demo.altostrat.com/ai/v1/...`. The server-side routes are listed in section 3.B.4 |
+| HTTP 429 from the gateway | Product-driven LLM token quota breached | Expected for the `gemini-2.5-flash` demo model, which is capped at 100 tokens/minute in the API product |
+
+---
+
+## 7. Not Implemented — Historical Notes
+
+Earlier revisions of this guide described infrastructure that does not exist. It is recorded here so
+the claims are not silently reintroduced.
+
+| Former claim | Actual state |
+| :--- | :--- |
+| Container runs NGINX; tail "NGINX access and errors" | Container runs `node server.js` on `node:20-alpine`. `ui/nginx.conf.template` is unreferenced dead code |
+| Secret Manager binding of `apigee-bronze-api-key`, `apigee-silver-api-key`, `apigee-sales-agent-api-key` | **None of these secrets exist** in project `bap-apac-demo2`, and the Cloud Run revision declares no secret references and no environment variables |
+| An entrypoint script reads injected secrets into the frontend runtime at boot | No entrypoint script in the image. `/env-config.js` is generated by `server.js` and contains email/env defaults only — no keys |
+| A secret-rotation playbook using `gcloud secrets versions add` | Removed. There are no application secrets to rotate; API keys are minted per user through the Apigee Management API |
+| Secret Manager IAM troubleshooting row for the compute default service account | Removed as not applicable to this service |
