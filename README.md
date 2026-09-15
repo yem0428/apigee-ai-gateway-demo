@@ -272,9 +272,9 @@ upstream call is made.
         ├── App.tsx                        # Root app, tab routing, SSO bootstrap
         ├── main.tsx  index.css  vite-env.d.ts
         ├── types/index.ts
-        ├── components/                    # 13 components
-        │   ├── AnalyticsDashboard.tsx     ApigeeLogo.tsx        ChatPlayground.tsx
-        │   ├── DonutPieChart.tsx          GatewaySettingsModal.tsx
+        ├── components/                    # 14 components
+        │   ├── AnalyticsDashboard.tsx     ApigeeLogo.tsx        ArchitectureBlueprintModal.tsx
+        │   ├── ChatPlayground.tsx         DonutPieChart.tsx     GatewaySettingsModal.tsx
         │   ├── GatewayTraceViewer.tsx     McpPlayground.tsx     McpTraceViewer.tsx
         │   ├── ModelRateCardView.tsx      MonetizationManager.tsx
         │   └── Navbar.tsx  ScenarioPresets.tsx  ThemeSelector.tsx
@@ -295,7 +295,7 @@ upstream call is made.
 [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) renders four
 primary tabs: **AI Gateway**, **MCP Gateway**, **Analytics & Cost**, and **Monetization**
 (the last is admin-view only), plus an interactive **Architecture** button that opens
-[ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive 3-tab reference diagram (**AI Gateway Flow**, **MCP Tools Flow**, and **ADK Dual-Pattern**) with clickable policy XML inspection and live trace status correlation. The underlying `AppTab` union in
+[ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive 3-tab reference diagram (**AI Gateway Flow**, **MCP Tools Flow**, and **ADK Dual-Pattern**) with clickable policy XML inspection and live trace status correlation. Additionally, every tested request in `ChatPlayground` (`Target URL:`) and `McpTraceViewer` (`JSON-RPC 2.0`) includes a **`Request Flow`** button that opens the modal in **`⚡ Tested Request Flow`** mode, dynamically short-circuiting the pipeline diagram at the exact stopping policy (e.g., red perimeter block at Model Armor or green short-circuit at Semantic Cache HIT) and omitting bypassed downstream stages. The underlying `AppTab` union in
 [types/index.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L131) also carries
 `kvm-pricing` and `rate-cards`, which render inside the Monetization surface.
 

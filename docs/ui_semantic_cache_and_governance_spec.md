@@ -41,7 +41,7 @@ Fourteen components exist under
 | --- | --- | --- |
 | [AnalyticsDashboard.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/AnalyticsDashboard.tsx) | Fleet consumption / cost KPIs | Yes — `analytics` tab |
 | [ApigeeLogo.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ApigeeLogo.tsx) | Exports `ApigeeLogo` and `ApigeeColorSymbol` | Yes — Navbar, ChatPlayground |
-| [ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) | Interactive AI Gateway, MCP Tools Gateway & ADK Dual-Pattern architecture pipeline diagram with clickable XML policy inspector & live trace correlation | Yes — App (`Architecture` button in Navbar) |
+| [ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) | Interactive AI Gateway, MCP Tools Gateway & ADK Dual-Pattern architecture pipeline diagram with clickable XML policy inspector, live trace correlation, and dynamic short-circuit `Tested Request Flow` mode | Yes — App (`Architecture` button in Navbar + inline `Request Flow` button next to Target URL / MCP Operation) |
 | [ChatPlayground.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx) | Chat pane + scenario chips + trace pane | Yes — `ai-gateway` tab |
 | [DonutPieChart.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DonutPieChart.tsx) | Chart primitive | Yes — AnalyticsDashboard |
 | [GatewaySettingsModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewaySettingsModal.tsx) | Settings modal, heading **"Gateway Configuration"** | Yes — App |
