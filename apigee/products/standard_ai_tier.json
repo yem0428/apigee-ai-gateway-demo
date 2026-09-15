@@ -26,7 +26,41 @@
         "apiSource": "ai-gateway-v1",
         "llmOperations": [
           {
+            "resource": "/auto",
+            "methods": [
+              "POST"
+            ],
+            "model": "auto"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "2000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
             "resource": "/auto:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "auto"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "2000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/auto",
             "methods": [
               "POST"
             ],
