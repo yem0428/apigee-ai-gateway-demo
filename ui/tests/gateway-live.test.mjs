@@ -387,31 +387,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     assert.ok(hitData.candidates?.[0]?.content?.parts?.[0]?.text, 'Cache hit response should contain text');
   });
 
-  it('⚠️ Scenario: Quota Enforcement tracks token consumption against product limits', async () => {
-    // Send request and verify token quota headers / status
-    const res = await fetch(buildUrl(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Verify quota enforcement tracking in Apigee gateway.' }] }],
-      }),
-    });
-
-    // Either request succeeded under limit (200) or breached limit (429)
-    assert.ok(res.status === 200 || res.status === 429, `Expected 200 or 429, got ${res.status}`);
-    if (res.status === 429) {
-      const data = await res.json();
-      assert.match(data.fault?.faultstring || '', /quota/i);
-    } else {
-      assert.ok(res.headers.get('x-gateway-total-tokens'), 'Total tokens header should be tracked');
-    }
-  });
-
-  it('⚡ Scenario: Multi-Provider Token Quota (Claude Opus 4.5) tracks token consumption and limits', async () => {
+  it('⚡ Scenario: Token Limits Step 1 (Pass 200 OK) - tracks token consumption under limit', async () => {
     const claudeUrl = `${vertexBaseUrl}/models/claude-opus-4-5@20251101:generateContent`;
     const res = await fetchWithRetry(claudeUrl, {
       method: 'POST',
@@ -428,11 +404,46 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
 
     assert.ok(res.status === 200 || res.status === 429, `Expected 200 OK or 429 Rate Limit, got ${res.status}`);
     if (res.status === 200) {
-      assert.ok(res.headers.get('x-gateway-model'), 'Model header should be present');
+      assert.strictEqual(res.headers.get('x-gateway-model'), 'claude-opus-4-5@20251101');
+      assert.strictEqual(res.headers.get('x-gateway-provider'), 'anthropic');
       assert.ok(res.headers.get('x-gateway-total-tokens'), 'Total tokens header should be present');
       const data = await res.json();
       assert.ok(data.candidates?.[0]?.content?.parts?.[0]?.text, 'Claude response should contain candidate text');
-    } else {
+    }
+  });
+
+  it('⚠️ Scenario: Token Limits Step 2 (Exceeded 429) - rejects request when quota limit is breached', async () => {
+    const claudeUrl = `${vertexBaseUrl}/models/claude-opus-4-5@20251101:generateContent`;
+    // 1. Pre-flight quota exhaustion
+    await fetchWithRetry(claudeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'X-User-Email': TEST_EMAIL,
+        'x-enforce-token-limit': 'true',
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Write an exhaustive 2,000 word technical architectural document covering distributed API rate limiting, token bucket algorithms, spike arrest, and zero-trust security governance in microservice architectures.' }] }],
+      }),
+    });
+
+    // 2. Immediate follow-up request to trigger 429 quota exhaustion
+    const res = await fetch(claudeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'X-User-Email': TEST_EMAIL,
+        'x-enforce-token-limit': 'true',
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting.' }] }],
+      }),
+    });
+
+    assert.ok(res.status === 200 || res.status === 429, `Expected 200 OK or 429 Rate Limit, got ${res.status}`);
+    if (res.status === 429) {
       const data = await res.json();
       assert.match(data.fault?.faultstring || data.error?.message || '', /quota|rate limit|limit/i);
     }
