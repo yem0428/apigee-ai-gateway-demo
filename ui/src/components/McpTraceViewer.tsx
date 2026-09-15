@@ -15,11 +15,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   Database,
+  Workflow,
 } from 'lucide-react';
 
 interface McpTraceViewerProps {
   telemetry: McpTelemetry | null;
   loading?: boolean;
+  onOpenRequestFlow?: (telemetry: McpTelemetry) => void;
 }
 
 /**
@@ -296,7 +298,7 @@ const parseMcpPayload = (telemetry: McpTelemetry): ParsedMcpView => {
   };
 };
 
-export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loading }) => {
+export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loading, onOpenRequestFlow }) => {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const sub = new URLSearchParams(window.location.search).get('subtab');
@@ -399,9 +401,22 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
                 MCP Operation
               </span>
             </div>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 font-semibold">
-              JSON-RPC 2.0
-            </span>
+            <div className="flex items-center gap-2">
+              {onOpenRequestFlow && (
+                <button
+                  type="button"
+                  onClick={() => onOpenRequestFlow(telemetry)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-50 dark:bg-cyan-950/80 hover:bg-cyan-100 dark:hover:bg-cyan-900 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80 font-sans font-semibold text-[10px] transition cursor-pointer shadow-2xs"
+                  title="View Exact Execution Flow Diagram for This MCP Request"
+                >
+                  <Workflow className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                  <span>Request Flow</span>
+                </button>
+              )}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 font-semibold">
+                JSON-RPC 2.0
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-4 pt-0.5">

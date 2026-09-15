@@ -25,6 +25,7 @@ import {
 interface McpPlaygroundProps {
   settings: GatewaySettings;
   onTelemetryChange?: (telemetry: McpTelemetry | null) => void;
+  onOpenRequestFlow?: (telemetry: McpTelemetry) => void;
 }
 
 const DEFAULT_MCP_TOOLS: McpTool[] = [
@@ -96,6 +97,7 @@ const createInitialMcpTelemetry = (settings: GatewaySettings): McpTelemetry => (
 export const McpPlayground: React.FC<McpPlaygroundProps> = ({
   settings,
   onTelemetryChange,
+  onOpenRequestFlow,
 }) => {
   const [tools, setTools] = useState<McpTool[]>(DEFAULT_MCP_TOOLS);
   const [loadingTools, setLoadingTools] = useState<boolean>(false);
@@ -509,7 +511,7 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
             mobileTab === 'trace' ? 'flex' : 'hidden md:flex'
           }`}
         >
-          <McpTraceViewer telemetry={telemetry} loading={executing} />
+          <McpTraceViewer telemetry={telemetry} loading={executing} onOpenRequestFlow={onOpenRequestFlow} />
         </aside>
       </div>
     </div>

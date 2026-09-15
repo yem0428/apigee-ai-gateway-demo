@@ -11,13 +11,15 @@ import {
   Layers,
   ArrowRight,
   CheckCircle2,
-  AlertTriangle,
   Zap,
   Server,
   Lock,
   Workflow,
   FileCode2,
   MessageSquare,
+  ShieldAlert,
+  Ban,
+  Eye,
 } from 'lucide-react';
 import { GatewayTelemetry, McpTelemetry } from '../types';
 
@@ -25,6 +27,7 @@ interface ArchitectureBlueprintModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: 'ai-gateway' | 'mcp-gateway' | 'dual-pattern';
+  initialMode?: 'request-flow' | 'full-blueprint';
   aiTelemetry?: GatewayTelemetry | null;
   mcpTelemetry?: McpTelemetry | null;
 }
@@ -46,33 +49,85 @@ interface ArchStage {
   };
 }
 
+interface TerminationInfo {
+  stoppedAtStep: string;
+  stoppedAtTitle: string;
+  reasonTitle: string;
+  reasonDescription: string;
+  badgeText: string;
+  type: 'blocked-security' | 'blocked-quota' | 'cache-hit';
+  skippedStages: string[];
+}
+
 export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProps> = ({
   isOpen,
   onClose,
   initialTab = 'ai-gateway',
+  initialMode = 'full-blueprint',
   aiTelemetry,
   mcpTelemetry,
 }) => {
   const [activeFlow, setActiveFlow] = useState<'ai-gateway' | 'mcp-gateway' | 'dual-pattern'>(initialTab);
+  const [viewMode, setViewMode] = useState<'request-flow' | 'full-blueprint'>(initialMode);
   const [selectedStageId, setSelectedStageId] = useState<string>('ai-router');
+
+  // Derive live status flags from recent AI Gateway telemetry
+  const aiStatus = aiTelemetry?.status || 200;
+  const isAiCached = aiTelemetry?.cacheStatus === 'HIT';
+  const isAiAutoRouted = aiTelemetry?.autoRouted === true;
+  const isAiGuardrailBlocked =
+    aiTelemetry?.guardrailStatus === 'BLOCKED' ||
+    (aiStatus === 400 && (aiTelemetry?.guardrailMessage || '').length > 0);
+  const isAiQuotaBlocked = aiStatus === 429;
+  const isAiAuthBlocked = aiStatus === 401 || aiStatus === 403;
+  const remainingTokens =
+    aiTelemetry?.headersReceived?.['x-gateway-quota-remaining'] ||
+    aiTelemetry?.headersReceived?.['x-ratelimit-remaining'];
+
+  // Derive live status flags from recent MCP Gateway telemetry
+  const mcpStatus = mcpTelemetry?.status || 200;
+  const isMcpAuthOrRateBlocked = mcpStatus === 401 || mcpStatus === 429;
+  const isMcpRbacBlocked =
+    mcpStatus === 403 ||
+    Boolean(mcpTelemetry?.rawResponse?.error && String(mcpTelemetry.rawResponse.error.message || '').includes('Unauthorized'));
+  const mcpMethod = mcpTelemetry?.rawRequest?.method || 'JSON-RPC 2.0';
+  const mcpToolName = mcpTelemetry?.rawRequest?.params?.name;
 
   useEffect(() => {
     if (isOpen) {
       setActiveFlow(initialTab);
-      setSelectedStageId(initialTab === 'mcp-gateway' ? 'mcp-rbac' : 'ai-router');
+      setViewMode(initialMode);
+
+      // Automatically highlight the most relevant/stopping stage
+      if (initialTab === 'ai-gateway' && aiTelemetry) {
+        if (isAiAuthBlocked) setSelectedStageId('ai-auth');
+        else if (isAiGuardrailBlocked) setSelectedStageId('ai-armor');
+        else if (isAiCached) setSelectedStageId('ai-cache');
+        else if (isAiQuotaBlocked) setSelectedStageId('ai-quota');
+        else setSelectedStageId('ai-router');
+      } else if (initialTab === 'mcp-gateway' && mcpTelemetry) {
+        if (isMcpAuthOrRateBlocked) setSelectedStageId('mcp-auth');
+        else if (isMcpRbacBlocked) setSelectedStageId('mcp-rbac');
+        else setSelectedStageId('mcp-bridge');
+      } else {
+        setSelectedStageId(initialTab === 'mcp-gateway' ? 'mcp-rbac' : 'ai-router');
+      }
     }
-  }, [isOpen, initialTab]);
+  }, [
+    isOpen,
+    initialTab,
+    initialMode,
+    aiTelemetry,
+    mcpTelemetry,
+    isAiAuthBlocked,
+    isAiGuardrailBlocked,
+    isAiCached,
+    isAiQuotaBlocked,
+    isMcpAuthOrRateBlocked,
+    isMcpRbacBlocked,
+  ]);
 
   if (!isOpen) return null;
-
-  // Derive live status badges from recent AI Gateway telemetry
-  const aiStatus = aiTelemetry?.status || 200;
-  const isAiCached = aiTelemetry?.cacheStatus === 'HIT';
-  const isAiAutoRouted = aiTelemetry?.autoRouted === true;
-  const isAiGuardrailBlocked = aiTelemetry?.guardrailStatus === 'BLOCKED' || (aiStatus === 400 && (aiTelemetry?.guardrailMessage || '').length > 0);
-  const isAiQuotaBlocked = aiStatus === 429;
-  const isAiAuthBlocked = aiStatus === 401 || aiStatus === 403;
-  const remainingTokens = aiTelemetry?.headersReceived?.['x-gateway-quota-remaining'] || aiTelemetry?.headersReceived?.['x-ratelimit-remaining'];
 
   const aiStages: ArchStage[] = [
     {
@@ -118,7 +173,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       ],
       liveStatus: aiTelemetry
         ? isAiGuardrailBlocked
-          ? { label: 'GUARDRAIL TRIGGERED', status: 'block', detail: aiTelemetry.guardrailMessage || 'Prompt blocked by Model Armor policy' }
+          ? { label: 'BLOCKED BY MODEL ARMOR', status: 'block', detail: aiTelemetry.guardrailMessage || 'Malicious / destructive prompt blocked at perimeter' }
           : { label: 'PASSED SAFE', status: 'pass', detail: 'Zero prompt injection / jailbreak threats' }
         : undefined,
     },
@@ -142,7 +197,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       liveStatus: aiTelemetry
         ? isAiCached
           ? { label: `CACHE HIT (${aiTelemetry.latencyMs} ms)`, status: 'hit', detail: 'Served from Semantic Cache ($0 upstream cost)' }
-          : { label: `CACHE ${aiTelemetry.cacheStatus || 'MISS'}`, status: 'neutral', detail: 'Forwarded to upstream model & cached on response' }
+          : { label: `CACHE ${aiTelemetry.cacheStatus || 'BYPASSED'}`, status: 'neutral', detail: 'Forwarded to upstream model & cached on response' }
         : undefined,
     },
     {
@@ -228,12 +283,6 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     },
   ];
 
-  // Derive live status badges from recent MCP Gateway telemetry
-  const mcpStatus = mcpTelemetry?.status || 200;
-  const isMcpBlocked = mcpStatus === 429 || mcpStatus === 401 || mcpStatus === 403;
-  const mcpMethod = mcpTelemetry?.rawRequest?.method || 'JSON-RPC 2.0';
-  const mcpToolName = mcpTelemetry?.rawRequest?.params?.name;
-
   const mcpStages: ArchStage[] = [
     {
       id: 'mcp-client',
@@ -278,7 +327,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
         'Identifies which agent persona (Admin, Sales Agent, or Loans Agent) is making the request via Developer App attributes.',
       ],
       liveStatus: mcpTelemetry
-        ? isMcpBlocked
+        ? isMcpAuthOrRateBlocked
           ? { label: `BLOCKED (${mcpStatus})`, status: 'block', detail: 'Rate limit or auth check failed' }
           : { label: 'AUTHORIZED', status: 'pass', detail: 'Consumer key & rate limit verified' }
         : undefined,
@@ -300,7 +349,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
         'Loans Agent persona is restricted to Banking/Loan tools (getLoanApplication). Admin persona has full catalog access.',
       ],
       liveStatus: mcpTelemetry
-        ? mcpStatus === 403 || (mcpTelemetry.rawResponse?.error && String(mcpTelemetry.rawResponse.error.message || '').includes('Unauthorized'))
+        ? isMcpRbacBlocked
           ? { label: 'RBAC DENIED', status: 'block', detail: 'Persona not authorized for requested tool' }
           : { label: 'RBAC ALLOWED', status: 'hit', detail: 'Tool permitted for active persona' }
         : undefined,
@@ -345,8 +394,97 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     },
   ];
 
-  const currentStages = activeFlow === 'ai-gateway' ? aiStages : mcpStages;
-  const activeStage = currentStages.find((s) => s.id === selectedStageId) || currentStages[0];
+  // Determine exact executed stages and short-circuit termination info when in 'request-flow' mode
+  let visibleStages: ArchStage[] = activeFlow === 'ai-gateway' ? aiStages : mcpStages;
+  let terminationInfo: TerminationInfo | null = null;
+
+  if (viewMode === 'request-flow') {
+    if (activeFlow === 'ai-gateway' && aiTelemetry) {
+      if (isAiAuthBlocked) {
+        visibleStages = aiStages.slice(0, 1); // Only Step 01 executed
+        terminationInfo = {
+          stoppedAtStep: '01',
+          stoppedAtTitle: 'Identity & Product Entitlements',
+          reasonTitle: `Request Blocked at Step 01 — HTTP ${aiStatus} ${aiStatus === 401 ? 'Unauthorized' : 'Forbidden'}`,
+          reasonDescription:
+            'Authentication or API Product model entitlement check failed (VA-VerifyAPIKey / OAS-ValidateRequest). Downstream policies (Model Armor, Semantic Cache, Auto-Router, Token Quotas, and Upstream Models) were never executed.',
+          badgeText: 'SHORT-CIRCUITED AT AUTH',
+          type: 'blocked-security',
+          skippedStages: ['02 Perimeter Guardrails', '03 Semantic Cache', '04 Smart Auto-Router', '05 LLM Token Quotas', '06 Upstream LLM'],
+        };
+      } else if (isAiGuardrailBlocked) {
+        visibleStages = aiStages.slice(0, 2); // Only Steps 01 & 02 executed
+        terminationInfo = {
+          stoppedAtStep: '02',
+          stoppedAtTitle: 'Perimeter Guardrails (Model Armor)',
+          reasonTitle: 'Perimeter Defense Triggered — Prompt Blocked by Model Armor',
+          reasonDescription:
+            aiTelemetry.guardrailMessage ||
+            'SUP-UserPrompt.xml detected a safety violation (Prompt Injection, Jailbreak, or Destructive intent) and immediately terminated execution. Upstream Semantic Cache, Auto-Router, Token Quotas, and Foundation Models were never invoked ($0.00 cost, 0 tokens consumed).',
+          badgeText: 'BLOCKED AT PERIMETER (HTTP 400)',
+          type: 'blocked-security',
+          skippedStages: ['03 Semantic Cache Lookup', '04 Smart Auto-Router', '05 LLM Token Quotas', '06 Upstream Foundation Models'],
+        };
+      } else if (isAiCached) {
+        visibleStages = aiStages.slice(0, 3); // Steps 01, 02 & 03 executed (Cache Hit short-circuit)
+        terminationInfo = {
+          stoppedAtStep: '03',
+          stoppedAtTitle: 'Semantic Cache Lookup',
+          reasonTitle: `Semantic Cache HIT — Response Served in ${aiTelemetry.latencyMs} ms`,
+          reasonDescription:
+            'SCL-Semantic-Cache-Lookup.xml matched the prompt embedding in the vector store and returned the cached completion immediately. Smart Auto-Router, Token Quota Enforcement, and Upstream LLM inference were completely bypassed ($0.00 upstream model cost, 0 quota tokens deducted).',
+          badgeText: 'CACHE SHORT-CIRCUIT ($0 COST)',
+          type: 'cache-hit',
+          skippedStages: ['04 Smart Auto-Router', '05 LLM Token Quotas', '06 Upstream Foundation Models'],
+        };
+      } else if (isAiQuotaBlocked) {
+        visibleStages = aiStages.slice(0, 5); // Steps 01 -> 05 executed; Step 06 blocked
+        terminationInfo = {
+          stoppedAtStep: '05',
+          stoppedAtTitle: 'Product-Driven LLM Token Quotas',
+          reasonTitle: 'FinOps Quota Exhausted — Request Throttled at Step 05 (HTTP 429)',
+          reasonDescription:
+            'LTQ-TokenEnforce.xml blocked the request because the caller exceeded the per-minute LLM token quota configured on their API Product tier. Upstream Foundation Model invocation was prevented.',
+          badgeText: 'THROTTLED AT QUOTA (HTTP 429)',
+          type: 'blocked-quota',
+          skippedStages: ['06 Upstream Foundation Models (Vertex AI / Claude)'],
+        };
+      }
+    } else if (activeFlow === 'mcp-gateway' && mcpTelemetry) {
+      if (isMcpAuthOrRateBlocked) {
+        visibleStages = mcpStages.slice(0, 2); // Steps 01 & 02
+        terminationInfo = {
+          stoppedAtStep: '02',
+          stoppedAtTitle: 'API Key Auth & Request Throttling',
+          reasonTitle: `MCP Request Blocked at Step 02 — HTTP ${mcpStatus}`,
+          reasonDescription:
+            'VA-VerifyAPIKey or Q-Limit rejected the request before tool authorization or backend bridging.',
+          badgeText: `BLOCKED (HTTP ${mcpStatus})`,
+          type: 'blocked-quota',
+          skippedStages: ['03 Persona & RBAC Governance', '04 JSON-RPC to REST Bridge', '05 Enterprise Backend Microservices'],
+        };
+      } else if (isMcpRbacBlocked) {
+        visibleStages = mcpStages.slice(0, 3); // Steps 01, 02, 03
+        terminationInfo = {
+          stoppedAtStep: '03',
+          stoppedAtTitle: 'Persona & RBAC Tool Governance',
+          reasonTitle: 'Zero-Trust RBAC Denied — Unauthorized Tool Invocation',
+          reasonDescription:
+            'PP-MCP blocked the tool call because the active persona (Developer App entitlement) is not authorized to execute this tool. Downstream REST bridge and Enterprise Backend Microservices were never invoked.',
+          badgeText: 'RBAC DENIED (-32001)',
+          type: 'blocked-security',
+          skippedStages: ['04 JSON-RPC to REST/gRPC Bridge', '05 Enterprise Backend Microservices'],
+        };
+      }
+    }
+  }
+
+  const allCurrentStages = activeFlow === 'ai-gateway' ? aiStages : mcpStages;
+  const activeStage =
+    visibleStages.find((s) => s.id === selectedStageId) ||
+    allCurrentStages.find((s) => s.id === selectedStageId) ||
+    visibleStages[visibleStages.length - 1] ||
+    allCurrentStages[0];
 
   const getStatusBadgeClasses = (status: 'pass' | 'hit' | 'warn' | 'block' | 'neutral') => {
     switch (status) {
@@ -357,7 +495,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       case 'warn':
         return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
       case 'block':
-        return 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30';
+        return 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/40 font-bold';
       default:
         return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
     }
@@ -373,22 +511,71 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Enterprise AI & Tools Gateway Architecture Blueprint
+                  {viewMode === 'request-flow'
+                    ? 'Live Request Execution Trace Flow'
+                    : 'Enterprise AI & Tools Gateway Architecture Blueprint'}
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
-                  Interactive Demo Reference
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${
+                    viewMode === 'request-flow'
+                      ? terminationInfo?.type === 'blocked-security' || terminationInfo?.type === 'blocked-quota'
+                        ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                      : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                  }`}
+                >
+                  {viewMode === 'request-flow'
+                    ? terminationInfo
+                      ? terminationInfo.badgeText
+                      : 'END-TO-END EXECUTED (ALL STEPS PASSED)'
+                    : 'Interactive Demo Reference'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Click any stage in the pipeline to inspect active XML policies, governance controls, and live trace status.
+                {viewMode === 'request-flow'
+                  ? 'Showing the exact policies executed for the tested request. Downstream policies after a block or cache hit are omitted.'
+                  : 'Click any stage in the pipeline to inspect active XML policies, governance controls, and demo talking points.'}
               </p>
             </div>
           </div>
 
-          {/* Segmented Switcher + Close Button */}
-          <div className="flex items-center gap-3">
+          {/* Right Controls: View Mode Toggle + Segmented Switcher + Close Button */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Toggle between Actual Request Flow vs Full Blueprint */}
+            {activeFlow !== 'dual-pattern' && (
+              <div className="flex items-center bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl border border-slate-300/80 dark:border-slate-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('request-flow')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                    viewMode === 'request-flow'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                  title="Show only the policies that executed for the last tested request"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Tested Request Flow</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('full-blueprint')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                    viewMode === 'full-blueprint'
+                      ? 'bg-slate-800 dark:bg-slate-700 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                  title="Show all architecture stages in the reference blueprint"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Full Architecture</span>
+                </button>
+              </div>
+            )}
+
+            {/* Gateway Switcher */}
             <div className="flex items-center bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl border border-slate-300/80 dark:border-slate-800 text-xs">
               <button
                 type="button"
@@ -396,14 +583,14 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   setActiveFlow('ai-gateway');
                   setSelectedStageId('ai-router');
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
                   activeFlow === 'ai-gateway'
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Gateway Flow</span>
+                <span>AI Gateway</span>
               </button>
               <button
                 type="button"
@@ -411,19 +598,19 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   setActiveFlow('mcp-gateway');
                   setSelectedStageId('mcp-rbac');
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
                   activeFlow === 'mcp-gateway'
                     ? 'bg-cyan-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Terminal className="w-3.5 h-3.5" />
-                <span>MCP Tools Flow</span>
+                <span>MCP Tools</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveFlow('dual-pattern')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
                   activeFlow === 'dual-pattern'
                     ? 'bg-purple-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -603,82 +790,207 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
             <>
               {/* Pipeline Steps Grid */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                      {activeFlow === 'ai-gateway'
-                        ? 'AI Gateway Proxy Pipeline (PreFlow ➔ Target ➔ PostFlow)'
-                        : 'MCP Tools Gateway Proxy Pipeline (JSON-RPC 2.0 Ingress ➔ RBAC ➔ Backend)'}
+                      {viewMode === 'request-flow'
+                        ? `Executed Pipeline Path (${visibleStages.length} of ${allCurrentStages.length} Stages Executed)`
+                        : activeFlow === 'ai-gateway'
+                          ? 'AI Gateway Proxy Pipeline (PreFlow ➔ Target ➔ PostFlow)'
+                          : 'MCP Tools Gateway Proxy Pipeline (JSON-RPC 2.0 Ingress ➔ RBAC ➔ Backend)'}
                     </span>
                   </div>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Click any step below to inspect its XML policies & demo talking points
+                    Click any executed step below to inspect its XML policies & telemetry
                   </span>
                 </div>
 
-                <div className={`grid grid-cols-1 sm:grid-cols-2 ${activeFlow === 'ai-gateway' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-2.5`}>
-                  {currentStages.map((stage, idx) => {
-                    const isSelected = stage.id === activeStage.id;
-                    return (
-                      <div
-                        key={stage.id}
-                        onClick={() => setSelectedStageId(stage.id)}
-                        className={`relative rounded-xl p-3.5 border transition cursor-pointer flex flex-col justify-between ${
-                          isSelected
-                            ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-md'
-                            : 'bg-slate-50/80 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                        }`}
-                      >
-                        <div>
-                          {/* Step number & icon */}
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-slate-500">
-                              STEP {stage.step}
-                            </span>
-                            <div className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
-                              {stage.icon}
+                {/* Dynamic Flow Container */}
+                <div className="flex flex-col lg:flex-row items-stretch gap-3">
+                  {/* Rendered Executed Stages */}
+                  <div
+                    className={`grid grid-cols-1 sm:grid-cols-2 ${
+                      visibleStages.length === 1
+                        ? 'lg:grid-cols-1 lg:w-1/3'
+                        : visibleStages.length === 2
+                          ? 'lg:grid-cols-2 lg:w-1/2'
+                          : visibleStages.length === 3
+                            ? 'lg:grid-cols-3 lg:w-3/5'
+                            : visibleStages.length === 5
+                              ? 'lg:grid-cols-5 flex-1'
+                              : 'lg:grid-cols-6 flex-1'
+                    } gap-2.5`}
+                  >
+                    {visibleStages.map((stage, idx) => {
+                      const isSelected = stage.id === activeStage.id;
+                      const isBlockingStep = stage.liveStatus?.status === 'block';
+                      const isCacheHitStep = stage.liveStatus?.status === 'hit' && stage.id === 'ai-cache';
+
+                      return (
+                        <div
+                          key={stage.id}
+                          onClick={() => setSelectedStageId(stage.id)}
+                          className={`relative rounded-xl p-3.5 border transition cursor-pointer flex flex-col justify-between ${
+                            isBlockingStep
+                              ? 'bg-rose-50/90 dark:bg-rose-950/50 border-2 border-rose-600 dark:border-rose-500 ring-4 ring-rose-500/20 shadow-lg'
+                              : isCacheHitStep
+                                ? 'bg-emerald-50/90 dark:bg-emerald-950/50 border-2 border-emerald-600 dark:border-emerald-500 ring-4 ring-emerald-500/20 shadow-lg'
+                                : isSelected
+                                  ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-md'
+                                  : 'bg-slate-50/80 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
+                        >
+                          <div>
+                            {/* Step number & icon */}
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span
+                                className={`text-[11px] font-mono font-bold ${
+                                  isBlockingStep
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : isCacheHitStep
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : 'text-slate-400 dark:text-slate-500'
+                                }`}
+                              >
+                                STEP {stage.step}
+                              </span>
+                              <div
+                                className={`p-1.5 rounded-lg border shadow-2xs ${
+                                  isBlockingStep
+                                    ? 'bg-rose-600 text-white border-rose-700'
+                                    : isCacheHitStep
+                                      ? 'bg-emerald-600 text-white border-emerald-700'
+                                      : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700'
+                                }`}
+                              >
+                                {isBlockingStep ? (
+                                  <ShieldAlert className="w-4 h-4 text-white" />
+                                ) : (
+                                  stage.icon
+                                )}
+                              </div>
                             </div>
+
+                            {/* Badge */}
+                            <div className="mb-1.5">
+                              <span
+                                className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-md border ${
+                                  isBlockingStep
+                                    ? 'bg-rose-600 text-white border-rose-700'
+                                    : stage.badgeColor
+                                }`}
+                              >
+                                {isBlockingStep ? '⛔ BLOCKED HERE' : stage.badge}
+                              </span>
+                            </div>
+
+                            {/* Title & Subtitle */}
+                            <h4
+                              className={`text-xs font-bold leading-snug mb-1 ${
+                                isBlockingStep
+                                  ? 'text-rose-950 dark:text-rose-100'
+                                  : 'text-slate-900 dark:text-white'
+                              }`}
+                            >
+                              {stage.title}
+                            </h4>
+                            <p
+                              className={`text-[11px] leading-tight ${
+                                isBlockingStep
+                                  ? 'text-rose-700 dark:text-rose-300 font-medium'
+                                  : 'text-slate-500 dark:text-slate-400'
+                              }`}
+                            >
+                              {stage.subtitle}
+                            </p>
                           </div>
 
-                          {/* Badge */}
-                          <div className="mb-1.5">
-                            <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-md border ${stage.badgeColor}`}>
-                              {stage.badge}
-                            </span>
-                          </div>
+                          {/* Live Telemetry Badge if available */}
+                          {stage.liveStatus && (
+                            <div className="mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                              <div
+                                className={`px-2 py-1 rounded text-[10px] font-bold border flex items-center justify-between ${getStatusBadgeClasses(
+                                  stage.liveStatus.status
+                                )}`}
+                              >
+                                <span className="truncate">{stage.liveStatus.label}</span>
+                                {stage.liveStatus.status === 'pass' || stage.liveStatus.status === 'hit' ? (
+                                  <CheckCircle2 className="w-3 h-3 shrink-0 ml-1" />
+                                ) : stage.liveStatus.status === 'block' ? (
+                                  <Ban className="w-3 h-3 shrink-0 ml-1" />
+                                ) : null}
+                              </div>
+                            </div>
+                          )}
 
-                          {/* Title & Subtitle */}
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-snug mb-1">
-                            {stage.title}
-                          </h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                            {stage.subtitle}
-                          </p>
+                          {/* Connector arrow indicator on desktop */}
+                          {idx < visibleStages.length - 1 && (
+                            <div className="hidden lg:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 items-center justify-center text-slate-400 shadow-2xs">
+                              <ArrowRight className="w-3 h-3" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Short-Circuit Termination Card (Rendered when downstream policies were NOT executed) */}
+                  {terminationInfo && (
+                    <div
+                      className={`flex-1 rounded-2xl p-4 sm:p-5 border-2 flex flex-col justify-between ${
+                        terminationInfo.type === 'cache-hit'
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-500/60 text-emerald-950 dark:text-emerald-100'
+                          : 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-500/60 text-rose-950 dark:text-rose-100'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span
+                            className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${
+                              terminationInfo.type === 'cache-hit'
+                                ? 'bg-emerald-600 text-white border-emerald-700'
+                                : 'bg-rose-600 text-white border-rose-700'
+                            }`}
+                          >
+                            {terminationInfo.badgeText}
+                          </span>
+                          <span className="text-[11px] font-mono font-semibold opacity-75">
+                            Downstream Policies Omitted
+                          </span>
                         </div>
 
-                        {/* Live Telemetry Badge if available */}
-                        {stage.liveStatus && (
-                          <div className="mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
-                            <div className={`px-2 py-1 rounded text-[10px] font-bold border flex items-center justify-between ${getStatusBadgeClasses(stage.liveStatus.status)}`}>
-                              <span className="truncate">{stage.liveStatus.label}</span>
-                              {stage.liveStatus.status === 'pass' || stage.liveStatus.status === 'hit' ? (
-                                <CheckCircle2 className="w-3 h-3 shrink-0 ml-1" />
-                              ) : stage.liveStatus.status === 'block' ? (
-                                <AlertTriangle className="w-3 h-3 shrink-0 ml-1" />
-                              ) : null}
-                            </div>
-                          </div>
-                        )}
+                        <h4 className="text-sm font-bold mb-1.5 flex items-center gap-2">
+                          {terminationInfo.type === 'cache-hit' ? (
+                            <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          ) : (
+                            <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                          )}
+                          <span>{terminationInfo.reasonTitle}</span>
+                        </h4>
 
-                        {/* Connector arrow indicator on desktop */}
-                        {idx < currentStages.length - 1 && (
-                          <div className="hidden lg:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 items-center justify-center text-slate-400 shadow-2xs">
-                            <ArrowRight className="w-3 h-3" />
-                          </div>
-                        )}
+                        <p className="text-xs leading-relaxed opacity-90 mb-4">
+                          {terminationInfo.reasonDescription}
+                        </p>
                       </div>
-                    );
-                  })}
+
+                      {/* List of Omitted Downstream Policies */}
+                      <div className="pt-3 border-t border-rose-200/60 dark:border-rose-800/40">
+                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-70 mb-1.5">
+                          Policies & Stages Bypassed / Not Executed:
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {terminationInfo.skippedStages.map((skipped) => (
+                            <span
+                              key={skipped}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-mono line-through opacity-75 bg-white/80 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                            >
+                              {skipped}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -778,7 +1090,11 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <Zap className="w-3.5 h-3.5 text-amber-500" />
-            <span>Tip: Execute any scenario in the Playground and reopen this Blueprint to see live trace statuses mapped onto each stage.</span>
+            <span>
+              {viewMode === 'request-flow'
+                ? 'Viewing exact execution flow for the tested request. Switch to "Full Architecture" in the top bar to see all stages.'
+                : 'Tip: Click "Request Flow" next to any Target URL in the playground to see the exact flow for that request.'}
+            </span>
           </div>
           <button
             type="button"

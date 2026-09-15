@@ -3,7 +3,7 @@ import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptT
 import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
 import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES, MODEL_ARMOR_EXAMPLES } from '../services/defaultSettings';
-import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap } from 'lucide-react';
+import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap, Workflow } from 'lucide-react';
 import { ApigeeColorSymbol } from './ApigeeLogo';
 
 interface ChatPlaygroundProps {
@@ -15,6 +15,7 @@ interface ChatPlaygroundProps {
   setActiveTelemetry: React.Dispatch<React.SetStateAction<GatewayTelemetry | null>>;
   onTransactionRecorded?: (tx: PromptTransactionRecord) => void;
   onResetChat?: () => void;
+  onOpenRequestFlow?: (telemetry: GatewayTelemetry) => void;
 }
 
 export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
@@ -26,6 +27,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   setActiveTelemetry,
   onTransactionRecorded,
   onResetChat,
+  onOpenRequestFlow,
 }) => {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -727,12 +729,28 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                 {/* Inline Telemetry & Target URL Badge on Agent Messages */}
                 <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/60 space-y-1 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                   {msg.targetUrl && (
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                      <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 font-bold text-[9px] shrink-0">
-                        POST
-                      </span>
-                      <span className="text-slate-500 font-semibold shrink-0">Target URL:</span>
-                      <span className="truncate text-blue-700 dark:text-blue-400 select-all font-medium">{msg.targetUrl}</span>
+                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 font-bold text-[9px] shrink-0">
+                          POST
+                        </span>
+                        <span className="text-slate-500 font-semibold shrink-0">Target URL:</span>
+                        <span className="truncate text-blue-700 dark:text-blue-400 select-all font-medium">{msg.targetUrl}</span>
+                      </div>
+                      {msg.telemetry && onOpenRequestFlow && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenRequestFlow(msg.telemetry!);
+                          }}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/80 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 font-sans font-semibold text-[10px] shrink-0 transition cursor-pointer shadow-2xs"
+                          title="View Exact Execution Flow Diagram for This Request"
+                        >
+                          <Workflow className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                          <span>Request Flow</span>
+                        </button>
+                      )}
                     </div>
                   )}
                   {msg.telemetry && (
