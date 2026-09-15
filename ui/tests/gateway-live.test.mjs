@@ -364,6 +364,55 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       assert.ok(res.headers.get('x-gateway-total-tokens'), 'Total tokens header should be tracked');
     }
   });
+
+  it('⚡ Scenario: Multi-Provider Token Quota (Claude Opus 4.5) tracks token consumption and limits', async () => {
+    const claudeUrl = `${vertexBaseUrl}/models/claude-opus-4-5@20251101:generateContent`;
+    const res = await fetchWithRetry(claudeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'X-User-Email': TEST_EMAIL,
+        'x-enforce-token-limit': 'true',
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Explain API gateway rate limiting in 20 concise words.' }] }],
+      }),
+    });
+
+    assert.ok(res.status === 200 || res.status === 429, `Expected 200 OK or 429 Rate Limit, got ${res.status}`);
+    if (res.status === 200) {
+      assert.ok(res.headers.get('x-gateway-model'), 'Model header should be present');
+      assert.ok(res.headers.get('x-gateway-total-tokens'), 'Total tokens header should be present');
+      const data = await res.json();
+      assert.ok(data.candidates?.[0]?.content?.parts?.[0]?.text, 'Claude response should contain candidate text');
+    } else {
+      const data = await res.json();
+      assert.match(data.fault?.faultstring || data.error?.message || '', /quota|rate limit|limit/i);
+    }
+  });
+
+  it('🌐 Scenario: Local Proxy (/api/claude-prod) rewrites Claude requests to Apigee gateway without 404', async (t) => {
+    if (!useLocalProxy) {
+      t.skip('Skipping local proxy route check when targeting direct Apigee endpoint');
+      return;
+    }
+    const localClaudeUrl = `${LOCAL_HOST}/api/claude-prod/models/claude-opus-4-5@20251101:generateContent`;
+    const res = await fetchWithRetry(localClaudeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': ADMIN_KEY,
+        'X-User-Email': TEST_EMAIL,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Test local proxy routing for Claude models' }] }],
+      }),
+    });
+
+    assert.notStrictEqual(res.status, 404, 'Local proxy route /api/claude-prod should NOT return 404 Not Found');
+    assert.strictEqual(res.status, 200, `Expected 200 OK from local proxy /api/claude-prod, got ${res.status}`);
+  });
 });
 
 describe('3. Apigee Tools Gateway - Live MCP Backend', () => {

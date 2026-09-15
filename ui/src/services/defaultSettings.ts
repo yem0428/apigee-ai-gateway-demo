@@ -269,7 +269,7 @@ export const TOKEN_LIMIT_EXAMPLES = [
     tag: 'Pass (200 OK)',
     prompt: 'Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words.',
     description: 'Single prompt consuming ~90 tokens within quota (200 OK).',
-    model: 'claude-3-5-sonnet',
+    model: 'claude-opus-4-5@20251101',
   },
   {
     step: 2,
@@ -278,7 +278,7 @@ export const TOKEN_LIMIT_EXAMPLES = [
     tag: 'Exceeded (429)',
     prompt: 'Generate an exhaustive 2,000 word technical overview of distributed API rate limiting, token bucket algorithms, spike arrest, and API security governance.',
     description: 'Request exceeding token quota (429 Rate Limit).',
-    model: 'claude-3-5-sonnet',
+    model: 'claude-opus-4-5@20251101',
   },
 ];
 
@@ -369,7 +369,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     prompt: TOKEN_LIMIT_EXAMPLES[0].prompt,
     badgeText: 'Pass → Limit',
     badgeColor: 'emerald',
-    settingsOverride: { model: 'claude-3-5-sonnet', useCache: false },
+    settingsOverride: { model: 'claude-opus-4-5@20251101', useCache: false },
   },
   {
     id: 'cache-toggle',
