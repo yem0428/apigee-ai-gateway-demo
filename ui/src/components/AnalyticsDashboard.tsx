@@ -197,7 +197,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       const bal = match ? match.currentBalanceUsd : 0;
       const isPrepaid = match ? match.billingType === 'PREPAID' : true;
       return {
-        amount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
+        amount: Number(bal || 0).toFixed(2),
+        exactAmount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
         subtitle: `Authenticated User (${currentUserEmail})`,
         sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
@@ -211,7 +212,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       const bal = match ? match.currentBalanceUsd : 0;
       const isPrepaid = match ? match.billingType === 'PREPAID' : true;
       return {
-        amount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
+        amount: Number(bal || 0).toFixed(2),
+        exactAmount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
         subtitle: isPrepaid ? `Prepaid Balance (${userFilter})` : `Postpaid Plan (${userFilter})`,
         sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
@@ -222,7 +224,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     const totalPool = attributions.reduce((acc, u) => acc + (u.currentBalanceUsd || 0), 0);
     const userCount = attributions.length || userList.length || 1;
     return {
-      amount: Number(totalPool || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
+      amount: Number(totalPool || 0).toFixed(2),
+      exactAmount: Number(totalPool || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
       badge: 'All Users Pool',
       subtitle: `Combined across ${userCount} active developer${userCount === 1 ? '' : 's'} (Select user to inspect)`,
       sparkline: totalPool > 0 ? [totalPool, totalPool, totalPool, totalPool, totalPool] : [0, 0, 0, 0, 0],
@@ -582,18 +585,21 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
 
             {/* Col 2: Available Balance */}
-            <div className="p-3 sm:px-4 space-y-1">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                <span>Available Balance</span>
-                <span title="Native Monetization prepaid wallet balance">
+            <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+                <span className="truncate">Available Balance</span>
+                <span title="Native Monetization prepaid wallet balance" className="shrink-0">
                   <Wallet className="w-3.5 h-3.5 text-emerald-500" />
                 </span>
               </div>
-              <div className="flex items-baseline gap-2 pt-0.5">
-                <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
+                <span
+                  className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight"
+                  title={`Exact balance: $${availableBalanceData.exactAmount} USD`}
+                >
                   ${availableBalanceData.amount}
                 </span>
-                <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200 dark:border-teal-800">
+                <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200 dark:border-teal-800 shrink-0">
                   {availableBalanceData.badge}
                 </span>
               </div>
@@ -606,17 +612,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
             </div>
 
-            {/* Col 2: Total Model Calls */}
-            <div className="p-3 sm:px-4 space-y-1">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                <span>Total Model Calls</span>
-                <Bot className="w-3.5 h-3.5 text-blue-500" />
+            {/* Col 3: Total Model Calls */}
+            <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+                <span className="truncate">Total Model Calls</span>
+                <Bot className="w-3.5 h-3.5 text-blue-500 shrink-0" />
               </div>
-              <div className="flex items-baseline gap-2 pt-0.5">
+              <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
                 <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
                   {aggregatedStats.totalCalls}
                 </span>
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
                   {routingStats.flashPercent}% Flash
                 </span>
               </div>
@@ -626,17 +632,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
             </div>
 
-            {/* Col 3: Total Token Volume */}
-            <div className="p-3 sm:px-4 space-y-1">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                <span>Total Token Volume</span>
-                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+            {/* Col 4: Total Token Volume */}
+            <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+                <span className="truncate">Total Token Volume</span>
+                <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
               </div>
-              <div className="flex items-baseline gap-2 pt-0.5">
+              <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
                 <span className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
                   {aggregatedStats.totalTokens}
                 </span>
-                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 shrink-0">
                   Tokens
                 </span>
               </div>
@@ -646,17 +652,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
             </div>
 
-            {/* Col 4: Total Enterprise Spend */}
-            <div className="p-3 sm:px-4 space-y-1">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                <span>{viewMode === 'user' ? 'My User Spend' : 'Total Enterprise Spend'}</span>
-                <Coins className="w-3.5 h-3.5 text-amber-500" />
+            {/* Col 5: Total Enterprise Spend */}
+            <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+                <span className="truncate">{viewMode === 'user' ? 'My User Spend' : 'Total Enterprise Spend'}</span>
+                <Coins className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               </div>
-              <div className="flex items-baseline gap-2 pt-0.5">
+              <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
                 <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
                   ${aggregatedStats.totalSpend}
                 </span>
-                <span className="text-[11px] font-sans text-slate-500 dark:text-slate-400 font-medium">
+                <span className="text-[11px] font-sans text-slate-500 dark:text-slate-400 font-medium shrink-0">
                   USD
                 </span>
               </div>
@@ -666,17 +672,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
             </div>
 
-            {/* Col 5: Semantic Cache Savings */}
-            <div className="p-3 sm:px-4 space-y-1">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                <span>Cache Cost Savings</span>
-                <Database className="w-3.5 h-3.5 text-teal-500" />
+            {/* Col 6: Semantic Cache Savings */}
+            <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+                <span className="truncate">Cache Cost Savings</span>
+                <Database className="w-3.5 h-3.5 text-teal-500 shrink-0" />
               </div>
-              <div className="flex items-baseline gap-2 pt-0.5">
+              <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
                 <span className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">
                   ${aggregatedStats.cacheSavings}
                 </span>
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
                   {aggregatedStats.cacheHitRate}% Hits
                 </span>
               </div>
