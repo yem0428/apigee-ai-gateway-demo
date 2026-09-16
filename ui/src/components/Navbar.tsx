@@ -19,6 +19,7 @@ import {
   RotateCcw,
   Loader2,
   Layers,
+  Pencil,
 } from 'lucide-react';
 import { GatewaySettings, UserPersona, AppTab, AppTheme } from '../types';
 import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER, createSsoUserFromEmail } from '../services/defaultSettings';
@@ -46,6 +47,8 @@ interface NavbarProps {
   onResetChat?: () => void;
   theme?: AppTheme;
   onThemeChange?: (theme: AppTheme) => void;
+  onRequireOnboarding?: (email: string, suggestedFirstName: string, suggestedLastName: string) => void;
+  onEditProfileName?: (email: string, currentName: string) => void;
   analyticsControls?: AnalyticsNavControls;
 }
 
@@ -55,6 +58,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   onOpenArchitecture,
+  onRequireOnboarding,
+  onEditProfileName,
   analyticsControls,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -104,6 +109,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         const resolvedName = (data.name || '').trim();
         const token = data.token || newIdToken || ssoUser.idToken;
         const apiKeys = data.apiKeys || {};
+
+        if (data.needsOnboarding && onRequireOnboarding) {
+          setSsoPopoverOpen(false);
+          onRequireOnboarding(
+            resolvedEmail,
+            data.suggestedFirstName || '',
+            data.suggestedLastName || ''
+          );
+          return;
+        }
 
         if (apiKeys.admin || data.apiKey) {
           USERS.admin.apiKey = apiKeys.admin || data.apiKey;
@@ -421,7 +436,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                       {ssoUser.avatarText || 'SSO'}
                     </div>
                     <div>
-                      <div className="font-bold text-slate-100 text-sm">{ssoUser.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-100 text-sm">{ssoUser.name}</span>
+                        {onEditProfileName && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSsoPopoverOpen(false);
+                              onEditProfileName(ssoUser.email || DEFAULT_SSO_USER.email, ssoUser.name || '');
+                            }}
+                            className="p-1 text-slate-400 hover:text-blue-400 rounded-md hover:bg-slate-800 transition cursor-pointer"
+                            title="Edit Developer First & Last Name"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                       <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
                         <Mail className="w-3 h-3 text-slate-500 shrink-0" />
                         <span className="truncate">{ssoUser.email}</span>

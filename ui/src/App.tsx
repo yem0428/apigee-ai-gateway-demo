@@ -7,11 +7,19 @@ import { MonetizationManager } from './components/MonetizationManager';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
 import { ArchitectureBlueprintModal } from './components/ArchitectureBlueprintModal';
+import { DeveloperOnboardingModal, DeveloperOnboardingResult } from './components/DeveloperOnboardingModal';
 import { ThemeSelector } from './components/ThemeSelector';
 import { GatewaySettings, ChatMessage, GatewayTelemetry, McpTelemetry, UserPersona, AppTab, AppTheme } from './types';
 import { DEFAULT_SETTINGS, USERS, createSsoUserFromEmail } from './services/defaultSettings';
 
 export function App() {
+  const [onboardingModal, setOnboardingModal] = useState<{
+    isOpen: boolean;
+    email: string;
+    suggestedFirstName: string;
+    suggestedLastName: string;
+    isEditMode?: boolean;
+  } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return new URLSearchParams(window.location.search).get('settings') === 'open';
@@ -148,6 +156,23 @@ export function App() {
             if (email) {
               const provider = data.provider || (idToken ? 'Google Cloud Identity SSO (gcloud)' : 'Google Cloud Identity SSO (IAP)');
               const authUser = createSsoUserFromEmail(email, provider, idToken, fullName);
+
+              if (data.needsOnboarding) {
+                setOnboardingModal({
+                  isOpen: true,
+                  email,
+                  suggestedFirstName: data.suggestedFirstName || '',
+                  suggestedLastName: data.suggestedLastName || '',
+                  isEditMode: false,
+                });
+                setSettings((prev) => ({
+                  ...prev,
+                  userEmail: email,
+                  ssoUser: authUser,
+                  idToken: idToken || undefined,
+                }));
+                return;
+              }
 
               const apiKeys = data.apiKeys || {};
 
@@ -377,6 +402,27 @@ export function App() {
         onResetChat={handleResetChat}
         theme={theme}
         onThemeChange={setTheme}
+        onRequireOnboarding={(email, suggestedFirstName, suggestedLastName) => {
+          setOnboardingModal({
+            isOpen: true,
+            email,
+            suggestedFirstName,
+            suggestedLastName,
+            isEditMode: false,
+          });
+        }}
+        onEditProfileName={(email, currentFullName) => {
+          const parts = (currentFullName || '').split(/\s+/).filter(Boolean);
+          const firstName = parts[0] || '';
+          const lastName = parts.slice(1).join(' ');
+          setOnboardingModal({
+            isOpen: true,
+            email,
+            suggestedFirstName: firstName,
+            suggestedLastName: lastName,
+            isEditMode: true,
+          });
+        }}
         analyticsControls={{
           viewMode: analyticsViewMode,
           setViewMode: (mode) => {
@@ -476,6 +522,46 @@ export function App() {
         aiTelemetry={activeTelemetry}
         mcpTelemetry={activeMcpTelemetry}
       />
+
+      {/* First-Time Developer Onboarding / Name Validation Modal */}
+      {onboardingModal && (
+        <DeveloperOnboardingModal
+          isOpen={onboardingModal.isOpen}
+          email={onboardingModal.email}
+          suggestedFirstName={onboardingModal.suggestedFirstName}
+          suggestedLastName={onboardingModal.suggestedLastName}
+          isEditMode={onboardingModal.isEditMode}
+          onCancel={() => setOnboardingModal(null)}
+          onComplete={(result: DeveloperOnboardingResult) => {
+            const apiKeys = result.apiKeys || {};
+            if (apiKeys.admin || result.apiKey) {
+              USERS.admin.apiKey = apiKeys.admin || result.apiKey;
+            }
+            if (apiKeys.sales_agent) {
+              USERS.sales_agent.apiKey = apiKeys.sales_agent;
+            }
+            if (apiKeys.loans_agent) {
+              USERS.loans_agent.apiKey = apiKeys.loans_agent;
+            }
+            const updatedSso = createSsoUserFromEmail(
+              result.email,
+              settings.ssoUser?.provider || 'Google Cloud Identity SSO (IAP)',
+              settings.idToken,
+              result.name
+            );
+            setSettings((prev) => ({
+              ...prev,
+              userEmail: result.email,
+              ssoUser: updatedSso,
+              apiKey: apiKeys[prev.activeUser] || USERS[prev.activeUser]?.apiKey || prev.apiKey,
+            }));
+            setOnboardingModal(null);
+            if (analyticsRefreshRef.current) {
+              analyticsRefreshRef.current();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

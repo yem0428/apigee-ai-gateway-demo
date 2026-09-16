@@ -324,16 +324,24 @@ async function resolveUserFullName(email, iapJwtHeader, fallbackName, authHeader
   return { firstName, lastName: '', fullName: firstName };
 }
 
-async function provisionUserDeveloperAndApp(org, token, email, name, iapJwtHeader = '', authHeader = '') {
+async function provisionUserDeveloperAndApp(
+  org,
+  token,
+  email,
+  name,
+  iapJwtHeader = '',
+  authHeader = '',
+  options = { allowCreate: false, explicitFirstName: '', explicitLastName: '' }
+) {
   const resolved = await resolveUserFullName(email, iapJwtHeader, name, authHeader, token);
   if (!email || !token) {
     return { apiKey: '', apiKeys: {}, username: '', fullName: resolved.fullName };
   }
 
   const username = email.split('@')[0] || 'admin';
-  let firstName = resolved.firstName;
-  let lastName = resolved.lastName;
-  let fullName = resolved.fullName;
+  let firstName = options.explicitFirstName ? options.explicitFirstName.trim() : resolved.firstName;
+  let lastName = options.explicitLastName ? options.explicitLastName.trim() : resolved.lastName;
+  let fullName = firstName === lastName || !lastName ? firstName : `${firstName} ${lastName}`.trim();
   const apiKeys = { admin: '', sales_agent: '', loans_agent: '' };
 
   try {
@@ -344,7 +352,19 @@ async function provisionUserDeveloperAndApp(org, token, email, name, iapJwtHeade
     });
 
     if (devRes.status === 404) {
-      console.log(`[Server] Developer ${email} not found. Creating with name ${firstName} ${lastName}...`);
+      if (!options.allowCreate) {
+        console.log(`[Server] Developer ${email} not found (404). Returning needsOnboarding=true with suggested name: ${firstName} ${lastName}`);
+        return {
+          needsOnboarding: true,
+          suggestedFirstName: firstName,
+          suggestedLastName: lastName,
+          fullName,
+          apiKey: '',
+          apiKeys: {},
+          username,
+        };
+      }
+      console.log(`[Server] Creating developer ${email} with validated name ${firstName} ${lastName}...`);
       await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers`, {
         method: 'POST',
         headers: {
@@ -362,19 +382,8 @@ async function provisionUserDeveloperAndApp(org, token, email, name, iapJwtHeade
       const devData = await devRes.json();
       const existingFirst = devData.firstName || '';
       const existingLast = devData.lastName || '';
-      // Auto-heal existing developer if lastName was 'User' or 'Google' or if known/Gemini name differs
-      const isBadLastName =
-        existingLast === 'User' ||
-        existingLast === 'Google' ||
-        existingFirst.toLowerCase() === username.toLowerCase();
-      if (
-        isBadLastName ||
-        (KNOWN_USER_NAMES[username.toLowerCase()] &&
-          (existingFirst !== firstName || existingLast !== lastName))
-      ) {
-        console.log(
-          `[Server] Auto-healing developer name for ${email}: ${existingFirst} ${existingLast} -> ${firstName} ${lastName}`
-        );
+      if (options.allowCreate && options.explicitFirstName) {
+        console.log(`[Server] Updating existing developer name for ${email}: ${existingFirst} ${existingLast} -> ${firstName} ${lastName}`);
         devData.firstName = firstName;
         devData.lastName = lastName || firstName;
         await fetch(devUrl, {
@@ -385,10 +394,35 @@ async function provisionUserDeveloperAndApp(org, token, email, name, iapJwtHeade
           },
           body: JSON.stringify(devData),
         });
-      } else if (existingFirst && existingLast && existingLast !== 'User' && existingLast !== 'Google') {
-        firstName = existingFirst;
-        lastName = existingLast;
-        fullName = existingFirst === existingLast ? existingFirst : `${existingFirst} ${existingLast}`;
+      } else {
+        // Auto-heal existing developer if lastName was 'User' or 'Google'
+        const isBadLastName =
+          existingLast === 'User' ||
+          existingLast === 'Google' ||
+          existingFirst.toLowerCase() === username.toLowerCase();
+        if (
+          isBadLastName ||
+          (KNOWN_USER_NAMES[username.toLowerCase()] &&
+            (existingFirst !== firstName || existingLast !== lastName))
+        ) {
+          console.log(
+            `[Server] Auto-healing developer name for ${email}: ${existingFirst} ${existingLast} -> ${firstName} ${lastName}`
+          );
+          devData.firstName = firstName;
+          devData.lastName = lastName || firstName;
+          await fetch(devUrl, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(devData),
+          });
+        } else if (existingFirst) {
+          firstName = existingFirst;
+          lastName = existingLast;
+          fullName = existingFirst === existingLast || !existingLast ? existingFirst : `${existingFirst} ${existingLast}`;
+        }
       }
     }
 
@@ -690,10 +724,26 @@ const server = http.createServer(async (req, res) => {
     let apiKey = '';
     let apiKeys = {};
     let username = email.split('@')[0] || 'admin';
+    let needsOnboarding = false;
+    let suggestedFirstName = resolvedName.firstName || '';
+    let suggestedLastName = resolvedName.lastName || '';
 
     if (saToken && email) {
       const org = 'bap-apac-demo2';
-      const provResult = await provisionUserDeveloperAndApp(org, saToken, email, name, iapJwtHeader, authHeader);
+      const provResult = await provisionUserDeveloperAndApp(
+        org,
+        saToken,
+        email,
+        name,
+        iapJwtHeader,
+        authHeader,
+        { allowCreate: false }
+      );
+      if (provResult.needsOnboarding) {
+        needsOnboarding = true;
+        suggestedFirstName = provResult.suggestedFirstName || suggestedFirstName;
+        suggestedLastName = provResult.suggestedLastName || suggestedLastName;
+      }
       if (provResult.apiKey) apiKey = provResult.apiKey;
       if (provResult.apiKeys) apiKeys = provResult.apiKeys;
       if (provResult.username) username = provResult.username;
@@ -708,6 +758,9 @@ const server = http.createServer(async (req, res) => {
         username,
         apiKey,
         apiKeys,
+        needsOnboarding,
+        suggestedFirstName,
+        suggestedLastName,
         provider: cleanHeader ? 'Google Cloud Identity SSO (IAP)' : 'Local Default SSO',
         raw: incomingHeader,
       })
@@ -715,8 +768,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 2b. /api/me/profile endpoint (update developer firstName & lastName in Apigee)
-  if (pathname === '/api/me/profile' || pathname === '/api/me/profile/') {
+  // 2b. /api/me/onboard & /api/me/profile endpoints (create or update developer with user-validated firstName & lastName)
+  if (
+    pathname === '/api/me/onboard' ||
+    pathname === '/api/me/onboard/' ||
+    pathname === '/api/me/profile' ||
+    pathname === '/api/me/profile/'
+  ) {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
 
@@ -732,16 +790,23 @@ const server = http.createServer(async (req, res) => {
       try {
         const payload = JSON.parse(body || '{}');
         const email = (payload.email || '').trim();
-        const fullName = (payload.fullName || '').trim();
-        if (!email || !fullName) {
+        let firstName = (payload.firstName || '').trim();
+        let lastName = (payload.lastName || '').trim();
+        const rawFullName = (payload.fullName || '').trim();
+
+        if (!firstName && rawFullName) {
+          const parts = rawFullName.split(/\s+/).filter(Boolean);
+          firstName = parts[0] || '';
+          lastName = parts.slice(1).join(' ');
+        }
+
+        if (!email || !firstName) {
           res.statusCode = 400;
-          res.end(JSON.stringify({ error: 'Both email and fullName are required' }));
+          res.end(JSON.stringify({ error: 'Both email and firstName are required' }));
           return;
         }
 
-        const parts = fullName.split(/\s+/).filter(Boolean);
-        const firstName = parts[0] || email.split('@')[0];
-        const lastName = parts.slice(1).join(' ') || (email.split('@')[1] || 'Google').split('.')[0];
+        const fullName = lastName && lastName !== firstName ? `${firstName} ${lastName}`.trim() : firstName;
 
         const saToken = await getGcpAccessToken();
         if (!saToken) {
@@ -751,37 +816,31 @@ const server = http.createServer(async (req, res) => {
         }
 
         const org = 'bap-apac-demo2';
-        const devUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}`;
-        const devRes = await fetch(devUrl, { headers: { Authorization: `Bearer ${saToken}` } });
-
-        if (devRes.ok) {
-          const devData = await devRes.json();
-          devData.firstName = firstName;
-          devData.lastName = lastName;
-          const putRes = await fetch(devUrl, {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${saToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(devData),
-          });
-          if (!putRes.ok) {
-            const errTxt = await putRes.text();
-            res.statusCode = putRes.status;
-            res.end(JSON.stringify({ error: `Failed to update Apigee developer: ${errTxt}` }));
-            return;
+        const provResult = await provisionUserDeveloperAndApp(
+          org,
+          saToken,
+          email,
+          fullName,
+          '',
+          '',
+          {
+            allowCreate: true,
+            explicitFirstName: firstName,
+            explicitLastName: lastName || firstName,
           }
-        } else if (devRes.status === 404) {
-          await provisionUserDeveloperAndApp(org, saToken, email, fullName);
-        }
+        );
 
         res.end(JSON.stringify({
           status: 'ok',
           email,
           firstName,
-          lastName,
-          fullName: `${firstName} ${lastName}`.trim(),
+          lastName: lastName || firstName,
+          fullName,
+          name: fullName,
+          username: provResult.username || email.split('@')[0],
+          apiKey: provResult.apiKey || '',
+          apiKeys: provResult.apiKeys || {},
+          needsOnboarding: false,
         }));
       } catch (err) {
         res.statusCode = 500;
