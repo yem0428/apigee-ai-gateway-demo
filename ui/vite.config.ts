@@ -166,9 +166,68 @@ const KNOWN_USER_NAMES: Record<string, { firstName: string; lastName: string }> 
   nswart: { firstName: 'N', lastName: 'Swart' },
   welylau: { firstName: 'Wely', lastName: 'Lau' },
   ayos: { firstName: 'Ayo', lastName: 'S' },
+  theankitgoel: { firstName: 'Ankit', lastName: 'Goel' },
 };
 
-function extractNameFromJwt(jwtString: string): { firstName: string; lastName: string; fullName: string } | null {
+const geminiNameCache = new Map<string, { firstName: string; lastName: string; fullName: string }>();
+
+async function parseEmailHandleWithGemini(
+  email: string,
+  token: string
+): Promise<{ firstName: string; lastName: string; fullName: string } | null> {
+  if (!email || !token) return null;
+  const cacheKey = email.toLowerCase();
+  if (geminiNameCache.has(cacheKey)) return geminiNameCache.get(cacheKey)!;
+
+  try {
+    const url =
+      'https://aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-2.5-flash:generateContent';
+    const prompt = `Extract the likely human First Name and Last Name from this corporate email address: "${email}".
+Rules:
+1. Strip prefixes like "the", "mr", "ms", "iam", "official" if they precede a clear given name (e.g., "theankitgoel" -> First: "Ankit", Last: "Goel").
+2. If the username is last-name-first (like "maloosatyam"), order as Given Name first, Surname second (First: "Satyam", Last: "Maloo").
+3. If one part is a single initial (e.g., "ygalstian", "sudharshans", "nswart"), capitalize the initial and the surname (e.g., First: "Y", Last: "Galstian" or First: "Sudharshan", Last: "S").
+4. NEVER return "Google" or the domain name as the last name. If only one name exists with no surname, set lastName to "".
+Return ONLY valid JSON: {"firstName": "...", "lastName": "..."}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.0, responseMimeType: 'application/json' },
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const parsed = JSON.parse(text);
+      if (parsed.firstName) {
+        const cleanLast =
+          parsed.lastName && parsed.lastName.toLowerCase() !== 'google' && parsed.lastName.toLowerCase() !== 'user'
+            ? parsed.lastName.trim()
+            : '';
+        const result = {
+          firstName: parsed.firstName.trim(),
+          lastName: cleanLast,
+          fullName: [parsed.firstName.trim(), cleanLast].filter(Boolean).join(' '),
+        };
+        geminiNameCache.set(cacheKey, result);
+        return result;
+      }
+    }
+  } catch {
+    // Fallback if Gemini call fails
+  }
+  return null;
+}
+
+function extractNameFromJwt(
+  jwtString?: string | string[]
+): { firstName: string; lastName: string; fullName: string } | null {
   if (!jwtString) return null;
   try {
     const cleanJwt = String(jwtString).replace(/^Bearer\s+/i, '').trim();
@@ -213,7 +272,8 @@ async function resolveUserFullName(
   email: string,
   iapJwtHeader: string,
   fallbackName: string,
-  authHeader = ''
+  authHeader = '',
+  token = ''
 ): Promise<{ firstName: string; lastName: string; fullName: string }> {
   const username = (email || '').split('@')[0].toLowerCase() || 'admin';
   const fromIapJwt = extractNameFromJwt(iapJwtHeader);
@@ -257,16 +317,24 @@ async function resolveUserFullName(
   if (username.includes('.') || username.includes('_')) {
     const parts = username.split(/[._]/).filter(Boolean).map(cap);
     const firstName = parts[0] || cap(username);
-    const lastName = parts.slice(1).join(' ') || firstName;
-    return { firstName, lastName, fullName: `${firstName} ${lastName}` };
+    const lastName = parts.slice(1).join(' ') || '';
+    return { firstName, lastName, fullName: [firstName, lastName].filter(Boolean).join(' ') };
   }
-  if (fallbackName && fallbackName.includes(' ') && !fallbackName.endsWith(' User')) {
+  if (
+    fallbackName &&
+    fallbackName.includes(' ') &&
+    !fallbackName.endsWith(' User') &&
+    !fallbackName.endsWith(' Google')
+  ) {
     const split = fallbackName.trim().split(/\s+/);
     return { firstName: split[0], lastName: split.slice(1).join(' '), fullName: fallbackName.trim() };
   }
-  const firstName = cap(username);
-  const lastName = cap((email.split('@')[1] || 'Google').split('.')[0]);
-  return { firstName, lastName, fullName: firstName };
+  if (token) {
+    const geminiParsed = await parseEmailHandleWithGemini(email, token);
+    if (geminiParsed) return geminiParsed;
+  }
+  const firstName = cap(username.replace(/^the/i, ''));
+  return { firstName, lastName: '', fullName: firstName };
 }
 
 async function provisionUserDeveloperAndApp(
@@ -277,7 +345,7 @@ async function provisionUserDeveloperAndApp(
   iapJwtHeader = '',
   authHeader = ''
 ): Promise<{ apiKey: string; apiKeys: Record<string, string>; username: string; fullName: string }> {
-  const resolved = await resolveUserFullName(email, iapJwtHeader, name, authHeader);
+  const resolved = await resolveUserFullName(email, iapJwtHeader, name, authHeader, token);
   if (!email || !token) {
     return { apiKey: '', apiKeys: {}, username: '', fullName: resolved.fullName };
   }
@@ -306,7 +374,7 @@ async function provisionUserDeveloperAndApp(
         body: JSON.stringify({
           email,
           firstName,
-          lastName,
+          lastName: lastName || firstName,
           userName: username,
         }),
       });
@@ -314,14 +382,18 @@ async function provisionUserDeveloperAndApp(
       const devData = await devRes.json();
       const existingFirst = devData.firstName || '';
       const existingLast = devData.lastName || '';
-      if (
+      const isBadLastName =
         existingLast === 'User' ||
+        existingLast === 'Google' ||
+        existingFirst.toLowerCase() === username.toLowerCase();
+      if (
+        isBadLastName ||
         (KNOWN_USER_NAMES[username.toLowerCase()] &&
           (existingFirst !== firstName || existingLast !== lastName))
       ) {
         console.log(`[Vite Server] Auto-healing developer name for ${email}: ${existingFirst} ${existingLast} -> ${firstName} ${lastName}`);
         devData.firstName = firstName;
-        devData.lastName = lastName;
+        devData.lastName = lastName || firstName;
         await fetch(devUrl, {
           method: 'PUT',
           headers: {
@@ -330,10 +402,10 @@ async function provisionUserDeveloperAndApp(
           },
           body: JSON.stringify(devData),
         });
-      } else if (existingFirst && existingLast && existingLast !== 'User') {
+      } else if (existingFirst && existingLast && existingLast !== 'User' && existingLast !== 'Google') {
         firstName = existingFirst;
         lastName = existingLast;
-        fullName = `${existingFirst} ${existingLast}`;
+        fullName = existingFirst === existingLast ? existingFirst : `${existingFirst} ${existingLast}`;
       }
     }
 
@@ -1387,10 +1459,33 @@ export default defineConfig(({ mode }) => {
                       apps = dJson.apps || [];
                       firstName = dJson.firstName || '';
                       lastName = dJson.lastName || '';
+                      const unameLower = email.split('@')[0].toLowerCase();
+                      const isBadName =
+                        lastName === 'Google' ||
+                        lastName === 'User' ||
+                        firstName.toLowerCase() === unameLower;
+                      if (isBadName) {
+                        const healed = await resolveUserFullName(email, '', '', '', token);
+                        if (healed?.firstName) {
+                          firstName = healed.firstName;
+                          lastName = healed.lastName || '';
+                          dJson.firstName = firstName;
+                          dJson.lastName = lastName || firstName;
+                          fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}`, {
+                            method: 'PUT',
+                            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify(dJson),
+                          }).catch(() => {});
+                        }
+                      }
                     }
                   } catch {}
 
-                  const fullName = [firstName, lastName].filter(Boolean).join(' ') || (email.split('@')[0]);
+                  const cleanLast = lastName === 'Google' || lastName === 'User' ? '' : lastName;
+                  const fullName =
+                    firstName && cleanLast && firstName !== cleanLast
+                      ? `${firstName} ${cleanLast}`
+                      : firstName || email.split('@')[0];
                   const isEnterprise = apps.some((a) => a.toLowerCase().includes('enterprise') || a.toLowerCase().includes('admin'));
                   const userStats = statsByUser[email] || { calls: 0, tokens: 0 };
                   const sessionDebit = sessionLedgerByDev.get(email.toLowerCase())?.debitedUsd || 0;
