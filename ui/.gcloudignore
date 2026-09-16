@@ -2,3 +2,8 @@
 .git
 .gitignore
 node_modules/
+.env
+.env.*
+*.key
+*-key.json
+*.pem

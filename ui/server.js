@@ -41,12 +41,9 @@ async function getGcpAccessToken() {
     return cachedToken;
   }
 
-  // 1. Check for Service Account Key File
+  // 1. Optional explicit GOOGLE_APPLICATION_CREDENTIALS (never use repo-local key files)
   const keyPaths = [
-    process.env.APIGEE_SA_KEY_PATH,
     process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    path.resolve(process.cwd(), 'apigee-ui-mgmt-sa-key.json'),
-    path.resolve(process.cwd(), '../apigee-ui-mgmt-sa-key.json'),
   ].filter(Boolean);
 
   for (const keyPath of keyPaths) {

@@ -632,7 +632,7 @@ Non-GET/PUT/POST verbs on `/api/monetization/subscriptions` and
 ## 8. Deployment & Provisioning Scripts
 
 Contents of [apigee/scripts/](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/):
-`deploy_all.sh`, `deploy_proxy.sh`, `package_bundle.sh`,
+`deploy_all.sh`, `deploy_proxy.sh`, `generate_demo_traffic.py`, `package_bundle.sh`,
 `provision_unified_credentials.py`, `provision_unified_credentials.sh`,
 `test_autorouting.sh`, `test_token_limit.sh`, `validate_bundle.py`.
 
@@ -698,22 +698,16 @@ and `--dev`.
 
 1. Syncs all **five** product JSON files (`PUT` if the product exists, else `POST`).
 2. Syncs the **two** committed developer apps under the target developer and captures
-   each `consumerKey`.
+   each `consumerKey` (printing only a masked preview to stdout).
 3. Runs `sync_monetization()` — see [§6.1](#61-provisioned-configuration).
-4. Rewrites [ui/.env](file:///Users/maloosatyam/Codebase/AI%20Code/ui/.env) **only if
-   that file already exists**, merging in `VITE_SALES_API_KEY`,
-   `VITE_LOANS_API_KEY` and forcing `VITE_DEFAULT_ENV=prod`.
+4. Sanitizes [ui/.env](file:///Users/maloosatyam/Codebase/AI%20Code/ui/.env) if that file
+   exists, stripping any hardcoded `*_API_KEY` entries and ensuring `VITE_DEFAULT_ENV=prod`.
 
 > [!IMPORTANT]
-> Provisioning writes **no `VITE_ADMIN_API_KEY`**. The admin key is minted at runtime
-> by `ui/server.js` `/api/me` and is per-SSO-user. Only Sales and Loans keys are
-> written to `ui/.env`.
-
-> [!WARNING]
-> [provision_unified_credentials.py](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/provision_unified_credentials.py)
-> defines `main()` **twice** (lines 111 and 284). Python binds the second definition,
-> so the monetization-aware version is the one that runs — but the first `main()` is
-> dead code and should be deleted. Do not edit the wrong copy.
+> Provisioning writes **zero API keys** to `ui/.env` or any file on disk. All consumer keys
+> (`admin`, `sales_agent`, and `loans_agent`) are resolved dynamically at runtime by
+> `ui/server.js` (`/api/me`) and `ui/tests/gateway-live.test.mjs` via Google Cloud IAM /
+> Apigee Management API.
 
 ### 8.4 Credential handling in test scripts
 
@@ -912,7 +906,6 @@ Admin, Sales and Loans personas alike.
 | --- | --- |
 | `ModelRateCardView.tsx` | Present in the tree but never imported or rendered — dead code |
 | `LTQ-TokenEnforce` coverage | Only wired to `gemini-2.5-flash` via `LLMTokenLimitFlow`; other models are metered but not request-blocked |
-| Duplicate `main()` in `provision_unified_credentials.py` | Second definition wins; the first is unreachable |
 | `/models/auto` entitlement | Granted by both AI tiers, but no proxy flow routes it — `AutoRoutingFlow` matches only `/auto*`. A call to `/models/auto` passes entitlement and then fails downstream. The UI always calls bare `/auto` |
 | Stale product `description` attributes | `enterprise_ai_tier.json` still describes access as "unrestricted … (Flash, Pro, Sonnet)". No Sonnet model is entitled and access is explicitly enumerated, not unrestricted. Cosmetic metadata only — it grants nothing |
 | Leaked consumer key in git history | A literal consumer key was committed in `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer contains it, but git history does — treat that key as compromised and rotate it |

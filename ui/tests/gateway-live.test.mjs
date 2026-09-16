@@ -13,6 +13,8 @@ let useLocalProxy = true;
 let vertexBaseUrl = '';
 let mcpBaseUrl = '';
 
+import { execSync } from 'node:child_process';
+
 before(async () => {
   try {
     const meRes = await fetch(`${LOCAL_HOST}/api/me`, { signal: AbortSignal.timeout(3000) });
@@ -35,14 +37,41 @@ before(async () => {
     mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
   }
 
-  // No hardcoded key fallback: this file is version controlled. Keys come
-  // from the environment or from /api/me. Do not substitute ADMIN_KEY for the
-  // lower-privilege personas either - that would mask entitlement differences
-  // between the Standard and Enterprise tiers and make denial tests pass
-  // for the wrong reason.
+  // Dynamic gcloud Management API fallback when running tests without local server or .env keys
+  if (!ADMIN_KEY || !SALES_KEY || !LOANS_KEY) {
+    try {
+      const token = execSync('gcloud auth print-access-token', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      if (token) {
+        const appsUrl = `https://apigee.googleapis.com/v1/organizations/bap-apac-demo2/developers/${encodeURIComponent(TEST_EMAIL)}/apps?expand=true`;
+        const appsRes = await fetch(appsUrl, { headers: { Authorization: `Bearer ${token}` } });
+        if (appsRes.ok) {
+          const appsData = await appsRes.json();
+          for (const app of appsData.app || []) {
+            const approved = (app.credentials || []).find((c) => c.status === 'approved' && c.consumerKey);
+            if (!approved) continue;
+            const nameLower = (app.name || '').toLowerCase();
+            if (!ADMIN_KEY && (nameLower.includes('admin') || nameLower.includes('enterprise'))) {
+              ADMIN_KEY = approved.consumerKey;
+            } else if (!SALES_KEY && nameLower.includes('sales')) {
+              SALES_KEY = approved.consumerKey;
+            } else if (!LOANS_KEY && nameLower.includes('loans')) {
+              LOANS_KEY = approved.consumerKey;
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore gcloud fallback error; assertions below will report if keys remain unset
+    }
+  }
 
-  assert.ok(SALES_KEY, 'SALES_KEY must be provided via env or /api/me for live gateway tests');
-  assert.ok(ADMIN_KEY, 'ADMIN_KEY must be provided via env or /api/me for live gateway tests');
+  // No hardcoded key fallback: this file is version controlled. Keys come
+  // from the environment, /api/me, or dynamic gcloud discovery. Do not substitute
+  // ADMIN_KEY for lower-privilege personas either - that would mask entitlement
+  // differences between Standard and Enterprise tiers.
+
+  assert.ok(SALES_KEY, 'SALES_KEY must be provided via env, /api/me, or gcloud for live gateway tests');
+  assert.ok(ADMIN_KEY, 'ADMIN_KEY must be provided via env, /api/me, or gcloud for live gateway tests');
   console.log(`\n>>> [Live Integration Tests] Target: ${useLocalProxy ? 'Local Prod Proxy (' + vertexBaseUrl + ')' : 'Direct Apigee Gateway (' + DIRECT_APIGEE_HOST + ')'}\n`);
 });
 

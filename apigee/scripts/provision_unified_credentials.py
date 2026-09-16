@@ -108,77 +108,6 @@ def sync_app(org, dev, token, filepath):
         return app_name, key
     return app_name, ""
 
-def main():
-    parser = argparse.ArgumentParser(description="Provision Apigee Unified Products and Apps")
-    parser.add_argument("--org", default="bap-apac-demo2", help="Apigee Organization name")
-    parser.add_argument("--dev", default="maloosatyam@google.com", help="Developer email")
-    args = parser.parse_args()
-
-    print(f"=== Apigee Unified Credential Provisioning ===")
-    print(f"Organization: {args.org}")
-    print(f"Developer:    {args.dev}\n")
-
-    token = get_access_token()
-
-    target_products = [
-        "standard_ai_tier.json",
-        "enterprise_ai_tier.json",
-        "sales_tools_mcp.json",
-        "loans_tools_mcp.json",
-        "enterprise_tools_mcp.json"
-    ]
-
-    print("1. Synchronizing API Products...")
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    prod_dir = os.path.join(base_dir, "products")
-    
-    for pfile in target_products:
-        path = os.path.join(prod_dir, pfile)
-        if os.path.exists(path):
-            sync_product(args.org, token, path)
-        else:
-            print(f"  [WARN] File not found: {path}")
-
-    print("\n2. Synchronizing Developer Apps & Keys...")
-    app_dir = os.path.join(base_dir, "apps")
-    target_apps = [
-        ("unified_sales_app.json", "VITE_SALES_API_KEY"),
-        ("unified_loans_app.json", "VITE_LOANS_API_KEY")
-    ]
-
-    keys = {}
-    for afile, env_var in target_apps:
-        path = os.path.join(app_dir, afile)
-        if os.path.exists(path):
-            app_name, key = sync_app(args.org, args.dev, token, path)
-            keys[env_var] = key
-            print(f"     => {env_var}={key}")
-        else:
-            print(f"  [WARN] File not found: {path}")
-
-    # Update ui/.env
-    ui_env_path = os.path.join(os.path.dirname(base_dir), "ui", ".env")
-    if os.path.exists(ui_env_path):
-        with open(ui_env_path) as f:
-            lines = f.readlines()
-        
-        env_dict = {}
-        for line in lines:
-            line_str = line.strip()
-            if line_str and not line_str.startswith("#") and "=" in line_str:
-                k, v = line_str.split("=", 1)
-                env_dict[k.strip()] = v.strip()
-        
-        # Update with new keys
-        for k, v in keys.items():
-            if v:
-                env_dict[k] = v
-        env_dict["VITE_DEFAULT_ENV"] = "prod"
-        
-        with open(ui_env_path, "w") as f:
-            f.write("# Local development & production demo configuration\n")
-            for k, v in sorted(env_dict.items()):
-                f.write(f"{k}={v}\n")
 def sync_monetization(org, dev, token):
     import time
     print("\n3. Synchronizing Apigee Monetization Configuration...")
@@ -319,43 +248,41 @@ def main():
         ("unified_loans_app.json", "VITE_LOANS_API_KEY")
     ]
 
-    keys = {}
     for afile, env_var in target_apps:
         path = os.path.join(app_dir, afile)
         if os.path.exists(path):
             app_name, key = sync_app(args.org, args.dev, token, path)
-            keys[env_var] = key
-            print(f"     => {env_var}={key}")
+            masked = f"{key[:4]}...{key[-4:]}" if len(key) >= 8 else "***"
+            print(f"     => {app_name} provisioned (key: {masked})")
         else:
             print(f"  [WARN] File not found: {path}")
 
     # Synchronize Monetization
     sync_monetization(args.org, args.dev, token)
 
-    # Update ui/.env
+    # Ensure ui/.env does not store API keys on disk (keys are fetched at runtime via /api/me)
     ui_env_path = os.path.join(os.path.dirname(base_dir), "ui", ".env")
     if os.path.exists(ui_env_path):
         with open(ui_env_path) as f:
             lines = f.readlines()
-        
+
         env_dict = {}
         for line in lines:
             line_str = line.strip()
             if line_str and not line_str.startswith("#") and "=" in line_str:
                 k, v = line_str.split("=", 1)
-                env_dict[k.strip()] = v.strip()
-        
-        # Update with new keys
-        for k, v in keys.items():
-            if v:
-                env_dict[k] = v
+                k_clean = k.strip()
+                if "API_KEY" not in k_clean.upper():
+                    env_dict[k_clean] = v.strip()
+
         env_dict["VITE_DEFAULT_ENV"] = "prod"
-        
+
         with open(ui_env_path, "w") as f:
             f.write("# Local development & production demo configuration\n")
+            f.write("# API keys are fetched dynamically at runtime via /api/me and Apigee Management API\n")
             for k, v in sorted(env_dict.items()):
                 f.write(f"{k}={v}\n")
-        print(f"\n4. Updated ui/.env with new unified keys and VITE_DEFAULT_ENV=prod")
+        print(f"\n4. Sanitized ui/.env (stripped any hardcoded API keys, set VITE_DEFAULT_ENV=prod)")
 
     print("\n=== Provisioning Complete ===")
 
