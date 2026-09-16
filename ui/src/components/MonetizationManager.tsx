@@ -641,7 +641,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     <span className="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">USD</span>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    {userAttributions.reduce((acc, u) => acc + (u.totalCalls || 0), 0).toLocaleString()} calls • {(userAttributions.reduce((acc, u) => acc + (u.totalTokens || 0), 0) / 1e6).toFixed(2)}M tokens
+                    {userAttributions.reduce((acc, u) => acc + (u.totalCalls || 0), 0).toLocaleString()} calls • {(() => {
+                      const tot = userAttributions.reduce((acc, u) => acc + (u.totalTokens || 0), 0);
+                      return tot >= 1_000_000 ? `${(tot / 1e6).toFixed(2)}M tokens` : tot >= 1_000 ? `${(tot / 1e3).toFixed(1)}k tokens` : `${tot} tokens`;
+                    })()}
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shrink-0">
@@ -786,7 +789,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                               <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
                             </div>
                             <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
-                              {(user.totalCalls || 0).toLocaleString()} calls • {((user.totalTokens || 0) / 1e6).toFixed(2)}M tokens
+                              {(user.totalCalls || 0).toLocaleString()} calls • {(() => {
+                                const tot = user.totalTokens || 0;
+                                return tot >= 1_000_000 ? `${(tot / 1e6).toFixed(2)}M tokens` : tot >= 1_000 ? `${(tot / 1e3).toFixed(1)}k tokens` : `${tot} tokens`;
+                              })()}
                             </div>
                           </td>
 

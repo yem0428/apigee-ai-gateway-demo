@@ -63,15 +63,18 @@ def get_gcloud_token() -> str:
         sys.exit(1)
 
 
-def get_gcloud_id_token() -> str:
-    try:
-        return (
-            subprocess.check_output(["gcloud", "auth", "print-identity-token"], stderr=subprocess.DEVNULL)
-            .decode()
-            .strip()
-        )
-    except Exception:
-        return ""
+import base64
+
+
+def create_developer_jwt(email: str) -> str:
+    """Create a 3-part base64url JWT for the developer email so Apigee DJWT policy attributes dc_user_email accurately."""
+    def b64url(obj) -> str:
+        return base64.urlsafe_b64encode(json.dumps(obj).encode()).decode().rstrip("=")
+
+    header = b64url({"alg": "RS256", "typ": "JWT"})
+    payload = b64url({"sub": email, "email": email, "name": email.split("@")[0]})
+    sig = base64.urlsafe_b64encode(b"dummysignature12345678901234567890").decode().rstrip("=")
+    return f"{header}.{payload}.{sig}"
 
 
 def get_developers_and_keys(org: str, token: str):
@@ -141,20 +144,20 @@ def get_developers_and_keys(org: str, token: str):
     return dev_profiles
 
 
-def send_gateway_request(gateway_base: str, email: str, api_key: str, id_token: str, item: dict):
+def send_gateway_request(gateway_base: str, email: str, api_key: str, item: dict):
     """Send a single AI Gateway request and return telemetry."""
     url = f"{gateway_base.rstrip('/')}{item['path']}"
     payload = {
         "contents": [{"role": "user", "parts": [{"text": item["prompt"]}]}],
         "generationConfig": {"maxOutputTokens": 256, "temperature": 0.3},
     }
+    dev_jwt = create_developer_jwt(email)
     headers = {
         "Content-Type": "application/json",
         "x-apikey": api_key,
         "X-User-Email": email,
+        "Authorization": f"Bearer {dev_jwt}",
     }
-    if id_token:
-        headers["Authorization"] = f"Bearer {id_token}"
 
     start = time.time()
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method="POST")
@@ -234,10 +237,14 @@ def main():
         default=150.0,
         help="Multiplier applied to micro-dollar LLM cost for visible demo wallet deduction (default: 150x)",
     )
+    parser.add_argument(
+        "--skip-wallet-adjust",
+        action="store_true",
+        help="Skip balance:adjust wallet deductions (useful when re-seeding analytics traffic only)",
+    )
     args = parser.parse_args()
 
     token = get_gcloud_token()
-    id_token = get_gcloud_id_token()
     print(f"Discovering developers and approved apps in Apigee org '{args.org}'...")
     dev_profiles = get_developers_and_keys(args.org, token)
     print(f"Found {len(dev_profiles)} active developers with approved API keys.\n")
@@ -255,7 +262,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = [
-            executor.submit(send_gateway_request, args.gateway_url, email, api_key, id_token, route)
+            executor.submit(send_gateway_request, args.gateway_url, email, api_key, route)
             for (email, api_key, route) in tasks
         ]
         for future in as_completed(futures):
@@ -274,23 +281,31 @@ def main():
                 results_by_dev[email]["tokens"] += tokens
                 results_by_dev[email]["rawCostUsd"] += cost
 
-    print("\nApplying immediate wallet deductions in Apigee Monetization for demo visibility...")
-    print("-" * 90)
-    print(f"{'Developer Email':<30} | {'Calls':<6} | {'Tokens':<8} | {'Deducted ($)':<14} | {'Remaining Balance ($)'}")
-    print("-" * 90)
+    if not args.skip_wallet_adjust:
+        print("\nApplying immediate wallet deductions in Apigee Monetization for demo visibility...")
+        print("-" * 90)
+        print(f"{'Developer Email':<30} | {'Calls':<6} | {'Tokens':<8} | {'Deducted ($)':<14} | {'Remaining Balance ($)'}")
+        print("-" * 90)
 
-    for email, stats in results_by_dev.items():
-        if stats["calls"] == 0:
-            continue
-        raw_cost = stats["rawCostUsd"]
-        if raw_cost <= 0:
-            raw_cost = (stats["tokens"] / 1_000_000.0) * 1.25
-        demo_deduction = round(max(0.25, min(3.50, raw_cost * args.demo_cost_multiplier + random.uniform(0.15, 0.85))), 4)
-        new_bal = apply_wallet_adjustment(args.org, token, email, demo_deduction)
-        bal_str = f"${new_bal:.4f}" if new_bal is not None else "N/A"
-        print(
-            f"{email:<30} | {stats['calls']:<6} | {stats['tokens']:<8} | -${demo_deduction:<13.4f} | {bal_str}"
-        )
+        for email, stats in results_by_dev.items():
+            if stats["calls"] == 0:
+                continue
+            raw_cost = stats["rawCostUsd"]
+            if raw_cost <= 0:
+                raw_cost = (stats["tokens"] / 1_000_000.0) * 1.25
+            demo_deduction = round(max(0.25, min(3.50, raw_cost * args.demo_cost_multiplier + random.uniform(0.15, 0.85))), 4)
+            new_bal = apply_wallet_adjustment(args.org, token, email, demo_deduction)
+            bal_str = f"${new_bal:.4f}" if new_bal is not None else "N/A"
+            print(
+                f"{email:<30} | {stats['calls']:<6} | {stats['tokens']:<8} | -${demo_deduction:<13.4f} | {bal_str}"
+            )
+    else:
+        print("\nSkipped wallet adjustments (--skip-wallet-adjust enabled).")
+        print("-" * 70)
+        print(f"{'Developer Email':<30} | {'Calls':<6} | {'Tokens':<8} | {'Raw Cost ($)'}")
+        print("-" * 70)
+        for email, stats in results_by_dev.items():
+            print(f"{email:<30} | {stats['calls']:<6} | {stats['tokens']:<8} | ${stats['rawCostUsd']:.6f}")
 
     print("-" * 90)
     print("Demo traffic generation complete!")
