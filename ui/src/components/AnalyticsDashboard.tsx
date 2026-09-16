@@ -226,8 +226,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return {
       amount: Number(totalPool || 0).toFixed(2),
       exactAmount: Number(totalPool || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
-      badge: 'All Users Pool',
-      subtitle: `Combined across ${userCount} active developer${userCount === 1 ? '' : 's'} (Select user to inspect)`,
+      badge: 'All Users',
+      subtitle: `All Users Pool (${userCount} active developer${userCount === 1 ? '' : 's'})`,
       sparkline: totalPool > 0 ? [totalPool, totalPool, totalPool, totalPool, totalPool] : [0, 0, 0, 0, 0],
     };
   }, [viewMode, userFilter, currentUserEmail, attributions, userList]);
@@ -599,7 +599,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 >
                   ${availableBalanceData.amount}
                 </span>
-                <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200 dark:border-teal-800 shrink-0">
+                <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200 dark:border-teal-800 shrink-0 whitespace-nowrap">
                   {availableBalanceData.badge}
                 </span>
               </div>
