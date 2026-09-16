@@ -362,10 +362,14 @@ async function provisionUserDeveloperAndApp(
     if (subsRes.ok) {
       const subsData = await subsRes.json();
       for (const s of subsData.developerSubscriptions || []) {
-        if (s.apiproduct) existingProducts.add(s.apiproduct);
+        if (s.apiproduct && !s.endTime) existingProducts.add(s.apiproduct);
       }
     }
-    for (const product of ['Enterprise AI Tier', 'Standard AI Tier']) {
+    const requiredProducts =
+      email.toLowerCase() === 'maloosatyam@google.com'
+        ? ['Enterprise AI Tier', 'Standard AI Tier']
+        : ['Enterprise AI Tier'];
+    for (const product of requiredProducts) {
       if (!existingProducts.has(product)) {
         console.log(`[Vite Server] Auto-subscribing developer ${email} to ${product}...`);
         await fetch(subsUrl, {
