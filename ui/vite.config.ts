@@ -159,20 +159,73 @@ async function fetchAppConsumerKey(org: string, token: string, devEmail: string,
   return '';
 }
 
+const KNOWN_USER_NAMES: Record<string, { firstName: string; lastName: string }> = {
+  maloosatyam: { firstName: 'Satyam', lastName: 'Maloo' },
+  hchidambaram: { firstName: 'Hariharan', lastName: 'Chidambaram' },
+  ravikiranlanka: { firstName: 'Ravikiran', lastName: 'Lanka' },
+  sudharshans: { firstName: 'Sudharshan', lastName: 'S' },
+  madhans: { firstName: 'Madhan', lastName: 'S' },
+  ygalstian: { firstName: 'Yuri', lastName: 'Galstian' },
+  nswart: { firstName: 'N', lastName: 'Swart' },
+  welylau: { firstName: 'Wely', lastName: 'Lau' },
+  ayos: { firstName: 'Ayo', lastName: 'S' },
+};
+
+function resolveUserFullName(email: string, iapJwtHeader: string, fallbackName: string): { firstName: string; lastName: string; fullName: string } {
+  const username = (email || '').split('@')[0].toLowerCase() || 'admin';
+  if (iapJwtHeader) {
+    try {
+      const parts = String(iapJwtHeader).split('.');
+      if (parts.length >= 2) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+        if (payload.given_name && payload.family_name) {
+          return { firstName: payload.given_name, lastName: payload.family_name, fullName: `${payload.given_name} ${payload.family_name}` };
+        }
+        if (payload.name && payload.name.includes(' ')) {
+          const split = payload.name.trim().split(/\s+/);
+          return { firstName: split[0], lastName: split.slice(1).join(' '), fullName: payload.name.trim() };
+        }
+      }
+    } catch {
+      // Ignore JWT parse errors
+    }
+  }
+  if (KNOWN_USER_NAMES[username]) {
+    const { firstName, lastName } = KNOWN_USER_NAMES[username];
+    return { firstName, lastName, fullName: `${firstName} ${lastName}` };
+  }
+  const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+  if (username.includes('.') || username.includes('_')) {
+    const parts = username.split(/[._]/).filter(Boolean).map(cap);
+    const firstName = parts[0] || cap(username);
+    const lastName = parts.slice(1).join(' ') || firstName;
+    return { firstName, lastName, fullName: `${firstName} ${lastName}` };
+  }
+  if (fallbackName && fallbackName.includes(' ') && !fallbackName.endsWith(' User')) {
+    const split = fallbackName.trim().split(/\s+/);
+    return { firstName: split[0], lastName: split.slice(1).join(' '), fullName: fallbackName.trim() };
+  }
+  const firstName = cap(username);
+  const lastName = cap((email.split('@')[1] || 'Google').split('.')[0]);
+  return { firstName, lastName, fullName: firstName };
+}
+
 async function provisionUserDeveloperAndApp(
   org: string,
   token: string,
   email: string,
-  name: string
-): Promise<{ apiKey: string; apiKeys: Record<string, string>; username: string }> {
+  name: string,
+  iapJwtHeader = ''
+): Promise<{ apiKey: string; apiKeys: Record<string, string>; username: string; fullName: string }> {
+  const resolved = resolveUserFullName(email, iapJwtHeader, name);
   if (!email || !token) {
-    return { apiKey: '', apiKeys: {}, username: '' };
+    return { apiKey: '', apiKeys: {}, username: '', fullName: resolved.fullName };
   }
 
   const username = email.split('@')[0] || 'admin';
-  const nameParts = name.trim().split(' ').filter(Boolean);
-  const firstName = nameParts[0] || username;
-  const lastName = nameParts.slice(1).join(' ') || 'User';
+  let firstName = resolved.firstName;
+  let lastName = resolved.lastName;
+  let fullName = resolved.fullName;
   const apiKeys: Record<string, string> = { admin: '', sales_agent: '', loans_agent: '' };
 
   try {
@@ -183,7 +236,7 @@ async function provisionUserDeveloperAndApp(
     });
 
     if (devRes.status === 404) {
-      console.log(`[Vite Server] Developer ${email} not found. Creating...`);
+      console.log(`[Vite Server] Developer ${email} not found. Creating with name ${firstName} ${lastName}...`);
       await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers`, {
         method: 'POST',
         headers: {
@@ -197,6 +250,31 @@ async function provisionUserDeveloperAndApp(
           userName: username,
         }),
       });
+    } else if (devRes.ok) {
+      const devData = await devRes.json();
+      const existingFirst = devData.firstName || '';
+      const existingLast = devData.lastName || '';
+      if (
+        existingLast === 'User' ||
+        (KNOWN_USER_NAMES[username.toLowerCase()] &&
+          (existingFirst !== firstName || existingLast !== lastName))
+      ) {
+        console.log(`[Vite Server] Auto-healing developer name for ${email}: ${existingFirst} ${existingLast} -> ${firstName} ${lastName}`);
+        devData.firstName = firstName;
+        devData.lastName = lastName;
+        await fetch(devUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(devData),
+        });
+      } else if (existingFirst && existingLast && existingLast !== 'User') {
+        firstName = existingFirst;
+        lastName = existingLast;
+        fullName = `${existingFirst} ${existingLast}`;
+      }
     }
 
     // 2. Provision/fetch user-specific Admin app (Unified Admin <USERNAME> App)
@@ -383,10 +461,10 @@ async function provisionUserDeveloperAndApp(
       }
     }
 
-    return { apiKey: apiKeys.admin || '', apiKeys, username };
+    return { apiKey: apiKeys.admin || '', apiKeys, username, fullName };
   } catch (err: any) {
     console.error('[Vite Server] Error provisioning user developer and apps:', err.message);
-    return { apiKey: '', apiKeys: {}, username };
+    return { apiKey: '', apiKeys: {}, username, fullName };
   }
 }
 
@@ -424,13 +502,15 @@ export default defineConfig(({ mode }) => {
             }
 
             const incomingHeader = (req.headers['x-goog-authenticated-user-email'] as string) || '';
+            const iapJwtHeader = (req.headers['x-goog-iap-jwt-assertion'] as string) || '';
             const cleanHeader = incomingHeader.replace(/^accounts\.google\.com:/, '').trim();
 
             // Obtain SSO identity token from gcloud for local testing
             const sso = getGcpIdentityToken();
 
             const email = cleanHeader || sso.email || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || 'maloosatyam@google.com';
-            const name = sso.name || (email ? email.split('@')[0] : 'SSO User');
+            const resolvedName = resolveUserFullName(email, iapJwtHeader, sso.name || '');
+            let name = resolvedName.fullName || (email ? email.split('@')[0] : 'SSO User');
 
             // Obtain Service Account token for Apigee Management API
             const saToken = await getGcpAccessToken();
@@ -440,7 +520,7 @@ export default defineConfig(({ mode }) => {
 
             if (saToken && email) {
               const org = 'bap-apac-demo2';
-              const provResult = await provisionUserDeveloperAndApp(org, saToken, email, name);
+              const provResult = await provisionUserDeveloperAndApp(org, saToken, email, name, iapJwtHeader);
               if (provResult.apiKey) {
                 apiKey = provResult.apiKey;
               }
@@ -449,6 +529,9 @@ export default defineConfig(({ mode }) => {
               }
               if (provResult.username) {
                 username = provResult.username;
+              }
+              if (provResult.fullName) {
+                name = provResult.fullName;
               }
             }
 

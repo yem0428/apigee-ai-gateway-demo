@@ -150,15 +150,72 @@ async function fetchAppConsumerKey(org, token, devEmail, appName) {
   return '';
 }
 
-async function provisionUserDeveloperAndApp(org, token, email, name) {
+const KNOWN_USER_NAMES = {
+  maloosatyam: { firstName: 'Satyam', lastName: 'Maloo' },
+  hchidambaram: { firstName: 'Hariharan', lastName: 'Chidambaram' },
+  ravikiranlanka: { firstName: 'Ravikiran', lastName: 'Lanka' },
+  sudharshans: { firstName: 'Sudharshan', lastName: 'S' },
+  madhans: { firstName: 'Madhan', lastName: 'S' },
+  ygalstian: { firstName: 'Yuri', lastName: 'Galstian' },
+  nswart: { firstName: 'N', lastName: 'Swart' },
+  welylau: { firstName: 'Wely', lastName: 'Lau' },
+  ayos: { firstName: 'Ayo', lastName: 'S' },
+};
+
+function resolveUserFullName(email, iapJwtHeader, fallbackName) {
+  const username = (email || '').split('@')[0].toLowerCase() || 'admin';
+  // 1. Check x-goog-iap-jwt-assertion for name claims if provided
+  if (iapJwtHeader) {
+    try {
+      const parts = String(iapJwtHeader).split('.');
+      if (parts.length >= 2) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+        if (payload.given_name && payload.family_name) {
+          return { firstName: payload.given_name, lastName: payload.family_name, fullName: `${payload.given_name} ${payload.family_name}` };
+        }
+        if (payload.name && payload.name.includes(' ')) {
+          const split = payload.name.trim().split(/\s+/);
+          return { firstName: split[0], lastName: split.slice(1).join(' '), fullName: payload.name.trim() };
+        }
+      }
+    } catch {
+      // Ignore JWT parse errors
+    }
+  }
+  // 2. Check known corporate directory map
+  if (KNOWN_USER_NAMES[username]) {
+    const { firstName, lastName } = KNOWN_USER_NAMES[username];
+    return { firstName, lastName, fullName: `${firstName} ${lastName}` };
+  }
+  // 3. Parse dot/underscore separated usernames (e.g. john.doe -> John Doe)
+  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+  if (username.includes('.') || username.includes('_')) {
+    const parts = username.split(/[._]/).filter(Boolean).map(cap);
+    const firstName = parts[0] || cap(username);
+    const lastName = parts.slice(1).join(' ') || firstName;
+    return { firstName, lastName, fullName: `${firstName} ${lastName}` };
+  }
+  // 4. Fallback if fallbackName has spaces and doesn't end with 'User'
+  if (fallbackName && fallbackName.includes(' ') && !fallbackName.endsWith(' User')) {
+    const split = fallbackName.trim().split(/\s+/);
+    return { firstName: split[0], lastName: split.slice(1).join(' '), fullName: fallbackName.trim() };
+  }
+  // 5. Single word handle: capitalize first name, use domain or capitalized handle so lastName is never 'User'
+  const firstName = cap(username);
+  const lastName = cap((email.split('@')[1] || 'Google').split('.')[0]);
+  return { firstName, lastName, fullName: firstName };
+}
+
+async function provisionUserDeveloperAndApp(org, token, email, name, iapJwtHeader = '') {
+  const resolved = resolveUserFullName(email, iapJwtHeader, name);
   if (!email || !token) {
-    return { apiKey: '', apiKeys: {}, username: '' };
+    return { apiKey: '', apiKeys: {}, username: '', fullName: resolved.fullName };
   }
 
   const username = email.split('@')[0] || 'admin';
-  const nameParts = name.trim().split(' ').filter(Boolean);
-  const firstName = nameParts[0] || username;
-  const lastName = nameParts.slice(1).join(' ') || 'User';
+  let firstName = resolved.firstName;
+  let lastName = resolved.lastName;
+  let fullName = resolved.fullName;
   const apiKeys = { admin: '', sales_agent: '', loans_agent: '' };
 
   try {
@@ -169,7 +226,7 @@ async function provisionUserDeveloperAndApp(org, token, email, name) {
     });
 
     if (devRes.status === 404) {
-      console.log(`[Server] Developer ${email} not found. Creating...`);
+      console.log(`[Server] Developer ${email} not found. Creating with name ${firstName} ${lastName}...`);
       await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers`, {
         method: 'POST',
         headers: {
@@ -183,6 +240,32 @@ async function provisionUserDeveloperAndApp(org, token, email, name) {
           userName: username,
         }),
       });
+    } else if (devRes.ok) {
+      const devData = await devRes.json();
+      const existingFirst = devData.firstName || '';
+      const existingLast = devData.lastName || '';
+      // Auto-heal existing developer if lastName was 'User' or firstName was raw lowercase username
+      if (
+        existingLast === 'User' ||
+        (KNOWN_USER_NAMES[username.toLowerCase()] &&
+          (existingFirst !== firstName || existingLast !== lastName))
+      ) {
+        console.log(`[Server] Auto-healing developer name for ${email}: ${existingFirst} ${existingLast} -> ${firstName} ${lastName}`);
+        devData.firstName = firstName;
+        devData.lastName = lastName;
+        await fetch(devUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(devData),
+        });
+      } else if (existingFirst && existingLast && existingLast !== 'User') {
+        firstName = existingFirst;
+        lastName = existingLast;
+        fullName = `${existingFirst} ${existingLast}`;
+      }
     }
 
     // 2. Check/Create Admin App
@@ -355,10 +438,10 @@ async function provisionUserDeveloperAndApp(org, token, email, name) {
       }
     }
 
-    return { apiKey: apiKeys.admin || '', apiKeys, username };
+    return { apiKey: apiKeys.admin || '', apiKeys, username, fullName };
   } catch (err) {
     console.error('[Server] Error provisioning user developer and apps:', err.message);
-    return { apiKey: '', apiKeys: {}, username };
+    return { apiKey: '', apiKeys: {}, username, fullName };
   }
 }
 
@@ -471,9 +554,11 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
 
     const incomingHeader = req.headers['x-goog-authenticated-user-email'] || '';
+    const iapJwtHeader = req.headers['x-goog-iap-jwt-assertion'] || '';
     const cleanHeader = String(incomingHeader).replace(/^accounts\.google\.com:/, '').trim();
     const email = cleanHeader || process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'maloosatyam@google.com';
-    const name = email.split('@')[0] || 'SSO User';
+    const resolvedName = resolveUserFullName(email, iapJwtHeader, '');
+    let name = resolvedName.fullName || email.split('@')[0] || 'SSO User';
 
     const saToken = await getGcpAccessToken();
     let apiKey = '';
@@ -482,10 +567,11 @@ const server = http.createServer(async (req, res) => {
 
     if (saToken && email) {
       const org = 'bap-apac-demo2';
-      const provResult = await provisionUserDeveloperAndApp(org, saToken, email, name);
+      const provResult = await provisionUserDeveloperAndApp(org, saToken, email, name, iapJwtHeader);
       if (provResult.apiKey) apiKey = provResult.apiKey;
       if (provResult.apiKeys) apiKeys = provResult.apiKeys;
       if (provResult.username) username = provResult.username;
+      if (provResult.fullName) name = provResult.fullName;
     }
 
     res.end(
