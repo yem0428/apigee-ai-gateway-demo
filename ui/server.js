@@ -513,10 +513,13 @@ async function provisionUserDeveloperAndApp(
       }
     }
 
-    // 3. Fetch global keys for Sales and Loans
-    const defaultDevEmail = 'maloosatyam@google.com';
-    apiKeys.sales_agent = await fetchAppConsumerKey(org, token, defaultDevEmail, 'Unified Sales App');
-    apiKeys.loans_agent = await fetchAppConsumerKey(org, token, defaultDevEmail, 'Unified Loans App');
+    // 3. Fetch global keys for Sales and Loans (check maloosatyam@gmail.com first, fallback to maloosatyam@google.com)
+    apiKeys.sales_agent =
+      (await fetchAppConsumerKey(org, token, 'maloosatyam@gmail.com', 'Unified Sales App')) ||
+      (await fetchAppConsumerKey(org, token, 'maloosatyam@google.com', 'Unified Sales App'));
+    apiKeys.loans_agent =
+      (await fetchAppConsumerKey(org, token, 'maloosatyam@gmail.com', 'Unified Loans App')) ||
+      (await fetchAppConsumerKey(org, token, 'maloosatyam@google.com', 'Unified Loans App'));
 
     // 4. Monetization PREPAID + Balance Top-up
     const cfgUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/monetizationConfig`;

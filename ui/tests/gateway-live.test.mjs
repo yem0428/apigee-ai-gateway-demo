@@ -42,20 +42,23 @@ before(async () => {
     try {
       const token = execSync('gcloud auth print-access-token', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
       if (token) {
-        const appsUrl = `https://apigee.googleapis.com/v1/organizations/bap-apac-demo2/developers/${encodeURIComponent(TEST_EMAIL)}/apps?expand=true`;
-        const appsRes = await fetch(appsUrl, { headers: { Authorization: `Bearer ${token}` } });
-        if (appsRes.ok) {
-          const appsData = await appsRes.json();
-          for (const app of appsData.app || []) {
-            const approved = (app.credentials || []).find((c) => c.status === 'approved' && c.consumerKey);
-            if (!approved) continue;
-            const nameLower = (app.name || '').toLowerCase();
-            if (!ADMIN_KEY && (nameLower.includes('admin') || nameLower.includes('enterprise'))) {
-              ADMIN_KEY = approved.consumerKey;
-            } else if (!SALES_KEY && nameLower.includes('sales')) {
-              SALES_KEY = approved.consumerKey;
-            } else if (!LOANS_KEY && nameLower.includes('loans')) {
-              LOANS_KEY = approved.consumerKey;
+        const candidates = Array.from(new Set(['maloosatyam@gmail.com', TEST_EMAIL]));
+        for (const candidateEmail of candidates) {
+          const appsUrl = `https://apigee.googleapis.com/v1/organizations/bap-apac-demo2/developers/${encodeURIComponent(candidateEmail)}/apps?expand=true`;
+          const appsRes = await fetch(appsUrl, { headers: { Authorization: `Bearer ${token}` } });
+          if (appsRes.ok) {
+            const appsData = await appsRes.json();
+            for (const app of appsData.app || []) {
+              const approved = (app.credentials || []).find((c) => c.status === 'approved' && c.consumerKey);
+              if (!approved) continue;
+              const nameLower = (app.name || '').toLowerCase();
+              if (!ADMIN_KEY && (nameLower.includes('admin') || nameLower.includes('enterprise'))) {
+                ADMIN_KEY = approved.consumerKey;
+              } else if (!SALES_KEY && nameLower.includes('sales')) {
+                SALES_KEY = approved.consumerKey;
+              } else if (!LOANS_KEY && nameLower.includes('loans')) {
+                LOANS_KEY = approved.consumerKey;
+              }
             }
           }
         }
