@@ -458,7 +458,7 @@ const server = http.createServer(async (req, res) => {
       ADMIN_USER_EMAIL: process.env.ADMIN_USER_EMAIL || 'admin.user@google.com',
       SALES_AGENT_EMAIL: process.env.SALES_AGENT_EMAIL || 'sales.agent@example.com',
       LOANS_AGENT_EMAIL: process.env.LOANS_AGENT_EMAIL || 'loans.agent@example.com',
-      SSO_USER_EMAIL: process.env.SSO_USER_EMAIL || 'demo.user@google.com',
+      SSO_USER_EMAIL: process.env.SSO_USER_EMAIL || 'maloosatyam@google.com',
       DEFAULT_ENV: process.env.DEFAULT_ENV || 'prod',
     };
     res.end(`window.__RUNTIME_CONFIG__ = ${JSON.stringify(runtimeConfig)};`);
@@ -472,7 +472,7 @@ const server = http.createServer(async (req, res) => {
 
     const incomingHeader = req.headers['x-goog-authenticated-user-email'] || '';
     const cleanHeader = String(incomingHeader).replace(/^accounts\.google\.com:/, '').trim();
-    const email = cleanHeader || process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'demo.user@google.com';
+    const email = cleanHeader || process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'maloosatyam@google.com';
     const name = email.split('@')[0] || 'SSO User';
 
     const saToken = await getGcpAccessToken();

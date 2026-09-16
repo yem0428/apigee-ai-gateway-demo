@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 let ADMIN_KEY = process.env.VITE_ADMIN_API_KEY || process.env.ADMIN_API_KEY || '';
 let SALES_KEY = process.env.VITE_SALES_API_KEY || process.env.SALES_API_KEY || '';
 let LOANS_KEY = process.env.VITE_LOANS_API_KEY || process.env.LOANS_API_KEY || '';
-const TEST_EMAIL = process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'demo.user@google.com';
+const TEST_EMAIL = process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'maloosatyam@google.com';
 const LOCAL_HOST = process.env.TEST_HOST || 'http://localhost:3000';
 const DIRECT_APIGEE_HOST = 'https://api.maloosatyam.demo.altostrat.com';
 

@@ -429,7 +429,7 @@ export default defineConfig(({ mode }) => {
             // Obtain SSO identity token from gcloud for local testing
             const sso = getGcpIdentityToken();
 
-            const email = cleanHeader || sso.email || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || 'demo.user@google.com';
+            const email = cleanHeader || sso.email || env.VITE_SSO_USER_EMAIL || env.SSO_USER_EMAIL || 'maloosatyam@google.com';
             const name = sso.name || (email ? email.split('@')[0] : 'SSO User');
 
             // Obtain Service Account token for Apigee Management API
