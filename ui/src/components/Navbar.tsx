@@ -21,7 +21,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { GatewaySettings, UserPersona, AppTab, AppTheme } from '../types';
-import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER } from '../services/defaultSettings';
+import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER, createSsoUserFromEmail } from '../services/defaultSettings';
 import { ApigeeLogo } from './ApigeeLogo';
 
 export interface AnalyticsNavControls {
@@ -59,11 +59,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [ssoPopoverOpen, setSsoPopoverOpen] = useState(false);
+  const [profileNameInput, setProfileNameInput] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
   const ssoPopoverRef = useRef<HTMLDivElement>(null);
 
   const ssoUser = settings.ssoUser || DEFAULT_SSO_USER;
   const activeUser = USERS[settings.activeUser] || USERS.admin;
   const effectiveEmail = ssoUser.email || settings.userEmail || DEFAULT_SSO_USER.email;
+
+  useEffect(() => {
+    if (ssoUser.name) {
+      setProfileNameInput(ssoUser.name);
+    }
+  }, [ssoUser.name]);
 
   // Close SSO popover on outside click
   useEffect(() => {
@@ -93,18 +102,78 @@ export const Navbar: React.FC<NavbarProps> = ({
     setSettings((prev) => ({ ...prev, model: modelId }));
   };
 
-  const handleEmailUpdate = (newEmail: string, newIdToken?: string) => {
+  const handleEmailUpdate = async (newEmail: string, newIdToken?: string, refresh?: boolean) => {
     const cleanEmail = newEmail.trim() || DEFAULT_SSO_USER.email;
+    try {
+      const url = `/api/me?email=${encodeURIComponent(cleanEmail)}${refresh ? '&refresh=true' : ''}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const resolvedEmail = (data.email || cleanEmail).replace(/^accounts\.google\.com:/, '').trim();
+        const resolvedName = (data.name || '').trim();
+        const token = data.token || newIdToken || ssoUser.idToken;
+        const apiKeys = data.apiKeys || {};
+
+        if (apiKeys.admin || data.apiKey) {
+          USERS.admin.apiKey = apiKeys.admin || data.apiKey;
+        }
+        if (apiKeys.sales_agent) {
+          USERS.sales_agent.apiKey = apiKeys.sales_agent;
+        }
+        if (apiKeys.loans_agent) {
+          USERS.loans_agent.apiKey = apiKeys.loans_agent;
+        }
+
+        const updatedSso = createSsoUserFromEmail(resolvedEmail, ssoUser.provider, token, resolvedName);
+        setSettings((prev) => ({
+          ...prev,
+          userEmail: resolvedEmail,
+          idToken: token,
+          ssoUser: updatedSso,
+          apiKey: apiKeys[prev.activeUser] || USERS[prev.activeUser]?.apiKey || prev.apiKey,
+        }));
+        return;
+      }
+    } catch {
+      // Fallback to client-side update if offline
+    }
+
+    const fallbackSso = createSsoUserFromEmail(cleanEmail, ssoUser.provider, newIdToken !== undefined ? newIdToken : ssoUser.idToken);
     setSettings((prev) => ({
       ...prev,
       userEmail: cleanEmail,
       idToken: newIdToken !== undefined ? newIdToken : prev.idToken,
-      ssoUser: {
-        ...(prev.ssoUser || DEFAULT_SSO_USER),
-        email: cleanEmail,
-        idToken: newIdToken !== undefined ? newIdToken : prev.ssoUser?.idToken,
-      },
+      ssoUser: fallbackSso,
     }));
+  };
+
+  const handleProfileNameSave = async (customName?: string) => {
+    const targetName = (customName ?? profileNameInput).trim();
+    if (!targetName || !ssoUser.email) return;
+    setIsSavingProfile(true);
+    setProfileSaveSuccess(false);
+    try {
+      const res = await fetch('/api/me/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ssoUser.email, fullName: targetName }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const savedFullName = data.fullName || targetName;
+        const updatedSso = createSsoUserFromEmail(ssoUser.email, ssoUser.provider, ssoUser.idToken, savedFullName);
+        setSettings((prev) => ({
+          ...prev,
+          ssoUser: updatedSso,
+        }));
+        setProfileSaveSuccess(true);
+        setTimeout(() => setProfileSaveSuccess(false), 2500);
+      }
+    } catch (err) {
+      console.error('Failed to update developer profile name:', err);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   // Monetization tab is strictly visible only in Admin view
@@ -442,51 +511,74 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-3">
-                  <div className="text-[10px] text-slate-400 mb-1.5">
-                    User Identity (<code className="font-mono text-emerald-400">Authorization: Bearer</code>):
-                  </div>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="email"
-                      defaultValue={ssoUser.email}
-                      onBlur={(e) => handleEmailUpdate(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleEmailUpdate((e.target as HTMLInputElement).value);
-                          setSsoPopoverOpen(false);
-                        }
-                      }}
-                      className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      placeholder="user@domain.com"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch('/api/me?refresh=true');
-                          if (res.ok) {
-                            const data = await res.json();
-                            const clean = (data.email || '').replace(/^accounts\.google\.com:/, '').trim();
-                            if (clean) {
-                              handleEmailUpdate(clean, data.token);
-                              setSsoPopoverOpen(false);
-                              return;
-                            }
+                <div className="pt-3 space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1.5">
+                      <span>Developer Profile Name (First &amp; Last):</span>
+                      {profileSaveSuccess && (
+                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Saved to Gateway
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={profileNameInput}
+                        onChange={(e) => setProfileNameInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleProfileNameSave((e.target as HTMLInputElement).value);
                           }
-                        } catch {
-                          // ignore fetch errors
-                        }
-                        handleEmailUpdate(DEFAULT_SSO_USER.email);
-                        setSsoPopoverOpen(false);
-                      }}
-                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] transition cursor-pointer"
-                      title="Re-generate and sync SSO token from gcloud"
-                    >
-                      Re-sync
-                    </button>
+                        }}
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="First Last"
+                      />
+                      <button
+                        type="button"
+                        disabled={isSavingProfile}
+                        onClick={() => handleProfileNameSave()}
+                        className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg text-[10px] font-semibold transition cursor-pointer"
+                        title="Update Developer First & Last Name in Gateway"
+                      >
+                        {isSavingProfile ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+
+                  <div>
+                    <div className="text-[10px] text-slate-400 mb-1.5">
+                      User Identity (<code className="font-mono text-emerald-400">Authorization: Bearer</code>):
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="email"
+                        key={ssoUser.email}
+                        defaultValue={ssoUser.email}
+                        onBlur={(e) => handleEmailUpdate(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleEmailUpdate((e.target as HTMLInputElement).value);
+                            setSsoPopoverOpen(false);
+                          }
+                        }}
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="user@domain.com"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await handleEmailUpdate(ssoUser.email || DEFAULT_SSO_USER.email, undefined, true);
+                          setSsoPopoverOpen(false);
+                        }}
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] transition cursor-pointer"
+                        title="Re-generate and sync SSO token from gcloud"
+                      >
+                        Re-sync
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
                     {ssoUser.idToken
                       ? 'Authenticated via Google SSO Bearer token. Identity is validated by the gateway on every request for zero-trust governance.'
                       : 'Authenticated user email associated with the active session token.'}

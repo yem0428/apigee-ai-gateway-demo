@@ -90,6 +90,15 @@ export function App() {
         if (!parsed.ssoUser?.isAuthenticated || !parsed.userEmail) {
           delete parsed.ssoUser;
           delete parsed.userEmail;
+        } else if (parsed.ssoUser && parsed.userEmail) {
+          // Ensure any stale single-word handle name in localStorage is refreshed
+          const refreshedSso = createSsoUserFromEmail(
+            parsed.userEmail,
+            parsed.ssoUser.provider,
+            parsed.ssoUser.idToken,
+            parsed.ssoUser.name
+          );
+          parsed.ssoUser = refreshedSso;
         }
 
         return {
@@ -131,13 +140,14 @@ export function App() {
             let email = (data.email || '').trim();
             const idToken = (data.token || '').trim();
             const apiKey = (data.apiKey || '').trim();
+            const fullName = (data.name || '').trim();
 
             if (email.startsWith('accounts.google.com:')) {
               email = email.replace(/^accounts\.google\.com:/, '').trim();
             }
             if (email) {
               const provider = data.provider || (idToken ? 'Google Cloud Identity SSO (gcloud)' : 'Google Cloud Identity SSO (IAP)');
-              const authUser = createSsoUserFromEmail(email, provider, idToken);
+              const authUser = createSsoUserFromEmail(email, provider, idToken, fullName);
 
               const apiKeys = data.apiKeys || {};
 

@@ -553,10 +553,11 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
 
+    const queryEmail = parsedUrl.searchParams.get('email') || '';
     const incomingHeader = req.headers['x-goog-authenticated-user-email'] || '';
     const iapJwtHeader = req.headers['x-goog-iap-jwt-assertion'] || '';
     const cleanHeader = String(incomingHeader).replace(/^accounts\.google\.com:/, '').trim();
-    const email = cleanHeader || process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'maloosatyam@google.com';
+    const email = (queryEmail || cleanHeader || process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'maloosatyam@google.com').trim();
     const resolvedName = resolveUserFullName(email, iapJwtHeader, '');
     let name = resolvedName.fullName || email.split('@')[0] || 'SSO User';
 
@@ -586,6 +587,82 @@ const server = http.createServer(async (req, res) => {
         raw: incomingHeader,
       })
     );
+    return;
+  }
+
+  // 2b. /api/me/profile endpoint (update developer firstName & lastName in Apigee)
+  if (pathname === '/api/me/profile' || pathname === '/api/me/profile/') {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+
+    if (req.method !== 'POST' && req.method !== 'PUT') {
+      res.statusCode = 405;
+      res.end(JSON.stringify({ error: 'Method Not Allowed. Use POST or PUT.' }));
+      return;
+    }
+
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const email = (payload.email || '').trim();
+        const fullName = (payload.fullName || '').trim();
+        if (!email || !fullName) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'Both email and fullName are required' }));
+          return;
+        }
+
+        const parts = fullName.split(/\s+/).filter(Boolean);
+        const firstName = parts[0] || email.split('@')[0];
+        const lastName = parts.slice(1).join(' ') || (email.split('@')[1] || 'Google').split('.')[0];
+
+        const saToken = await getGcpAccessToken();
+        if (!saToken) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: 'Could not obtain GCP access token' }));
+          return;
+        }
+
+        const org = 'bap-apac-demo2';
+        const devUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}`;
+        const devRes = await fetch(devUrl, { headers: { Authorization: `Bearer ${saToken}` } });
+
+        if (devRes.ok) {
+          const devData = await devRes.json();
+          devData.firstName = firstName;
+          devData.lastName = lastName;
+          const putRes = await fetch(devUrl, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${saToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(devData),
+          });
+          if (!putRes.ok) {
+            const errTxt = await putRes.text();
+            res.statusCode = putRes.status;
+            res.end(JSON.stringify({ error: `Failed to update Apigee developer: ${errTxt}` }));
+            return;
+          }
+        } else if (devRes.status === 404) {
+          await provisionUserDeveloperAndApp(org, saToken, email, fullName);
+        }
+
+        res.end(JSON.stringify({
+          status: 'ok',
+          email,
+          firstName,
+          lastName,
+          fullName: `${firstName} ${lastName}`.trim(),
+        }));
+      } catch (err) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
     return;
   }
 

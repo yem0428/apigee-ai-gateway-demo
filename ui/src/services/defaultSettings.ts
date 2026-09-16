@@ -81,10 +81,23 @@ export const getRuntimeEnv = (key: string, fallback: string = ''): string => {
   return buildVal !== undefined && buildVal !== '' ? buildVal : fallback;
 };
 
+const KNOWN_USER_FULL_NAMES: Record<string, string> = {
+  maloosatyam: 'Satyam Maloo',
+  hchidambaram: 'Hariharan Chidambaram',
+  ravikiranlanka: 'Ravikiran Lanka',
+  sudharshans: 'Sudharshan S',
+  madhans: 'Madhan S',
+  ygalstian: 'Yelena Galstian',
+  nswart: 'N Swart',
+  welylau: 'Wely Lau',
+  ayos: 'Ayo S',
+};
+
 export const createSsoUserFromEmail = (
   email: string,
   provider: string = 'Google Cloud Identity SSO',
-  idToken?: string
+  idToken?: string,
+  fullName?: string
 ): SsoUser => {
   const cleanEmail = email.trim();
   if (!cleanEmail) {
@@ -100,11 +113,17 @@ export const createSsoUserFromEmail = (
   }
 
   const namePart = cleanEmail.split('@')[0] || 'User';
-  const displayName = namePart
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
-    .join(' ') || namePart;
+  const lowerHandle = namePart.toLowerCase();
+
+  let displayName = fullName && fullName.trim() && !fullName.endsWith(' User')
+    ? fullName.trim()
+    : KNOWN_USER_FULL_NAMES[lowerHandle] ||
+      namePart
+        .split(/[._-]/)
+        .filter(Boolean)
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+        .join(' ') ||
+      namePart;
 
   let initials = displayName
     .split(' ')
