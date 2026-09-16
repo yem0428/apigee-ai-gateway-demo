@@ -353,6 +353,29 @@ async function provisionUserDeveloperAndApp(
       });
     }
 
+    // 5. Ensure Developer Rate Plan Subscriptions for AI Products
+    const subsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/subscriptions`;
+    const subsRes = await fetch(subsUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const existingProducts = new Set<string>();
+    if (subsRes.ok) {
+      const subsData = await subsRes.json();
+      for (const s of subsData.developerSubscriptions || []) {
+        if (s.apiproduct) existingProducts.add(s.apiproduct);
+      }
+    }
+    for (const product of ['Enterprise AI Tier', 'Standard AI Tier']) {
+      if (!existingProducts.has(product)) {
+        console.log(`[Vite Server] Auto-subscribing developer ${email} to ${product}...`);
+        await fetch(subsUrl, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiproduct: product }),
+        });
+      }
+    }
+
     return { apiKey: apiKeys.admin || '', apiKeys, username };
   } catch (err: any) {
     console.error('[Vite Server] Error provisioning user developer and apps:', err.message);
@@ -1018,16 +1041,20 @@ export default defineConfig(({ mode }) => {
                   const email = d.email;
                   let balanceUsd = 0;
                   let hasWallet = false;
+                  let resolvedBillingType = 'PREPAID';
                   let apps: string[] = [];
                   let firstName = '';
                   let lastName = '';
 
                   try {
-                    const [balRes, detRes] = await Promise.all([
+                    const [balRes, detRes, cfgRes] = await Promise.all([
                       fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/balance`, {
                         headers: { Authorization: `Bearer ${token}` },
                       }),
                       fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      }),
+                      fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/monetizationConfig`, {
                         headers: { Authorization: `Bearer ${token}` },
                       }),
                     ]);
@@ -1041,6 +1068,15 @@ export default defineConfig(({ mode }) => {
                         const nanos = Number(primaryWallet.balance.nanos || 0);
                         balanceUsd = Number((units + nanos / 1e9).toFixed(2));
                       }
+                    }
+
+                    if (cfgRes.ok) {
+                      const cJson = await cfgRes.json();
+                      if (cJson.billingType) {
+                        resolvedBillingType = cJson.billingType;
+                      }
+                    } else {
+                      resolvedBillingType = hasWallet ? 'PREPAID' : 'POSTPAID';
                     }
 
                     if (detRes.ok) {
@@ -1060,8 +1096,8 @@ export default defineConfig(({ mode }) => {
                     userEmail: email,
                     name: fullName,
                     tier: isEnterprise ? 'Enterprise AI Tier' : 'Standard AI Tier',
-                    badge: hasWallet ? 'Prepaid Wallet' : 'Developer',
-                    billingType: hasWallet ? 'PREPAID' : 'POSTPAID',
+                    badge: resolvedBillingType === 'PREPAID' ? 'Prepaid Wallet' : 'Postpaid Plan',
+                    billingType: resolvedBillingType,
                     totalConsumedUsd: consumedUsd,
                     totalCalls: userStats.calls,
                     totalTokens: userStats.tokens,

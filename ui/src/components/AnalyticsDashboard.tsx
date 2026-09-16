@@ -195,7 +195,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         (u) => u.userEmail.toLowerCase() === currentUserEmail.toLowerCase()
       );
       const bal = match ? match.currentBalanceUsd : 0;
-      const isPrepaid = match ? match.billingType === 'PREPAID' : false;
+      const isPrepaid = match ? match.billingType === 'PREPAID' : true;
       return {
         amount: bal.toFixed(2),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
@@ -209,7 +209,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         (u) => u.userEmail.toLowerCase() === userFilter.toLowerCase()
       );
       const bal = match ? match.currentBalanceUsd : 0;
-      const isPrepaid = match ? match.billingType === 'PREPAID' : false;
+      const isPrepaid = match ? match.billingType === 'PREPAID' : true;
       return {
         amount: bal.toFixed(2),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
