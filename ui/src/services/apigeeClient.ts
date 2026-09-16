@@ -274,6 +274,32 @@ export async function sendPromptToApigee(
       }
     }
 
+    // Record real-time session wallet debit so Start Balance -> Remaining chains continuously across requests
+    if (responseStatus >= 200 && responseStatus < 300) {
+      const amountToDebit = cacheStatus === 'HIT' ? 0 : parseFloat(effectiveCostUsd || '0');
+      const rawApigeeBal = parseFloat(headersReceived['x-gateway-prepaid-balance'] || '110');
+      try {
+        const debitRes = await fetch('/api/monetization/debit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            developer: effectiveEmail,
+            amountUsd: isNaN(amountToDebit) ? 0 : amountToDebit,
+            rawApigeeBalanceUsd: isNaN(rawApigeeBal) ? 110 : rawApigeeBal,
+          }),
+        });
+        if (debitRes.ok) {
+          const debitData = await debitRes.json();
+          if (typeof debitData.startBalanceUsd === 'number' && typeof debitData.remainingBalanceUsd === 'number') {
+            headersReceived['x-gateway-prepaid-balance'] = debitData.startBalanceUsd.toFixed(6);
+            headersReceived['x-gateway-balance-remaining'] = debitData.remainingBalanceUsd.toFixed(6);
+          }
+        }
+      } catch {
+        // Fallback if backend debit ledger unreachable
+      }
+    }
+
     const telemetry: GatewayTelemetry = {
       status: responseStatus,
       statusText: responseStatusText || (responseStatus === 200 ? 'OK' : 'Error'),

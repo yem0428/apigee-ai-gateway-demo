@@ -197,7 +197,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       const bal = match ? match.currentBalanceUsd : 0;
       const isPrepaid = match ? match.billingType === 'PREPAID' : true;
       return {
-        amount: bal.toFixed(2),
+        amount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
         subtitle: `Authenticated User (${currentUserEmail})`,
         sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
@@ -211,7 +211,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       const bal = match ? match.currentBalanceUsd : 0;
       const isPrepaid = match ? match.billingType === 'PREPAID' : true;
       return {
-        amount: bal.toFixed(2),
+        amount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
         subtitle: isPrepaid ? `Prepaid Balance (${userFilter})` : `Postpaid Plan (${userFilter})`,
         sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
@@ -222,7 +222,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     const totalPool = attributions.reduce((acc, u) => acc + (u.currentBalanceUsd || 0), 0);
     const userCount = attributions.length || userList.length || 1;
     return {
-      amount: totalPool.toFixed(2),
+      amount: Number(totalPool || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
       badge: 'All Users Pool',
       subtitle: `Combined across ${userCount} active developer${userCount === 1 ? '' : 's'} (Select user to inspect)`,
       sparkline: totalPool > 0 ? [totalPool, totalPool, totalPool, totalPool, totalPool] : [0, 0, 0, 0, 0],

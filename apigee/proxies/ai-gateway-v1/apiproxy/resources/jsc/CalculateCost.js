@@ -113,7 +113,11 @@ context.setVariable("flow.tx_cost_usd", totalCostUSD.toFixed(6));
 context.setVariable("flow.tx_cost_micros", costMicros.toString());
 
 // Apigee Monetization Rating Engine variables
-context.setVariable("perUnitPriceMultiplier", totalCostUSD.toFixed(6));
+// Rate plans have base fee = $0.001 USD (1,000,000 nanos).
+// Since Charged Amount = Base Fee ($0.001) * perUnitPriceMultiplier,
+// perUnitPriceMultiplier must be totalCostUSD * 1000 so that $0.001 * (totalCostUSD * 1000) = totalCostUSD.
+var ratePlanMultiplier = totalCostUSD * 1000.0;
+context.setVariable("perUnitPriceMultiplier", ratePlanMultiplier.toFixed(6));
 context.setVariable("currency", "USD");
 context.setVariable("transactionSuccess", "true");
 

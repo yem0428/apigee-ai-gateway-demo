@@ -9,6 +9,9 @@ import path from 'node:path'
 let cachedToken = ''
 let tokenExpiry = 0
 
+// Real-time session debit ledger per developer email to bridge Apigee's 15-min Analytics settlement window
+const sessionLedgerByDev = new Map<string, { debitedUsd: number; lastCreditTimeSeen: string }>()
+
 async function getGcpAccessToken(): Promise<string> {
   const now = Date.now()
   if (cachedToken && now < tokenExpiry) {
@@ -584,6 +587,30 @@ export default defineConfig(({ mode }) => {
                 headers: { Authorization: `Bearer ${token}` },
               });
               const data = await apiRes.json();
+
+              // Apply real-time session debit ledger to bridge Apigee's 15-min Analytics settlement window
+              const primaryWallet = data?.wallets?.[0];
+              if (primaryWallet?.balance) {
+                const devKey = dev.toLowerCase();
+                const entry = sessionLedgerByDev.get(devKey);
+                const creditTime = String(primaryWallet.lastCreditTime || '');
+                if (entry) {
+                  if (entry.lastCreditTimeSeen && creditTime && entry.lastCreditTimeSeen !== creditTime) {
+                    sessionLedgerByDev.delete(devKey);
+                  } else {
+                    entry.lastCreditTimeSeen = creditTime;
+                    const rawUnits = Number(primaryWallet.balance.units || 0);
+                    const rawNanos = Number(primaryWallet.balance.nanos || 0);
+                    const rawTotalUsd = rawUnits + rawNanos / 1e9;
+                    const effectiveUsd = Math.max(0, rawTotalUsd - entry.debitedUsd);
+                    const newUnits = Math.floor(effectiveUsd);
+                    const newNanos = Math.round((effectiveUsd - newUnits) * 1e9);
+                    primaryWallet.balance.units = String(newUnits);
+                    primaryWallet.balance.nanos = newNanos;
+                  }
+                }
+              }
+
               res.statusCode = apiRes.status;
               res.end(JSON.stringify({
                 status: apiRes.ok ? 'ok' : 'error',
@@ -595,6 +622,53 @@ export default defineConfig(({ mode }) => {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: err.message }));
             }
+          });
+
+          // Real-time session wallet debit
+          server.middlewares.use('/api/monetization/debit', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.end(JSON.stringify({ error: 'Method Not Allowed. Use POST.' }));
+              return;
+            }
+
+            let body = '';
+            req.on('data', (chunk) => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}');
+                const dev = (payload.developer || env.DEV_EMAIL || 'maloosatyam@google.com').toLowerCase();
+                const amountUsd = Math.max(0, Number(payload.amountUsd || 0));
+                const rawApigeeBalanceUsd = Number(payload.rawApigeeBalanceUsd || 110);
+
+                let entry = sessionLedgerByDev.get(dev);
+                if (!entry) {
+                  entry = { debitedUsd: 0, lastCreditTimeSeen: '' };
+                  sessionLedgerByDev.set(dev, entry);
+                }
+
+                const priorDebitedUsd = entry.debitedUsd;
+                entry.debitedUsd = Number((priorDebitedUsd + amountUsd).toFixed(6));
+
+                const startBalanceUsd = Math.max(0, Number((rawApigeeBalanceUsd - priorDebitedUsd).toFixed(6)));
+                const remainingBalanceUsd = Math.max(0, Number((startBalanceUsd - amountUsd).toFixed(6)));
+
+                res.end(JSON.stringify({
+                  status: 'ok',
+                  developer: dev,
+                  debitedThisRequestUsd: amountUsd,
+                  totalDebitedSessionUsd: entry.debitedUsd,
+                  startBalanceUsd,
+                  remainingBalanceUsd,
+                }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            });
           });
 
           // Apigee Monetization wallet credit / top-up
@@ -641,6 +715,8 @@ export default defineConfig(({ mode }) => {
                     transactionId: txId,
                   }),
                 });
+
+                sessionLedgerByDev.delete(dev.toLowerCase());
 
                 const data = await creditRes.json();
                 res.statusCode = creditRes.status;
@@ -1070,7 +1146,9 @@ export default defineConfig(({ mode }) => {
                         hasWallet = true;
                         const units = Number(primaryWallet.balance.units || 0);
                         const nanos = Number(primaryWallet.balance.nanos || 0);
-                        balanceUsd = Number((units + nanos / 1e9).toFixed(2));
+                        const rawTotal = units + nanos / 1e9;
+                        const sessionDebit = sessionLedgerByDev.get(email.toLowerCase())?.debitedUsd || 0;
+                        balanceUsd = Number(Math.max(0, rawTotal - sessionDebit).toFixed(6));
                       }
                     }
 
@@ -1094,7 +1172,8 @@ export default defineConfig(({ mode }) => {
                   const fullName = [firstName, lastName].filter(Boolean).join(' ') || (email.split('@')[0]);
                   const isEnterprise = apps.some((a) => a.toLowerCase().includes('enterprise') || a.toLowerCase().includes('admin'));
                   const userStats = statsByUser[email] || { calls: 0, tokens: 0 };
-                  const consumedUsd = Number(((userStats.tokens / 1_000_000) * 0.75).toFixed(2));
+                  const sessionDebit = sessionLedgerByDev.get(email.toLowerCase())?.debitedUsd || 0;
+                  const consumedUsd = Number(((userStats.tokens / 1_000_000) * 0.75 + sessionDebit).toFixed(6));
 
                   return {
                     userEmail: email,

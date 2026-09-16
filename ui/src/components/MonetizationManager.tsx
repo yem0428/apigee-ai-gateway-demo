@@ -407,7 +407,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
     const units = walletBalance.units || '0';
     const nanos = walletBalance.nanos || 0;
     const total = Number(units) + (Number(nanos) || 0) / 1_000_000_000;
-    return total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fixed6 = total.toFixed(6);
+    return fixed6.replace(/(\.\d{2,}?)0+$/, '$1');
   }, [walletBalance, isSimulatingExhaustedWallet]);
 
   const userAttributions: UserMonetizationAttribution[] = useMemo(() => {
@@ -781,7 +782,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           {/* Consumed (Sum) */}
                           <td className="py-3">
                             <div className="font-bold text-slate-900 dark:text-slate-100">
-                              ${(user.totalConsumedUsd || 0).toFixed(2)}{' '}
+                              ${Number(user.totalConsumedUsd || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1')}{' '}
                               <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
                             </div>
                             <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
@@ -794,7 +795,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                             {isPrepaid ? (
                               <>
                                 <div className={`font-bold ${isDepleted ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                  ${(user.currentBalanceUsd || 0).toFixed(2)}{' '}
+                                  ${Number(user.currentBalanceUsd || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1')}{' '}
                                   <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
                                 </div>
                                 <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
