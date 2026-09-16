@@ -59,20 +59,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [ssoPopoverOpen, setSsoPopoverOpen] = useState(false);
-  const [profileNameInput, setProfileNameInput] = useState('');
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
   const ssoPopoverRef = useRef<HTMLDivElement>(null);
 
   const ssoUser = settings.ssoUser || DEFAULT_SSO_USER;
   const activeUser = USERS[settings.activeUser] || USERS.admin;
   const effectiveEmail = ssoUser.email || settings.userEmail || DEFAULT_SSO_USER.email;
-
-  useEffect(() => {
-    if (ssoUser.name) {
-      setProfileNameInput(ssoUser.name);
-    }
-  }, [ssoUser.name]);
 
   // Close SSO popover on outside click
   useEffect(() => {
@@ -145,35 +136,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       idToken: newIdToken !== undefined ? newIdToken : prev.idToken,
       ssoUser: fallbackSso,
     }));
-  };
-
-  const handleProfileNameSave = async (customName?: string) => {
-    const targetName = (customName ?? profileNameInput).trim();
-    if (!targetName || !ssoUser.email) return;
-    setIsSavingProfile(true);
-    setProfileSaveSuccess(false);
-    try {
-      const res = await fetch('/api/me/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: ssoUser.email, fullName: targetName }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const savedFullName = data.fullName || targetName;
-        const updatedSso = createSsoUserFromEmail(ssoUser.email, ssoUser.provider, ssoUser.idToken, savedFullName);
-        setSettings((prev) => ({
-          ...prev,
-          ssoUser: updatedSso,
-        }));
-        setProfileSaveSuccess(true);
-        setTimeout(() => setProfileSaveSuccess(false), 2500);
-      }
-    } catch (err) {
-      console.error('Failed to update developer profile name:', err);
-    } finally {
-      setIsSavingProfile(false);
-    }
   };
 
   // Monetization tab is strictly visible only in Admin view
@@ -511,41 +473,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-3 space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1.5">
-                      <span>Developer Profile Name (First &amp; Last):</span>
-                      {profileSaveSuccess && (
-                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Saved to Gateway
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="text"
-                        value={profileNameInput}
-                        onChange={(e) => setProfileNameInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleProfileNameSave((e.target as HTMLInputElement).value);
-                          }
-                        }}
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="First Last"
-                      />
-                      <button
-                        type="button"
-                        disabled={isSavingProfile}
-                        onClick={() => handleProfileNameSave()}
-                        className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg text-[10px] font-semibold transition cursor-pointer"
-                        title="Update Developer First & Last Name in Gateway"
-                      >
-                        {isSavingProfile ? 'Saving...' : 'Save'}
-                      </button>
-                    </div>
-                  </div>
-
+                <div className="pt-3">
                   <div>
                     <div className="text-[10px] text-slate-400 mb-1.5">
                       User Identity (<code className="font-mono text-emerald-400">Authorization: Bearer</code>):
