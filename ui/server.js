@@ -156,7 +156,7 @@ const KNOWN_USER_NAMES = {
   ravikiranlanka: { firstName: 'Ravikiran', lastName: 'Lanka' },
   sudharshans: { firstName: 'Sudharshan', lastName: 'S' },
   madhans: { firstName: 'Madhan', lastName: 'S' },
-  ygalstian: { firstName: 'Yuri', lastName: 'Galstian' },
+  ygalstian: { firstName: 'Yelena', lastName: 'Galstian' },
   nswart: { firstName: 'N', lastName: 'Swart' },
   welylau: { firstName: 'Wely', lastName: 'Lau' },
   ayos: { firstName: 'Ayo', lastName: 'S' },
@@ -895,7 +895,7 @@ const server = http.createServer(async (req, res) => {
               if (planRes.ok) {
                 return await planRes.json();
               }
-            } catch {}
+            } catch { }
             return null;
           });
           const loadedPlans = await Promise.all(planPromises);
@@ -1074,7 +1074,7 @@ const server = http.createServer(async (req, res) => {
         try {
           const kvmData = await kvmRes.json();
           rates = typeof kvmData.value === 'string' ? JSON.parse(kvmData.value) : kvmData.value || {};
-        } catch {}
+        } catch { }
       }
 
       let totalProxyCalls = 0;
@@ -1228,7 +1228,7 @@ const server = http.createServer(async (req, res) => {
             statsByUser[email] = { calls, tokens };
           }
         }
-      } catch {}
+      } catch { }
 
       const attributions = await Promise.all(
         developers.map(async (d) => {
@@ -1281,7 +1281,7 @@ const server = http.createServer(async (req, res) => {
               firstName = dJson.firstName || '';
               lastName = dJson.lastName || '';
             }
-          } catch {}
+          } catch { }
 
           const fullName = [firstName, lastName].filter(Boolean).join(' ') || email.split('@')[0];
           const isEnterprise = apps.some((a) => a.toLowerCase().includes('enterprise') || a.toLowerCase().includes('admin'));

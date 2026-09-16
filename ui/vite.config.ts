@@ -165,7 +165,7 @@ const KNOWN_USER_NAMES: Record<string, { firstName: string; lastName: string }> 
   ravikiranlanka: { firstName: 'Ravikiran', lastName: 'Lanka' },
   sudharshans: { firstName: 'Sudharshan', lastName: 'S' },
   madhans: { firstName: 'Madhan', lastName: 'S' },
-  ygalstian: { firstName: 'Yuri', lastName: 'Galstian' },
+  ygalstian: { firstName: 'Yelena', lastName: 'Galstian' },
   nswart: { firstName: 'N', lastName: 'Swart' },
   welylau: { firstName: 'Wely', lastName: 'Lau' },
   ayos: { firstName: 'Ayo', lastName: 'S' },
