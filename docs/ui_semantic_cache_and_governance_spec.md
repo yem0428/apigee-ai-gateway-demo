@@ -1,7 +1,7 @@
 # Frontend UI Reference: Gateway Governance & Semantic Cache Surfaces
 
 > **Repository path**: `ui/`
-> **Status**: Reconciled against source on 2026-09-15. Sections are explicitly labelled
+> **Status**: Reconciled against source on 2026-09-17. Sections are explicitly labelled
 > **Implemented** or **Proposal (not built)**.
 > **Associated proxies**: [`apigee/proxies/ai-gateway-v1`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1),
 > [`apigee/proxies/mcp`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp)
@@ -34,7 +34,7 @@
 
 ## 2. Component inventory (Implemented)
 
-Fourteen components exist under
+**Fifteen** components exist under
 [`ui/src/components/`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components).
 
 | Component | Purpose | Mounted today? |
@@ -43,6 +43,7 @@ Fourteen components exist under
 | [ApigeeLogo.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ApigeeLogo.tsx) | Exports `ApigeeLogo` and `ApigeeColorSymbol` | Yes — Navbar, ChatPlayground |
 | [ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) | Interactive AI Gateway, MCP Tools Gateway & ADK Dual-Pattern architecture pipeline diagram with clickable XML policy inspector, live trace correlation, and dynamic short-circuit `Tested Request Flow` mode | Yes — App (`Architecture` button in Navbar + inline `Request Flow` button next to Target URL / MCP Operation) |
 | [ChatPlayground.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx) | Chat pane + scenario chips + trace pane | Yes — `ai-gateway` tab |
+| [DeveloperOnboardingModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DeveloperOnboardingModal.tsx) | First-run name-confirmation gate; collects first/last name and `POST`s to `/api/me/onboard` to create the developer, app, prepaid wallet and subscription | Yes — App, conditionally: rendered only when `GET /api/me` returns `needsOnboarding: true` ([App.tsx#L528](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L528)) |
 | [DonutPieChart.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DonutPieChart.tsx) | Chart primitive | Yes — AnalyticsDashboard |
 | [GatewaySettingsModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewaySettingsModal.tsx) | Settings modal, heading **"Gateway Configuration"** | Yes — App |
 | [GatewayTraceViewer.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx) | AI Gateway telemetry panel | Yes — ChatPlayground |
@@ -74,6 +75,8 @@ flowchart TD
     Donut["DonutPieChart.tsx"]
     Money["MonetizationManager.tsx (wallets | rate-cards | rate-plans)"]
     Modal["GatewaySettingsModal.tsx"]
+    Blueprint["ArchitectureBlueprintModal.tsx (policy inspector)"]
+    Onboard["DeveloperOnboardingModal.tsx (first-run name gate)"]
     Theme["ThemeSelector.tsx"]
 
     App --> Navbar
@@ -82,6 +85,8 @@ flowchart TD
     App --> Analytics
     App --> Money
     App --> Modal
+    App --> Blueprint
+    App -->|"only when /api/me returns needsOnboarding"| Onboard
     App --> Theme
     Chat --> GTV
     Mcp --> MTV
@@ -142,7 +147,7 @@ Admin view is `analyticsControls?.viewMode === 'admin'` on the analytics tab, ot
 
 ## 4. Request header contract (Implemented)
 
-### 4.1 AI Gateway — [`apigeeClient.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L131-L148)
+### 4.1 AI Gateway — [`apigeeClient.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L149-L167)
 
 ```ts
 const headersSent: Record<string, string> = {
@@ -169,7 +174,7 @@ if (settings.useCache) headersSent['use-cache'] = 'true';
 > ([default.xml#L79-L83](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L79-L83)),
 > but the UI never sends it. Do not document `x-use-cache` as a UI behaviour.
 
-[`exhaustLlmQuota()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L363-L399)
+[`exhaustLlmQuota()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L407-L443)
 is a helper that fires a large `gemini-3.1-flash-lite` prompt with only
 `Content-Type`, `x-apikey`, `X-User-Email`.
 
@@ -183,30 +188,101 @@ Both `tools/list` and `tools/call` POST JSON-RPC 2.0 envelopes to the resolved M
 
 ## 5. Response headers the UI consumes (Implemented)
 
-The gateway sets these in
-[`AM-SetResponseHeaders.xml`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/AM-SetResponseHeaders.xml).
+### 5.0 What the gateway actually sets
+
+[`AM-SetResponseHeaders.xml`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/AM-SetResponseHeaders.xml)
+sets **exactly fifteen** headers, and no others:
+
+`x-gateway-model`, `x-gateway-provider`, `x-auto-routed`, `x-gateway-cost-tier`,
+`x-gateway-cost-usd`, `x-gateway-currency`, `x-gateway-cached`, `x-gateway-cache-status`,
+`x-gateway-prompt-tokens`, `x-gateway-completion-tokens`, `x-gateway-total-tokens`,
+`x-gateway-monetization-status`, `x-gateway-prepaid-balance`, `x-gateway-prepaid-currency`,
+`x-gateway-balance-remaining`.
+
+The policy has `IgnoreUnresolvedVariables=true`, so a header whose source flow variable is unset is
+emitted empty rather than omitted.
+
 `apigeeClient` lower-cases and stores **every** response header in `telemetry.headersReceived`, then
 reads the following explicitly:
 
 | Header | Read at | Used for |
 | --- | --- | --- |
-| `x-gateway-cache-status` | [apigeeClient.ts#L195-L204](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L195-L204) | `telemetry.cacheStatus` (`HIT` / `MISS` / `DISABLED`) |
-| `x-gateway-cached` | same | Fallback when `x-gateway-cache-status` is absent |
-| `x-gateway-model` | L264 | Resolved model name |
-| `x-gateway-provider` | L242 | Upstream provider |
-| `x-auto-routed` | L247, L266 | Auto-routing badge |
-| `x-gateway-cost-usd` | L243 | Cost readout (client-side estimate if absent) |
-| `x-gateway-cost-tier` | L244 | Cost tier label |
-| `x-gateway-prompt-tokens` | L239 | Prompt tokens when the body has no usage block |
-| `x-gateway-completion-tokens` | L240 | Completion tokens |
-| `x-gateway-total-tokens` | L241 | Total tokens |
-| `x-gateway-category` / `x-gateway-intent` | L245 | Routing intent label |
+| `x-gateway-cache-status` | [apigeeClient.ts#L212-L222](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L212-L222) | `telemetry.cacheStatus` (`HIT` / `MISS` / `DISABLED`) |
+| `x-gateway-cached` | [L217](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L217) | Fallback when `x-gateway-cache-status` is absent |
+| `x-gateway-model` | [L266](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L266), [L308](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L308) | Resolved model name |
+| `x-gateway-provider` | [L260](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L260) | Upstream provider |
+| `x-auto-routed` | [L265](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L265), [L310](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L310) | Auto-routing badge |
+| `x-gateway-cost-usd` | [L261](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L261) | Cost readout (client-side estimate if absent) |
+| `x-gateway-cost-tier` | [L262](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L262) | Cost tier label |
+| `x-gateway-prompt-tokens` | [L257](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L257) | Prompt tokens when the body has no usage block |
+| `x-gateway-completion-tokens` | [L258](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L258) | Completion tokens |
+| `x-gateway-total-tokens` | [L259](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L259) | Total tokens |
+| `x-gateway-prepaid-balance` | [L280](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L280), [GatewayTraceViewer.tsx#L340](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L340) | Session-ledger baseline and the "Start Balance" tile |
 | `x-gateway-monetization-status` | [GatewayTraceViewer.tsx#L309](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L309) | Wallet-depleted (403) styling |
-| `x-gateway-prepaid-balance` | [L340](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L340) | "Start Balance" tile |
-| `x-gateway-balance-remaining` | [L346](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L346) | "Remaining" tile |
+| `x-gateway-balance-remaining` | [GatewayTraceViewer.tsx#L346](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L346) | "Remaining" tile |
 
 The proxy also emits `x-gateway-currency` and `x-gateway-prepaid-currency`; the UI does not read
 them today, though both appear in the raw headers accordion.
+
+### 5.0.1 Headers the UI reads that the gateway never sets (dead reads)
+
+> [!WARNING]
+> Every lookup below resolves to `undefined` on every request. No policy in
+> [`ai-gateway-v1`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1) sets
+> any of them — a repository-wide search of `apigee/` returns zero matches. Do not present these as
+> gateway telemetry, and do not "fix" a blank value by looking for a proxy bug: the writer does not
+> exist.
+
+| Header | Read at | Actual effect |
+| --- | --- | --- |
+| `x-gateway-category` | [apigeeClient.ts#L263](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L263) | Always `undefined`. First term of `effectiveCategory`. |
+| `x-gateway-intent` | [apigeeClient.ts#L263](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L263) | Always `undefined`. Second term of the same expression, so `effectiveCategory` is always `undefined` too. |
+| `x-gateway-quota-remaining` | [ArchitectureBlueprintModal.tsx#L84](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx#L84) | Always `undefined`; falls through to `x-ratelimit-remaining`, which the gateway does not set either, so `remainingTokens` is permanently empty. |
+
+Because both intent headers are dead, the `Model Routing` card's intent label is **always** produced
+by the client-side heuristic at
+[apigeeClient.ts#L264-L275](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L264-L275):
+when the request was auto-routed, the model name is string-matched to yield `General / Fast`
+(`flash`), `Deep Reasoning` (`pro`), or `Coding` (`claude` / `opus`), defaulting to `General / Fast`.
+When the request was *not* auto-routed, `intent` stays `undefined`.
+
+### 5.1 `GatewayTelemetry` type contract
+
+[`ui/src/types/index.ts#L40-L81`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L40-L81)
+mixes fields that come from the gateway with fields the client computes. The distinction matters
+when judging whether a number in the trace pane is authoritative.
+
+| Field | Source | Notes |
+| --- | --- | --- |
+| `status`, `statusText` | Gateway | HTTP response line |
+| `model` | Gateway, with fallback | `x-gateway-model`, else the requested model |
+| `provider` | Gateway, with fallback | `x-gateway-provider`, else inferred from the model prefix |
+| `autoRouted` | Gateway, with fallback | `x-auto-routed === 'true'`, else the client's `isAuto` flag |
+| `costUsd` | Gateway, with fallback | `x-gateway-cost-usd`, else a client estimate at `$0.20 / 1M` tokens |
+| `costTier` | Gateway, with fallback | `x-gateway-cost-tier`, else inferred from the model name |
+| `promptTokens`, `candidatesTokens`, `totalTokens` | Body first, then gateway | Response `usageMetadata` / `usage`, falling back to the token headers |
+| `cacheStatus` | Gateway | `x-gateway-cache-status`, else derived from `x-gateway-cached` |
+| `headersReceived` | Gateway | Every response header, lower-cased — **except** the two wallet keys, which the debit ledger overwrites |
+| **`latencyMs`** | **Client** | `Math.round(performance.now() - startTime)` ([apigeeClient.ts#L195](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L195)) — full browser round-trip including the local proxy hop |
+| **`intent`** | **Client** | Always the heuristic in §5.0.1; the gateway sets no intent header |
+| **`guardrailStatus`, `guardrailMessage`** | **Client** | Inferred by string-matching the 400 response body for `model armor` / `sanitize` / `blocked` / `sup-userprompt` ([L199-L204](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L199-L204)) |
+| `headersSent`, `rawRequest`, `endpointUrl`, `targetUrl`, `environment`, `user`, `userEmail`, `ssoUser`, `requestedModel` | Client | Request-side context |
+
+The `x-*` keys at the bottom of the interface are **backwards-compatibility aliases**, not headers.
+They are assigned from already-resolved values
+([apigeeClient.ts#L331-L341](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L331-L341)),
+so reading `telemetry['x-gateway-cached']` gives the client's `cacheStatus === 'HIT'` verdict, not
+the raw header.
+
+> [!CAUTION]
+> `x-gateway-latency-ms` is **not** a gateway header. It is `String(durationMs)` from the client
+> stopwatch ([apigeeClient.ts#L340](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L340)).
+> The name is misleading — it measures browser round-trip, not gateway processing time.
+>
+> `x-pii-redacted` ([types/index.ts#L77](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L77))
+> is **fully dead**: no policy sets it, nothing assigns it, and no component reads it. It is the only
+> occurrence of the string in the entire repository. Delete it or implement it; do not document it as
+> a capability.
 
 > [!WARNING]
 > Both balance tiles fall back to the hardcoded literal `109.988` when the headers are missing, so a
@@ -223,26 +299,51 @@ MCP trace even if the gateway sends them.
 ## 6. Backend proxy endpoints (Implemented)
 
 Two equivalent implementations exist: Vite dev middleware in
-[`ui/vite.config.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L385-L1080)
-and the production Node server [`ui/server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js).
+[`ui/vite.config.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L667-L1588)
+(the `configureServer` hook) and the production Node server
+[`ui/server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js).
 Both mint a GCP access token server-side and call the Apigee Management API.
 
 | Route | Methods | Server handler | Client wrapper |
 | --- | --- | --- | --- |
-| `/api/me` | GET | [server.js#L438](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L438) | inline `fetch` in `apigeeClient` |
-| `/api/kvm/rates` | GET, PUT | [server.js#L476](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L476) | `fetchModelRates`, `updateModelRates` |
-| `/api/monetization/balance` | GET (`?dev=`) | [server.js#L579](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L579) | `fetchDeveloperBalance` |
-| `/api/monetization/credit` | POST | [server.js#L611](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L611) | `creditDeveloperBalance` |
-| `/api/monetization/rateplans` | GET | [server.js#L673](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L673) | `fetchRatePlans` |
-| `/api/monetization/subscriptions` | GET, POST | [server.js#L725](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L725) | `fetchDeveloperSubscriptions`, `subscribeDeveloper` |
-| `/api/monetization/config` | GET, PUT | [server.js#L794](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L794) | `fetchDeveloperMonetizationConfig`, `updateDeveloperMonetizationConfig` |
-| `/api/analytics/fleet-stats` | GET (`?timeRange=&env=`) | [server.js#L852](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L852) | `fetchFleetAnalytics` |
-| `/api/monetization/attributions` | GET | [server.js#L1006](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1006) | `fetchDeveloperAttributions` |
+| `/env-config.js` | GET | [server.js#L698](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L698-L710) | `window.__RUNTIME_CONFIG__`, read by `defaultSettings.ts` |
+| `/api/me` | GET (`?email=`) | [server.js#L713](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L713-L772) | inline `fetch` in `apigeeClient` and `App.tsx` |
+| `/api/me/onboard` | POST, PUT | [server.js#L775](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L774-L854) | `DeveloperOnboardingModal` inline `fetch` |
+| `/api/me/profile` | POST, PUT | [server.js#L778](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L774-L854) | same handler as `/api/me/onboard`; used to rename an existing developer |
+| `/api/kvm/rates` | GET, PUT, POST | [server.js#L857](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L857-L958) | `fetchModelRates`, `updateModelRates` |
+| `/api/monetization/balance` | GET (`?dev=`) | [server.js#L960](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L960-L1015) | `fetchDeveloperBalance` |
+| `/api/monetization/debit` | POST only | [server.js#L1017](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1017-L1061) | inline `fetch` in `apigeeClient` ([L282](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L282)) |
+| `/api/monetization/credit` | POST | [server.js#L1064](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1064-L1127) | `creditDeveloperBalance` |
+| `/api/monetization/rateplans` | GET | [server.js#L1129](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1129-L1179) | `fetchRatePlans` |
+| `/api/monetization/subscriptions` | GET, POST | [server.js#L1181](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1181-L1248) | `fetchDeveloperSubscriptions`, `subscribeDeveloper` |
+| `/api/monetization/config` | GET, PUT, POST | [server.js#L1250](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1250-L1306) | `fetchDeveloperMonetizationConfig`, `updateDeveloperMonetizationConfig` |
+| `/api/analytics/fleet-stats` | GET (`?timeRange=&env=`) | [server.js#L1308](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1308-L1532) | `fetchFleetAnalytics` |
+| `/api/monetization/attributions` | GET | [server.js#L1534](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1534-L1680) | `fetchDeveloperAttributions` |
+
+> [!IMPORTANT]
+> `/api/monetization/debit` is **not** an Apigee route. It is a local session ledger:
+>
+> - **POST only** — any other method returns `405 Method Not Allowed. Use POST.`
+>   ([server.js#L1020-L1024](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1020-L1024)).
+> - It never calls the Apigee Management API and never acquires a GCP token. All state lives in the
+>   in-memory `Map` `sessionLedgerByDev`
+>   ([server.js#L36](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L36)), keyed by
+>   lower-cased developer email, and is lost on every container restart or new revision.
+> - It takes `{ developer, amountUsd, rawApigeeBalanceUsd }` and returns
+>   `{ status, developer, debitedThisRequestUsd, totalDebitedSessionUsd, startBalanceUsd,
+>   remainingBalanceUsd }`.
+> - `apigeeClient` calls it after every 2xx gateway response and **overwrites**
+>   `headersReceived['x-gateway-prepaid-balance']` and `['x-gateway-balance-remaining']` with the
+>   ledger's values ([apigeeClient.ts#L294-L295](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L294-L295)),
+>   so the Wallet tiles chain continuously across requests. The values shown are therefore a session
+>   simulation layered on the real gateway balance, not a live Apigee wallet read.
 
 Pass-through proxies (prefix match,
-[server.js#L1109-L1157](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1109-L1157)):
+[server.js#L1683-L1734](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1683-L1734)):
 `/api/ai-dev`, `/api/ai-prod`, `/api/claude-dev`, `/api/claude-prod`, `/api/vertexai-dev`,
-`/api/vertexai-prod`, `/api/mcp-dev`, `/api/mcp-prod`.
+`/api/vertexai-prod`, `/api/mcp-dev`, `/api/mcp-prod`, and the `/v1` catch-all
+([server.js#L1731-L1734](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1731-L1734)),
+which forwards to `https://api.maloosatyam.demo.altostrat.com` with the path preserved verbatim.
 
 ### 6.1 Actual payload shapes
 
@@ -276,7 +377,10 @@ there is no `amount` or `currency` field) and returns:
 ```
 
 Currency is hardcoded to `USD` server-side
-([server.js#L645-L652](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L645-L652)).
+([server.js#L1099-L1103](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1099-L1103)). A
+successful top-up also clears that developer's `sessionLedgerByDev` entry
+([server.js#L1109](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1109)), so the Wallet
+tiles restart from the freshly credited balance.
 
 ---
 
@@ -293,7 +397,7 @@ Both run only when `use-cache` (or `x-use-cache`) is `true`.
 
 ### 7.2 UI side — the two-step chip
 
-[ChatPlayground.tsx#L270-L283](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L270-L283)
+[ChatPlayground.tsx#L276-L289](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L276-L289)
 renders a single **Semantic Cache** chip whose label flips with `cacheStep`:
 
 | Step | Chip label | Prompt source | Effect |
@@ -301,24 +405,26 @@ renders a single **Semantic Cache** chip whose label flips with `cacheStep`:
 | 0 | `⚡ Cache: Seed (Miss)` | `CACHE_EXAMPLES[0]` | Long zero-trust security prompt, executed live and seeded |
 | 1 | `⚡ Cache: Instant Hit ($0)` | `CACHE_EXAMPLES[1]` | Semantically equivalent paraphrase, expected to hit |
 
-[`handleCacheStep()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L353-L370)
+[`handleCacheStep()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L359-L376)
 forces `useCache: true`, `model: 'gemini-3.1-flash-lite'`, `omitEmailHeader: false` before executing,
 and clicking the chip body auto-advances 0 → 1 → 0. Two sub-buttons labelled `Seed (Miss)` and
 `Instant Hit ($0)` let a presenter jump directly to either step
-([L635-L659](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L635-L659)).
+([L641-L666](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L641-L666)).
 
 A sibling chip labelled `🌐 Direct (No Cache)` runs the same seed prompt with `useCache: false` for
 latency contrast (preset `no-cache` in
-[defaultSettings.ts#L385-L394](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L385-L394)).
+[defaultSettings.ts#L441-L450](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L441-L450)).
 
 The chat footer also carries a persistent toggle rendering `Cache:` + `ENABLED` / `OFF`
-([L878-L894](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L878-L894)).
+([L902-L916](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L902-L916)).
 
 > [!NOTE]
-> The six chips are defined inline as `sampleChips`; their titles and badges are looked up from
-> `SCENARIO_PRESETS` in [defaultSettings.ts#L334-L395](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L334-L395).
+> The six chips are defined inline as `sampleChips`
+> ([ChatPlayground.tsx#L208](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx#L208));
+> their titles and badges are looked up from
+> `SCENARIO_PRESETS` in [defaultSettings.ts#L390-L451](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L390-L451).
 > The default session starts with `useCache: false`
-> ([defaultSettings.ts#L200](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L200)).
+> ([defaultSettings.ts#L247](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L247)).
 
 ---
 
@@ -413,7 +519,7 @@ What was delivered instead:
 The proposed KPI figures (`68.4%` hit rate, `~98.5% Speedup`, `$12.84 Saved`) were illustrative
 placeholders and were never backed by data. Any revived design should compute them from
 `/api/analytics/fleet-stats`, which already returns `cacheHitRate` and `cacheCostSavingsUsd`
-([api.ts#L219-L230](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/api.ts#L219-L230)).
+([api.ts#L171-L182](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/api.ts#L171-L182)).
 
 ---
 
@@ -424,7 +530,11 @@ Completed:
 - [x] `SemanticCacheView.tsx` decision resolved — not built; documented as a proposal above.
 - [x] Tab routing verified: 4 Navbar buttons over a 6-value `AppTab` union.
 - [x] Request/response header contracts verified against `apigeeClient.ts` and `mcpClient.ts`.
-- [x] Monetization and analytics routes verified against `server.js` and `vite.config.ts`.
+- [x] Monetization and analytics routes re-verified against `server.js` on 2026-09-17 — the previous
+      tick was stale. `/api/monetization/debit`, `/api/me/onboard`, `/api/me/profile`,
+      `/env-config.js` and the `/v1` catch-all were missing, the `/api/kvm/rates` and
+      `/api/monetization/config` method lists omitted `POST`, and every line anchor was off by
+      +275 to +528. All corrected in Section 6.
 - [x] `McpTraceViewer` Headers tab rebuilt: theme-aware cards, header counts, `x-apikey` masking,
       combined JSON export on Copy.
 - [x] Brand word removed from rendered UI text; logo symbol retained.
@@ -433,12 +543,22 @@ Still to run per change:
 
 - [ ] `npm run build` in `ui/` (`tsc && vite build`) — must pass with no TypeScript errors.
 - [ ] `npm run dev` — Vite dev server listens on `http://localhost:3000`
-      ([vite.config.ts#L1085](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1085)).
+      ([vite.config.ts#L1590-L1591](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1590-L1591)).
 - [ ] Exercise tab switching across *AI Gateway*, *MCP Gateway*, *Analytics & Cost* and
       *Monetization* (admin persona required for the last one).
 - [ ] `npm run test:live` — runs
       [`tests/gateway-live.test.mjs`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs)
       (**22 tests**; last recorded run 18 passed, 0 failed, 4 skipped for environmental reasons).
+
+  > [!IMPORTANT]
+  > **`ui/.env` is a hard prerequisite.** The script is
+  > `node --env-file=.env --test tests/gateway-live.test.mjs`
+  > ([package.json#L13](file:///Users/maloosatyam/Codebase/AI%20Code/ui/package.json#L13)), and Node
+  > exits with an error before running a single test if the file is missing. `.env` is gitignored
+  > ([ui/.gitignore#L3](file:///Users/maloosatyam/Codebase/AI%20Code/ui/.gitignore#L3)), so a fresh
+  > clone will always fail here until you create it. `npm run test:all` has the same requirement;
+  > `npm run test:unit` does not.
+
 - [ ] `npm run test:unit` — runs
       [`tests/autorouting.unit.test.mjs`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/autorouting.unit.test.mjs).
 
@@ -451,7 +571,7 @@ These are defects in the application, not in this document:
 | Location | Issue |
 | --- | --- |
 | [GatewayTraceViewer.tsx#L160](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L160) | 429 banner hardcodes "200 tokens/min limit on Standard tier"; the Standard AI Tier product sets **100** tokens/min for `gemini-2.5-flash`, and other operations are 2000/min |
-| [apigeeClient.ts#L359-L362](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L359-L362) | `exhaustLlmQuota` docstring repeats the stale "200 token/min" figure |
+| [apigeeClient.ts#L403-L406](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L403-L406) | `exhaustLlmQuota` docstring repeats the stale "200 token/min" figure |
 | [GatewayTraceViewer.tsx#L340-L346](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L340-L346) | Wallet tiles fall back to a hardcoded `109.988` |
 | [GatewayTraceViewer.tsx#L387](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L387) | Empty-state guard destructures an array of key **strings** as `([k]) =>`, so `k` is only the first character and the filter is always empty — the "No custom x-gateway headers" notice renders even when such headers are present |
 | `ModelRateCardView.tsx`, `ScenarioPresets.tsx` | Dead components — exported but never imported |

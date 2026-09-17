@@ -109,6 +109,17 @@ routing:
 # Model Catalog Definitions & Pricing Matrix
 # ------------------------------------------------------------------------------
 models:
+  # NOTE: This catalog is rendered into `models.catalog` by `_helpers.tmpl` and
+  # surfaced via the `/v1/models` endpoint, so every entry here is advertised to
+  # clients. Only list models that actually resolve in this project, and keep the
+  # pricing in sync with the authoritative rate card at
+  # `apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties`.
+  #
+  # Deliberately NOT listed: gemini-3-flash, claude-3-5-sonnet, claude-3-5-haiku
+  # and claude-3-7-sonnet. These return HTTP 404 from Vertex in this project —
+  # there is no claude-3-x generation published here at all. Legacy clients that
+  # still send those names are mapped forward by the `aliases` block above.
+
   # --- Google Gemini Models (Vertex AI - Global) ---
   - name: "gemini-3.1-flash-lite"
     displayName: "Gemini 3.1 Flash-Lite"
@@ -120,8 +131,8 @@ models:
       input_rate: 0.075
       output_rate: 0.300
 
-  - name: "gemini-3-flash"
-    displayName: "Gemini 3 Flash"
+  - name: "gemini-3-flash-preview"
+    displayName: "Gemini 3 Flash Preview"
     publisher: "google"
     target: "gemini"
     format: "gemini"
@@ -129,6 +140,27 @@ models:
     pricing:
       input_rate: 0.150
       output_rate: 0.600
+
+  - name: "gemini-3.5-flash"
+    displayName: "Gemini 3.5 Flash"
+    publisher: "google"
+    target: "gemini"
+    format: "gemini"
+    region: "global"
+    pricing:
+      input_rate: 0.150
+      output_rate: 0.600
+
+  # Retiring from 2026-10-20; retained as the deliberate token-quota demo model.
+  - name: "gemini-2.5-flash"
+    displayName: "Gemini 2.5 Flash"
+    publisher: "google"
+    target: "gemini"
+    format: "gemini"
+    region: "global"
+    pricing:
+      input_rate: 0.300
+      output_rate: 2.500
 
   - name: "gemini-3.1-pro-preview"
     displayName: "Gemini 3.1 Pro Preview"
@@ -150,47 +182,7 @@ models:
       input_rate: 1.250
       output_rate: 5.000
 
-  - name: "gemini-3.5-flash"
-    displayName: "Gemini 3.5 Flash"
-    publisher: "google"
-    target: "gemini"
-    format: "gemini"
-    region: "global"
-    pricing:
-      input_rate: 0.100
-      output_rate: 0.400
-
   # --- Anthropic Claude Models (Google Cloud Vertex Model Garden - us-east5) ---
-  - name: "claude-3-5-sonnet"
-    displayName: "Claude 3.5 Sonnet (Vertex)"
-    publisher: "anthropic"
-    target: "claude"
-    format: "anthropic"
-    region: "us-east5"
-    pricing:
-      input_rate: 3.000
-      output_rate: 15.000
-
-  - name: "claude-3-5-haiku"
-    displayName: "Claude 3.5 Haiku (Vertex)"
-    publisher: "anthropic"
-    target: "claude"
-    format: "anthropic"
-    region: "us-east5"
-    pricing:
-      input_rate: 0.800
-      output_rate: 4.000
-
-  - name: "claude-3-7-sonnet"
-    displayName: "Claude 3.7 Sonnet (Vertex)"
-    publisher: "anthropic"
-    target: "claude"
-    format: "anthropic"
-    region: "us-east5"
-    pricing:
-      input_rate: 3.000
-      output_rate: 15.000
-
   - name: "claude-haiku-4-5"
     displayName: "Claude 4.5 Haiku (Vertex)"
     publisher: "anthropic"
@@ -200,4 +192,15 @@ models:
     pricing:
       input_rate: 1.000
       output_rate: 5.000
+
+  - name: "claude-opus-4-5"
+    displayName: "Claude 4.5 Opus (Vertex)"
+    publisher: "anthropic"
+    target: "claude"
+    format: "anthropic"
+    region: "us-east5"
+    pricing:
+      input_rate: 15.000
+      output_rate: 75.000
+
 

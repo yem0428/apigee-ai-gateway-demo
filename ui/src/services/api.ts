@@ -1,54 +1,6 @@
-import { ToolDefinition, PolicySettings } from '../types';
-
-const AGENT_API_BASE = 'http://localhost:8000';
-
-export async function sendMessageToAgent(
-  message: string,
-  policies: PolicySettings,
-  history: any[] = []
-): Promise<any> {
-  const response = await fetch(`${AGENT_API_BASE}/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-apikey': 'demo-apigee-api-key',
-      'x-target-model': policies.targetModel,
-      'x-no-cache': policies.cachingEnabled ? 'false' : 'true',
-    },
-    body: JSON.stringify({
-      message,
-      target_model: policies.targetModel,
-      history,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Gateway Error (${response.status}): ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-export async function fetchToolCatalog(): Promise<ToolDefinition[]> {
-  const response = await fetch(`${AGENT_API_BASE}/tools/catalog`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch tool catalog');
-  }
-  const data = await response.json();
-  return data.tools || [];
-}
-
-export async function executeToolDirect(toolId: string, args: Record<string, any>): Promise<any> {
-  const response = await fetch(`${AGENT_API_BASE}/mock/tools/v1/tools/${toolId}/execute`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-apikey': 'demo-apigee-api-key',
-    },
-    body: JSON.stringify({ arguments: args }),
-  });
-  return response.json();
-}
+// All endpoints below are served by the UI's own backend (`ui/server.js`) on a
+// relative path, so no gateway host, project ID, or credential is embedded here.
+// Credentials are resolved server-side from the Apigee Management API.
 
 export async function fetchModelRates(env: 'dev' | 'prod' = 'prod'): Promise<{
   status: string;

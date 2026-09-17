@@ -1,7 +1,8 @@
 # Cloud Run UI & Identity-Aware Proxy (IAP) Deployment Guide
 
 > **Document status**: Production / active baseline
-> **Last verified**: 2026-09-15 (against live GCP state and repository source)
+> **Last verified**: 2026-09-17 (sections 3.B and 3.C re-verified against `ui/server.js`;
+> infrastructure inventory last checked against live GCP state on 2026-09-15)
 > **Environment**: Google Cloud project `bap-apac-demo2` (project number `1058667481809`)
 > **Region**: `asia-southeast1` (Cloud Run) / `global` (load balancer, IAP, SSL)
 > **Primary domain**: `ai-ui.maloosatyam.demo.altostrat.com`
@@ -164,52 +165,142 @@ inline defaults:
 | `ADMIN_USER_EMAIL` | `ADMIN_USER_EMAIL` | `admin.user@google.com` |
 | `SALES_AGENT_EMAIL` | `SALES_AGENT_EMAIL` | `sales.agent@example.com` |
 | `LOANS_AGENT_EMAIL` | `LOANS_AGENT_EMAIL` | `loans.agent@example.com` |
-| `SSO_USER_EMAIL` | `SSO_USER_EMAIL` | `demo.user@google.com` |
+| `SSO_USER_EMAIL` | `SSO_USER_EMAIL` | `maloosatyam@google.com` |
 | `DEFAULT_ENV` | `DEFAULT_ENV` | `prod` |
 
 No API keys are injected here — keys are fetched at runtime through `/api/me`.
 
-#### 2. Identity and auto-provisioning — `GET /api/me`
+#### 2. Identity and developer lookup — `GET /api/me`
 
-Reads the `X-Goog-Authenticated-User-Email` header injected by IAP and strips the
-`accounts.google.com:` prefix. If the header is absent it falls back to `VITE_SSO_USER_EMAIL`,
-`SSO_USER_EMAIL`, then `demo.user@google.com`.
+The caller's email is resolved in this order
+([server.js#L717-L722](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L717-L722)):
+
+1. The **`?email=` query parameter** — checked *first*, ahead of the IAP header. Used for local
+   testing and persona switching.
+2. The `X-Goog-Authenticated-User-Email` header injected by IAP, with the `accounts.google.com:`
+   prefix stripped.
+3. `VITE_SSO_USER_EMAIL`.
+4. `SSO_USER_EMAIL`.
+5. The literal fallback `maloosatyam@google.com`.
+
+> [!NOTE]
+> The old `demo.user@google.com` fallback was **deliberately removed**. Do not reintroduce it, and do
+> not document it as current behaviour.
 
 It then acquires a Google access token via
-[`getGcpAccessToken()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L34-L130), which
+[`getGcpAccessToken()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L38-L131), which
 tries, in order:
 
-1. A service-account key file (`APIGEE_SA_KEY_PATH`, `GOOGLE_APPLICATION_CREDENTIALS`,
-   `./apigee-ui-mgmt-sa-key.json`, `../apigee-ui-mgmt-sa-key.json`) — self-signs a JWT and exchanges
-   it at `https://oauth2.googleapis.com/token`.
+1. A service-account key file at **`GOOGLE_APPLICATION_CREDENTIALS` only** — self-signs a JWT and
+   exchanges it at `https://oauth2.googleapis.com/token`. The repo-local candidates that used to be
+   in this list were removed; the candidate array now holds exactly one entry and is annotated
+   `never use repo-local key files`
+   ([server.js#L44-L47](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L44-L47)).
 2. The **Cloud Run metadata server**
    (`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token`) —
    this is the path taken in production.
 3. `gcloud auth print-access-token` with SA impersonation, then plain `gcloud` — local fallback only.
 
-Tokens are cached in memory (50 min for key-file JWTs, `expires_in - 300s` for metadata tokens).
+Tokens are cached in memory: 50 min for key-file JWTs, `max(300, expires_in - 300)` seconds for
+metadata tokens, and 4 min for `gcloud` tokens.
 
-With that token,
-[`provisionUserDeveloperAndApp()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L149-L332):
+With that token, `/api/me` calls
+[`provisionUserDeveloperAndApp()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L327-L607)
+with **`{ allowCreate: false }`**
+([server.js#L736-L744](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L736-L744)), which
+makes this route a *detect-and-repair* probe rather than a creator:
 
-- creates the Apigee developer if `GET /developers/{email}` returns 404 (`userName` = local part of
-  the email);
-- creates or repairs a developer app named **`Unified Admin <username> App`** attached to the
-  `Enterprise AI Tier` and `Enterprise Tools MCP` products, with a `DisplayName` attribute and
-  `persona: admin`;
-- fetches the shared consumer keys for the global `Unified Sales App` and `Unified Loans App` owned
-  by `maloosatyam@google.com`;
-- sets `monetizationConfig.billingType = PREPAID` when it is unset or different;
-- credits a **$20 USD** starting balance if the wallet has never been credited.
+- **If `GET /developers/{email}` returns 404**, the function returns immediately with
+  `needsOnboarding: true` and suggested first/last names, and **creates nothing** — no developer, no
+  app, no wallet credit, no subscription
+  ([server.js#L354-L366](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L354-L366)).
+  Creation happens only through `POST /api/me/onboard` (section 2b).
+- **If the developer already exists**, provisioning continues and will:
+  - create or repair a developer app named **`Unified Admin <username> App`** attached to the
+    `Enterprise AI Tier` and `Enterprise Tools MCP` products, with a `DisplayName` attribute and
+    `persona: admin`;
+  - fetch the shared consumer keys for the global `Unified Sales App` and `Unified Loans App`
+    (owner `maloosatyam@gmail.com` is tried first, then `maloosatyam@google.com`);
+  - set `monetizationConfig.billingType = PREPAID` when it is unset or different;
+  - credit a **$20 USD** starting balance if the wallet has never been credited;
+  - subscribe the developer to `Enterprise AI Tier` — plus `Standard AI Tier` for
+    `maloosatyam@google.com` specifically — when no open subscription exists.
 
-The JSON response is
-`{ email, token, name, username, apiKey, apiKeys: { admin, sales_agent, loans_agent }, provider, raw }`.
+The JSON response is:
+
+```json
+{
+  "email": "user@google.com",
+  "token": "",
+  "name": "Given Family",
+  "username": "user",
+  "apiKey": "<admin consumer key>",
+  "apiKeys": { "admin": "…", "sales_agent": "…", "loans_agent": "…" },
+  "needsOnboarding": false,
+  "suggestedFirstName": "Given",
+  "suggestedLastName": "Family",
+  "provider": "Google Cloud Identity SSO (IAP)",
+  "raw": "accounts.google.com:user@google.com"
+}
+```
+
+`needsOnboarding`, `suggestedFirstName` and `suggestedLastName` are always present
+([server.js#L756-L769](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L756-L769)); the UI
+branches on the first and pre-fills the onboarding form with the other two.
 
 > [!NOTE]
 > In the production Node server `token` is always the empty string and `provider` is
 > `"Google Cloud Identity SSO (IAP)"` when the IAP header is present, otherwise `"Local Default SSO"`.
 > Only the Vite dev server shells out to `gcloud auth print-identity-token` and returns a real
 > bearer token, which is why the Bearer-JWT test scenarios are local-only.
+
+#### 2b. First-run onboarding gate — `POST /api/me/onboard`
+
+Developer creation is a deliberate **two-phase** flow. Nothing is written to Apigee until the user
+has confirmed their own first and last name, which prevents the malformed `Firstname User` /
+`Firstname Google` records that automatic creation used to produce.
+
+```mermaid
+sequenceDiagram
+    participant U as Googler (browser)
+    participant UI as React SPA
+    participant S as server.js
+    participant A as apigee.googleapis.com
+
+    U->>UI: Load the app
+    UI->>S: GET /api/me
+    S->>A: GET /developers/{email}
+    A-->>S: 404 Not Found
+    S-->>UI: { needsOnboarding: true, suggestedFirstName, suggestedLastName }
+    Note over S,A: Phase 1 ends here — nothing created
+    UI->>U: Show DeveloperOnboardingModal (name pre-filled)
+    U->>UI: Confirm first / last name
+    UI->>S: POST /api/me/onboard { email, firstName, lastName }
+    S->>A: Create developer + app + PREPAID config + $20 credit + subscription
+    A-->>S: OK
+    S-->>UI: { status: "ok", apiKey, apiKeys, needsOnboarding: false }
+```
+
+| Phase | Component | Behaviour |
+| :--- | :--- | :--- |
+| 1 — detect | `GET /api/me` ([server.js#L713](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L713-L772)) | Calls provisioning with `allowCreate: false`. On 404 returns `needsOnboarding: true` plus suggested names. **Creates nothing.** |
+| 2 — prompt | [DeveloperOnboardingModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DeveloperOnboardingModal.tsx) | Mounted by [App.tsx#L528](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L528) when `needsOnboarding` is true. Pre-fills the two name fields from the suggestions; `firstName` is mandatory, `lastName` defaults to `firstName` when blank. |
+| 3 — create | `POST /api/me/onboard` ([server.js#L775](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L774-L854)) | Re-runs provisioning with `allowCreate: true` and the user-validated names. |
+
+Step 3 creates, in one pass:
+
+- the Apigee developer (`userName` = local part of the email, `firstName` / `lastName` as confirmed);
+- the developer app **`Unified Admin <username> App`** on `Enterprise AI Tier` and
+  `Enterprise Tools MCP`;
+- `monetizationConfig.billingType = PREPAID`;
+- a **$20.00 USD** prepaid wallet credit (`transactionId` `init-topup-20-<epoch_ms>`);
+- an `Enterprise AI Tier` rate-plan subscription.
+
+It responds with `{ status, email, firstName, lastName, fullName, name, username, apiKey, apiKeys,
+needsOnboarding: false }`, so the SPA can continue without a second `/api/me` round-trip.
+
+`/api/me/profile` shares the same handler and is used to rename an existing developer. Both accept
+`POST` and `PUT`; any other method returns `405`, a missing `email` or `firstName` returns `400`.
 
 #### 3. Apigee Management API handlers
 
@@ -232,7 +323,7 @@ Unsupported methods return `405`; a missing token returns `500`.
 
 #### 4. Gateway reverse proxy routes
 
-[`proxyRequest()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L362-L415) forwards the
+[`proxyRequest()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L637-L690) forwards the
 method, body and headers upstream, dropping `host`, `content-length`, `connection` and
 `accept-encoding` on the way out, and dropping `content-encoding`, `content-length`,
 `transfer-encoding` and `connection` on the way back before setting an accurate `Content-Length`.
@@ -259,16 +350,34 @@ so client-side routing works; content type comes from a small extension map
 (`.html .js .css .json .png .jpg .gif .svg .ico .woff .woff2`), defaulting to
 `application/octet-stream`. A read failure returns `404 Not Found`.
 
+Two `Cache-Control` policies are applied on the way out
+([server.js#L1745-L1753](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1745-L1753)):
+
+| Match | `Cache-Control` | Why |
+| :--- | :--- | :--- |
+| Extension is `.html` (so every SPA shell response) | `no-cache, no-store, must-revalidate` | Browsers always re-fetch `index.html`, which references the new content-hashed bundle names |
+| Path starts with `/assets/` | `public, max-age=31536000, immutable` | Vite emits content-hashed filenames, so the bundles can be cached for a year |
+
+> [!IMPORTANT]
+> This pairing is what makes a redeploy visible **without a hard refresh**: the never-cached shell
+> pulls in freshly-hashed, permanently-cached assets. Do not remove either header.
+
 ### C. Credentials posture
 
 There are **no API keys in the image, in the repository, or in the Cloud Run environment**. The
 deployed revision declares no environment variables and no Secret Manager volumes or references —
 only `PORT=8080`, baked in by the Dockerfile.
 
-> [!CAUTION]
-> `apigee-ui-mgmt-sa-key.json` sits at the repository root and `server.js` will load it if present in
-> the working directory. It is a live service-account private key. It must never be baked into an
-> image or committed to a shared branch; production relies on the metadata server instead.
+> [!WARNING]
+> **No service-account key file exists in this repository, and none must ever be committed.**
+> `apigee-ui-mgmt-sa-key.json` is *not* present at the repository root or anywhere else in the tree —
+> verified 2026-09-17. `server.js` will only read a key file from an explicit
+> `GOOGLE_APPLICATION_CREDENTIALS` path; the repo-local candidates (`./apigee-ui-mgmt-sa-key.json`,
+> `../apigee-ui-mgmt-sa-key.json`, `APIGEE_SA_KEY_PATH`) were deliberately removed, and the code is
+> annotated `never use repo-local key files`
+> ([server.js#L44-L47](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L44-L47)).
+> Production relies on the metadata server. If you set `GOOGLE_APPLICATION_CREDENTIALS` locally, keep
+> the key outside the working tree — it must never be baked into an image or committed to a branch.
 
 ---
 

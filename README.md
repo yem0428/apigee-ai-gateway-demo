@@ -97,7 +97,20 @@ The inline `count="1000"` / `1` / `minute` values are fallback defaults only —
 `LTQ-TokenEnforce` enforces, `LTQ-TokenCount` counts, and both share the `common-counter` shared name.
 
 > [!WARNING]
-> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Prior to retirement, update all `gemini-2.5-flash` demo model references across API products, proxy flows (`LLMTokenLimitFlow`), and UI presets to `gemini-3.5-flash` or `gemini-3.1-flash-lite`.
+> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Prior to retirement, update all `gemini-2.5-flash` demo model references across API products, proxy flows (`LLMTokenLimitFlow`), and UI presets.
+>
+> The only **safe** target today is **`gemini-3.1-flash-lite`** — it is entitled by name in both
+> Standard and Enterprise AI Tier, priced in `model_rates.properties`, and present in the UI
+> `AVAILABLE_MODELS` dropdown.
+>
+> `gemini-3.5-flash` is **unvalidated and must not be used as a drop-in**. It exists only as a price
+> key in [model_rates.properties](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties),
+> a cost-tier entry in `CalculateCost.js`, and a catalog entry in the `apigee-go-gen`
+> [values.yaml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/templates/ai-gateway/values.yaml).
+> It appears in **no API product**, **no proxy flow**, and **not** in `AVAILABLE_MODELS`. Before it
+> can be recommended it must be confirmed against the live `bap-apac-demo2` publisher catalog and
+> added by name to both AI products — four previously-referenced model IDs turned out not to exist
+> in this project at all.
 
 **`gemini-2.5-flash` is the deliberate token-limit demo model at 100 tokens / 1 minute.**
 Every other operation in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
@@ -131,8 +144,10 @@ regex `^/models/gemini-2.5-flash.*`. Breaching the limit returns **HTTP 429**.
   computes `flow.tx_cost_micros`.
 - **Wallet deduction** — `QC-DeductBudget` debits the developer wallet; `QC-EnforceBudgetLimit` and
   `MLC-EnforceMonetizationLimits` gate the request on the way in.
-- **Prepaid auto-provisioning** — [server.js](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L276-L325)
-  sets `billingType: PREPAID` and credits a **$20 USD** starting balance for a first-time developer.
+- **Prepaid provisioning** — [server.js](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L531-L569)
+  sets `billingType: PREPAID` and credits a **$20 USD** starting balance. This now runs from the
+  explicit `/api/me/onboard` step rather than silently on sign-in — see
+  [First-run developer onboarding](#first-run-developer-onboarding).
 - **Rate plans & attribution** — surfaced through the `/api/monetization/*` endpoints
   (rate plans, subscriptions, attributions, credit, config).
 
@@ -148,7 +163,37 @@ header is `true`. On a hit, `flow.cached` is `"true"`, which skips `KVM-GetModel
 `JS-CalculateCost`, `QC-DeductBudget` and `LTQ-TokenCount` — so a cache hit costs no tokens and
 no wallet balance.
 
-### 6. 🛠️ MCP Tools Gateway Governance
+### 6. 📡 `x-gateway-*` Trace Telemetry Contract
+
+Every gateway response carries a block of trace headers set by a single policy,
+[AM-SetResponseHeaders.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/AM-SetResponseHeaders.xml).
+This is a **contract, not a debugging aid** — the UI trace inspector, the analytics dashboard and
+the live test suite all read it, so headers must not be renamed or dropped.
+
+| Header | Source variable | Meaning |
+| :--- | :--- | :--- |
+| `x-gateway-model` | `flow.target_model` | Model actually invoked upstream |
+| `x-gateway-provider` | `flow.target_provider` | `google` or `anthropic` — also selects the Vertex target |
+| `x-auto-routed` | `flow.autoRouted` | Whether `AutoRouting.js` chose the model |
+| `x-gateway-cost-tier` | `flow.costTier` | `low` / `medium` / `high` routing classification |
+| `x-gateway-cost-usd` | `flow.tx_cost_usd` | Computed request cost |
+| `x-gateway-currency` | *(literal `USD`)* | Currency for the cost fields |
+| `x-gateway-cached` | `flow.cached` | `"true"` on a semantic cache hit |
+| `x-gateway-cache-status` | `flow.cacheStatus` | Cache lookup outcome detail |
+| `x-gateway-prompt-tokens` | `flow.promptTokenCount` | Input tokens |
+| `x-gateway-completion-tokens` | `flow.candidatesTokenCount` | Output tokens |
+| `x-gateway-total-tokens` | `flow.totalTokenCount` | Total tokens, and the quota-counted figure |
+| `x-gateway-monetization-status` | `mint.limitscheck.status_message` | Monetization limit-check verdict |
+| `x-gateway-prepaid-balance` | `mint.limitscheck.prepaid_developer_balance` | Wallet balance at check time |
+| `x-gateway-prepaid-currency` | `mint.limitscheck.prepaid_developer_currency` | Wallet currency |
+| `x-gateway-balance-remaining` | `flow.prepaid_balance_remaining` | Balance after this request's deduction |
+
+The policy runs with `continueOnError="true"` and `<IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>`,
+so an unset variable yields an absent or empty header rather than a fault — clients must treat every
+header as optional. On a cache hit the cost and token variables are never populated, which is why
+`x-gateway-cached` is the field to branch on.
+
+### 7. 🛠️ MCP Tools Gateway Governance
 
 The [mcp](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp/apiproxy) proxy governs
 JSON-RPC 2.0 `tools/list` and `tools/call` traffic with six policies
@@ -247,6 +292,7 @@ upstream call is made.
 │   ├── scripts/
 │   │   ├── deploy_all.sh                  deploy_proxy.sh      package_bundle.sh
 │   │   ├── provision_unified_credentials.py / .sh
+│   │   ├── generate_demo_traffic.py       # Synthetic analytics/monetization traffic generator
 │   │   ├── test_autorouting.sh            test_token_limit.sh
 │   │   └── validate_bundle.py
 │   ├── templates/ai-gateway/              # Helm-style policy templates (YAML)
@@ -272,9 +318,10 @@ upstream call is made.
         ├── App.tsx                        # Root app, tab routing, SSO bootstrap
         ├── main.tsx  index.css  vite-env.d.ts
         ├── types/index.ts
-        ├── components/                    # 14 components
+        ├── components/                    # 15 components
         │   ├── AnalyticsDashboard.tsx     ApigeeLogo.tsx        ArchitectureBlueprintModal.tsx
-        │   ├── ChatPlayground.tsx         DonutPieChart.tsx     GatewaySettingsModal.tsx
+        │   ├── ChatPlayground.tsx         DeveloperOnboardingModal.tsx
+        │   ├── DonutPieChart.tsx          GatewaySettingsModal.tsx
         │   ├── GatewayTraceViewer.tsx     McpPlayground.tsx     McpTraceViewer.tsx
         │   ├── ModelRateCardView.tsx      MonetizationManager.tsx
         │   └── Navbar.tsx  ScenarioPresets.tsx  ThemeSelector.tsx
@@ -298,6 +345,41 @@ primary tabs: **AI Gateway**, **MCP Gateway**, **Analytics & Cost**, and **Monet
 [ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive 3-tab reference diagram (**AI Gateway Flow**, **MCP Tools Flow**, and **ADK Dual-Pattern**) with clickable policy XML inspection and live trace status correlation. Additionally, every tested request in `ChatPlayground` (`Target URL:`) and `McpTraceViewer` (`JSON-RPC 2.0`) includes a **`Request Flow`** button that opens the modal in **`⚡ Tested Request Flow`** mode, dynamically short-circuiting the pipeline diagram at the exact stopping policy (e.g., red perimeter block at Model Armor or green short-circuit at Semantic Cache HIT) and omitting bypassed downstream stages. The underlying `AppTab` union in
 [types/index.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L131) also carries
 `kvm-pricing` and `rate-cards`, which render inside the Monetization surface.
+
+### First-run developer onboarding
+
+The UI **no longer auto-creates** Apigee developers on sign-in. `provisionUserDeveloperAndApp` is
+called from `/api/me` with [`allowCreate: false`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L743),
+so when the Management API returns 404 for the signed-in email the server responds with
+[`needsOnboarding: true`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L355-L360) plus a
+suggested first/last name derived from the identity token, and creates nothing.
+
+`App.tsx` reacts to that flag by rendering
+[DeveloperOnboardingModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DeveloperOnboardingModal.tsx),
+which pre-fills the suggested names, requires a non-empty first name, trims both fields, and falls
+back to `lastName = firstName` when only one name is given. Submitting `POST`s to
+[`/api/me/onboard`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L774-L853), which
+re-runs the same provisioning routine with `allowCreate: true` and the user-validated names. That
+single call provisions:
+
+| Step | Result |
+| :--- | :--- |
+| Developer | Created in org `bap-apac-demo2` with the confirmed first/last name |
+| Developer app | `Unified Admin <username> App`, with its consumer key returned to the client |
+| Monetization config | `billingType: PREPAID` (set or corrected) |
+| Wallet | **$20.00 USD** starting balance, credited once (skipped if a balance or prior credit exists) |
+| Subscriptions | `Enterprise AI Tier` rate plan (the primary admin account also gets `Standard AI Tier`) |
+
+The response echoes `needsOnboarding: false` along with the new keys, so the UI can dismiss the
+modal and continue without a reload.
+
+### Balance display precision
+
+Wallet and consumption figures render to **2 decimal places** with the exact **6-decimal** value in
+a hover tooltip — see the `Exact balance: $…` / `Exact consumed: $…` `title` attributes in
+[MonetizationManager.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx#L788-L809).
+This matters because a single gateway call is priced in micro-dollars: a 2dp display alone would
+show `$0.00` for real traffic, while 6dp everywhere is unreadable in summary tiles.
 
 ---
 
@@ -335,7 +417,7 @@ npm run dev
 ```
 
 The Vite dev server listens on **`http://localhost:3000`** — the port is pinned in
-[vite.config.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1084-L1085).
+[vite.config.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1590-L1591).
 
 [vite.config.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts) registers dev-only
 middleware that mirrors the production endpoints (`/api/me`, `/api/kvm/rates`,
@@ -444,8 +526,21 @@ Full load balancer, IAP, DNS and troubleshooting detail lives in
 Bundle packaging, validation and deployment are scripted in
 [apigee/scripts/](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts):
 `package_bundle.sh`, `validate_bundle.py`, `deploy_proxy.sh`, `deploy_all.sh`, plus
-`provision_unified_credentials.{sh,py}` for developer/app/product provisioning and
+`provision_unified_credentials.{sh,py}` for developer/app/product provisioning,
+`generate_demo_traffic.py` for seeding demo analytics, and
 `test_autorouting.sh` / `test_token_limit.sh` for shell-based smoke tests.
+
+[generate_demo_traffic.py](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/generate_demo_traffic.py)
+populates Apigee Analytics and Monetization with realistic traffic ahead of a demo. It discovers
+every active developer and their approved keys through the Management API via `gcloud`
+(auto-provisioning a `Unified Admin <username> App` for any developer without one), fans live
+requests across `/auto`, `gemini-2.5-flash`, `gemini-3.1-pro-preview` and the other catalog models,
+then applies immediate micro-dollar wallet adjustments so prepaid balances reflect the consumption
+straight away. No consumer key is ever hardcoded.
+
+```bash
+python3 apigee/scripts/generate_demo_traffic.py --requests-per-user 3
+```
 
 [test_autorouting.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_autorouting.sh)
 runs the offline unit suite and, when `ui/.env` exists, the live suite.

@@ -2,7 +2,10 @@
 
 > **Document status**: Reconciled against source code.
 > **Apigee org**: `bap-apac-demo2` · **Environment**: `prod`
-> **Developer of record**: `maloosatyam@google.com`
+> **Developer of record**: `maloosatyam@google.com` — still the default for the
+> provisioning scripts, the prepaid wallet and every `?dev=` parameter, **but** the
+> `Unified Sales App` / `Unified Loans App` keys now resolve from
+> `maloosatyam@gmail.com` first (see [§4](#4-developer-apps)).
 
 Base paths are taken directly from each proxy's `HTTPProxyConnection`:
 
@@ -223,8 +226,8 @@ It is offered in the UI model dropdown, tagged `Restricted (Not Entitled)`, pure
 drive the **Restricted Model** step of the Unauthorized scenario: an Admin key bound to
 `Enterprise AI Tier` — the strongest credential in the demo — is still rejected at
 `VA-VerifyAPIKey` with **401** before any upstream call is made
-([defaultSettings.ts#L217-L220](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L217-L220),
-[#L305-L318](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L305-L318)).
+([defaultSettings.ts#L259-L262](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L259-L262),
+[#L347-L360](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L347-L360)).
 
 > [!NOTE]
 > This only stays true while §2.4 holds. Any wildcard entitlement would grant
@@ -333,11 +336,28 @@ attributes: [
 ],
 ```
 
-Source: [server.js#L184-L220](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L184-L220).
+Source: [server.js#L429-L470](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L429-L470).
 `username` is the local part of the IAP-asserted email. The same handler also
 back-fills missing products onto a pre-existing admin app, then fetches the Sales and
-Loans consumer keys from the `maloosatyam@google.com` developer
-([server.js#L271-L274](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L271-L274)).
+Loans consumer keys — trying **`maloosatyam@gmail.com` first** and using
+`maloosatyam@google.com` only as a `||` fallback:
+
+```js
+// ui/server.js — check maloosatyam@gmail.com first, fallback to maloosatyam@google.com
+apiKeys.sales_agent =
+  (await fetchAppConsumerKey(org, token, 'maloosatyam@gmail.com', 'Unified Sales App')) ||
+  (await fetchAppConsumerKey(org, token, 'maloosatyam@google.com', 'Unified Sales App'));
+```
+
+Source: [server.js#L516-L522](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L516-L522), mirrored in the Vite dev
+middleware at [vite.config.ts#L540-L546](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L540-L546).
+
+> [!IMPORTANT]
+> The demo developer apps were migrated to `maloosatyam@gmail.com` with every
+> `consumerKey` and `consumerSecret` **preserved**, so existing `ui/.env` values remain
+> valid and no key rotation is required. `maloosatyam@google.com` is retained as the
+> fallback and remains the developer of record for the wallet, the rate-plan
+> subscriptions and the `--dev` / `?dev=` defaults.
 
 ---
 
@@ -421,8 +441,24 @@ performs the monetization setup in `sync_monetization()`:
 
 Rate plans are created only for `Standard AI Tier` and `Enterprise AI Tier`; the plan
 display name is `"<Product> PayAsYouGo"`. Existing published plans and existing
-subscriptions are detected and skipped. The wallet is credited only when the current
-balance is zero.
+subscriptions are detected and skipped.
+
+The wallet is credited only when the current balance is judged to be zero — and that
+judgement reads **`balance.units` only**:
+
+```python
+units = int(wallets[0].get("balance", {}).get("units", "0"))
+if units > 0:
+    needs_credit = False
+```
+
+> [!WARNING]
+> `nanos` is **ignored** ([provision_unified_credentials.py#L192-L197](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/provision_unified_credentials.py#L192-L197)).
+> Any sub-dollar balance — `$0.99`, held entirely in `nanos` with `units = 0` — is treated
+> as zero and re-credited with a further `$100.00`. Re-running the provisioning script
+> against a nearly-drained wallet therefore tops it up rather than leaving it alone.
+> Note the script credits **$100.00**, while the UI server's first-run path credits
+> **$20.00**.
 
 ### 6.2 Enforcement and rating policies
 
@@ -564,11 +600,11 @@ is the only monetization surface that renders. `App.tsx` maps three tab values t
   <MonetizationManager currentEnv="prod" settings={settings} />
 ```
 
-Source: [App.tsx#L350-L351](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L350-L351).
+Source: [App.tsx#L477-L478](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L477-L478).
 Access is gated: non-admin views are redirected away from those tabs
-([App.tsx#L294-L297](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L294-L297)),
+([App.tsx#L383-L384](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L383-L384)),
 and the Navbar renders the **Monetization** tab only in the admin view
-([Navbar.tsx#L162-L176](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L162-L176)).
+([Navbar.tsx#L211-L224](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L211-L224)).
 
 > [!CAUTION]
 > [ModelRateCardView.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ModelRateCardView.tsx)
@@ -609,9 +645,10 @@ with it; the browser never holds admin credentials.
 | --- | --- | --- |
 | `/env-config.js` | GET | Emits runtime config to the SPA |
 | `/api/me` | GET | Resolves SSO identity; if developer does not exist in Apigee (404), returns `needsOnboarding: true` with `suggestedFirstName`/`suggestedLastName` for the UI pop-up modal; if developer exists, returns all three persona keys and ensures `PREPAID` wallet + rate plan subscriptions |
-| `/api/me/onboard` / `/api/me/profile` | POST, PUT | Accepts `{ email, firstName, lastName }` from the onboarding/profile modal, creates or updates the Apigee developer with user-validated human name, provisions `Unified Admin <username> App`, sets `PREPAID` billing type, credits `$20.00 USD` starting wallet balance, and subscribes to `Enterprise AI Tier` |
+| `/api/me/onboard` / `/api/me/profile` | POST, PUT | Accepts `{ email, firstName, lastName }` from the onboarding/profile modal, creates or updates the Apigee developer with user-validated human name, provisions `Unified Admin <username> App`, sets `PREPAID` billing type, credits `$20.00 USD` starting wallet balance, and subscribes to `Enterprise AI Tier` — plus `Standard AI Tier` when the email is `maloosatyam@google.com` ([server.js#L587-L590](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L587-L590)) |
 | `/api/kvm/rates` | GET, PUT, POST | Reads/writes entries of the `ai-model-rates` KVM in the environment from `?env=` (default `prod`) |
 | `/api/monetization/balance` | GET | `GET /developers/{dev}/balance`; `?dev=` defaults to `maloosatyam@google.com` |
+| `/api/monetization/debit` | POST only | **In-memory only — does not call the Management API.** Body `{developer, amountUsd, rawApigeeBalanceUsd}`; accumulates into the process-local `sessionLedgerByDev` map and returns `{debitedThisRequestUsd, totalDebitedSessionUsd, startBalanceUsd, remainingBalanceUsd}`. Any other verb returns 405 |
 | `/api/monetization/credit` | POST | `POST /developers/{dev}/balance:credit`; body `{developer, units}`, default `units=50`, `transactionId: topup-<epoch>` |
 | `/api/monetization/rateplans` | GET | Lists and expands rate plans for `Standard AI Tier` and `Enterprise AI Tier` |
 | `/api/monetization/subscriptions` | GET, POST | Lists subscriptions for `?dev=`; POST subscribes `{developer, apiproduct}` |
@@ -625,8 +662,55 @@ Gateway pass-throughs (prefix-matched, forwarded to
 `/api/mcp-dev`, `/api/mcp-prod`, and bare `/v1`.
 Unmatched paths fall through to static file serving from `dist/`.
 
-Non-GET/PUT/POST verbs on `/api/monetization/subscriptions` and
-`/api/monetization/config` return HTTP 405.
+**Method enforcement is uneven.** Only seven routes check `req.method` and return
+HTTP 405:
+
+| Route | Accepted verbs |
+| --- | --- |
+| `/api/me/onboard`, `/api/me/onboard/` | POST, PUT |
+| `/api/me/profile`, `/api/me/profile/` | POST, PUT |
+| `/api/kvm/rates` | GET, PUT, POST |
+| `/api/monetization/debit` | POST |
+| `/api/monetization/credit` | POST |
+| `/api/monetization/subscriptions` | GET, POST |
+| `/api/monetization/config` | GET, PUT, POST |
+
+> [!WARNING]
+> `/api/monetization/balance`, `/api/monetization/rateplans`,
+> `/api/analytics/fleet-stats` and `/api/monetization/attributions` have **no method
+> guard at all** — they execute their read path and return 200 for any verb, including
+> `DELETE` and `PUT`. `/api/me` is likewise unguarded. The `Methods` column above
+> documents intended usage, not enforced behaviour.
+
+### 7.4 First-run developer onboarding — `DeveloperOnboardingModal.tsx`
+
+The onboarding pop-up is
+[DeveloperOnboardingModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DeveloperOnboardingModal.tsx),
+mounted by [App.tsx#L528](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L528). The full round-trip:
+
+1. **`GET /api/me`** resolves the IAP identity. If the developer does not exist in Apigee
+   the response carries `needsOnboarding: true` together with `suggestedFirstName` and
+   `suggestedLastName`, derived from the email local part.
+2. **The modal opens**, pre-filled with those suggestions, and collects a first and last
+   name. Only **first name** is mandatory — submitting a blank one shows
+   *"Please enter your First Name."* and aborts; a blank last name silently falls back to
+   the first name ([DeveloperOnboardingModal.tsx#L47-L69](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DeveloperOnboardingModal.tsx#L47-L69)).
+3. **`POST /api/me/onboard`** with `{ email, firstName, lastName }`. The server re-validates
+   that both `email` and `firstName` are present, returning **400** otherwise, then calls
+   `provisionUserDeveloperAndApp(..., { allowCreate: true })`
+   ([server.js#L775-L854](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L775-L854)).
+4. **Provisioning** creates the Apigee developer, creates the
+   `Unified Admin <username> App` bound to `Enterprise AI Tier` + `Enterprise Tools MCP`,
+   sets `billingType: PREPAID`, credits a **$20.00 USD** starting wallet balance, and
+   subscribes the developer to `Enterprise AI Tier` (plus `Standard AI Tier` for
+   `maloosatyam@google.com`).
+5. **The response** returns `status: 'ok'`, the resolved name fields, `username`, the new
+   `apiKey`, the full `apiKeys` map and `needsOnboarding: false`; the UI closes the modal
+   and continues with live credentials.
+
+The same component and the same handler back the **profile edit** path: `isEditMode`
+re-opens the modal for an existing developer, and `/api/me/profile` accepts the identical
+payload over `POST` or `PUT`.
 
 ---
 
@@ -762,11 +846,11 @@ All UI labels below are quoted exactly as they render today.
   in the compact control, **Admin** / **Sales Agent** / **Loans Agent** in the dropdown.
 - Quick-scenario chips in the chat pane are: **Unauthorized**, **Model Armor**,
   **Auto Routing**, **Token Limits**, **Semantic Cache**, **Direct LLM**
-  ([defaultSettings.ts#L348-L409](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L348-L409)).
+  ([defaultSettings.ts#L390-L451](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L390-L451)).
 - Model dropdown values, in order: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`,
   `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-ultra`,
   `claude-haiku-4-5@20251001`, `claude-opus-4-5@20251101`
-  ([defaultSettings.ts#L211-L223](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L211-L223)).
+  ([defaultSettings.ts#L252-L265](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L252-L265)).
   Each entry renders with a tag: `Intelligent Routing`, `Rate Limited (100 tok/min)`,
   `Flash Lite`, `Flash`, `Pro Preview`, `Restricted (Not Entitled)`, `Claude Haiku`,
   `Claude Opus`.
@@ -797,7 +881,7 @@ All UI labels below are quoted exactly as they render today.
 2. `SUP-UserPrompt` returns **HTTP 400** before `VA-VerifyAPIKey` — the prompt never
    reaches Vertex AI and consumes zero inference tokens.
 3. Two further variants exist in
-   [MODEL_ARMOR_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L321-L346):
+   [MODEL_ARMOR_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L363-L389):
    jailbreak / prompt injection, and PII exfiltration.
 
 ### Act 3 — Role-based model governance
@@ -812,7 +896,7 @@ All UI labels below are quoted exactly as they render today.
 4. Run the stronger variant: the **Unauthorized** chip's step-2 preset
    *"Unauthorized Model: Entitlement Block (401)"* (`model-forbidden`, badge
    `Restricted Model`) forces `activeUser: 'admin'` and `model: 'gemini-3.1-ultra'`
-   ([defaultSettings.ts#L305-L318](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L305-L318)).
+   ([defaultSettings.ts#L347-L360](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L347-L360)).
    `gemini-3.1-ultra` is entitled by **no** product, so even the strongest credential in
    the demo is rejected at `VA-VerifyAPIKey` — see [§2.5](#25-gemini-31-ultra--the-deliberately-unentitled-model).
 

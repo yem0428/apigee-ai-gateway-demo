@@ -29,7 +29,7 @@ class DualPatternAgent:
         self.tools_gateway_url = settings.apigee_tools_gateway_url
         self.api_key = settings.apigee_api_key
 
-    async def generate_response(self, user_message: str, history: List[Dict[str, Any]] = None, target_model: str = "gemini-1.5-flash") -> Dict[str, Any]:
+    async def generate_response(self, user_message: str, history: List[Dict[str, Any]] = None, target_model: str = settings.default_model) -> Dict[str, Any]:
         start_time = time.time()
         tool_traces = []
         

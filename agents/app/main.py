@@ -25,7 +25,7 @@ agent_instance = DualPatternAgent()
 
 class ChatRequest(BaseModel):
     message: str
-    target_model: Optional[str] = "gemini-1.5-flash"
+    target_model: Optional[str] = settings.default_model
     history: Optional[List[Dict[str, Any]]] = []
 
 class ToolExecuteRequest(BaseModel):

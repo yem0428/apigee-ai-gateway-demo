@@ -8,7 +8,7 @@ This repository is an enterprise demonstration and development platform for:
 5. **Interactive Demo UI**: React + Vite + Tailwind playground with real-time gateway trace inspection, token/latency/cost metrics, and live policy toggles.
 
 > [!WARNING]
-> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Migrate `gemini-2.5-flash` references in API products, proxy flows (`LLMTokenLimitFlow`), and UI presets to `gemini-3.5-flash` or `gemini-3.1-flash-lite` before retirement.
+> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Migrate `gemini-2.5-flash` references in API products, proxy flows (`LLMTokenLimitFlow`), and UI presets before retirement. The only **safe** target today is **`gemini-3.1-flash-lite`** — entitled by name in both AI products, priced, and present in `AVAILABLE_MODELS`. **`gemini-3.5-flash` is unvalidated**: it exists only as a price key in `model_rates.properties`, a cost-tier entry in `CalculateCost.js`, and a catalog entry in the `apigee-go-gen` `values.yaml`. It is in no API product, no proxy flow, and not in `AVAILABLE_MODELS`, and has not been confirmed against the live `bap-apac-demo2` publisher catalog. Per Rule 12 it must be verified and added to both AI products before it may be used.
 
 ---
 
@@ -32,7 +32,7 @@ This repository is an enterprise demonstration and development platform for:
 
 ## Core Guidelines for Agentic Development
 
-1. **Apigee Standards**: Keep proxy bundles compliant with Apigee X directory structures (`apiproxy/{proxies,targets,policies,resources}`). Name policies with the type prefix already established in the bundle — `AM-`, `CORS-`, `DC-`, `DJWT-`, `EV-`, `JS-`, `KVM-`, `LTQ-`, `ML-`, `MLC-`, `OAS-`, `QC-`, `RF-`, `SCL-`, `SCP-`, `SMR-`, `SUP-`, `VA-` in `ai-gateway-v1`, plus `PP-` and `Q-` in `mcp`.
+1. **Apigee Standards**: Keep proxy bundles compliant with Apigee X directory structures (`apiproxy/{proxies,targets,policies,resources}`). Name policies with the type prefix already established in the bundle — `AM-`, `CORS-`, `DC-`, `DJWT-`, `EV-`, `JS-`, `KVM-`, `LTQ-`, `ML-`, `MLC-`, `OAS-`, `QC-`, `RF-`, `SCL-`, `SCP-`, `SMR-`, `SUP-`, `VA-` in `ai-gateway-v1`, plus `PP-` and `Q-` in `mcp`. **This list scopes only the two hand-maintained XML bundles.** [`apigee/templates/ai-gateway/policies/`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/templates/ai-gateway/policies/) is a separate `apigee-go-gen` YAML policy set with its own conventions — it adds an `SC-` prefix (`SC-LLMJudge.yaml`) that appears in neither XML bundle, and uses lowercase, hyphenated suffixes (`AM-model.yaml`, `JS-extract-prompt.yaml`) instead of PascalCase. Match whichever set you are editing; do not normalise one to the other.
 
 2. **Quotas come from the API Product, never hardcoded**: LLM token limits are defined in `llmOperationGroup.operationConfigs[].llmTokenQuota` in [`apigee/products/`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/). The `LTQ-TokenEnforce` and `LTQ-TokenCount` policies read them dynamically via `countRef="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.limit"` and matching interval/timeunit refs. Literal values in the policy XML are fallback defaults only — do not treat them as the effective limit, and do not introduce per-limit policy variants.
 

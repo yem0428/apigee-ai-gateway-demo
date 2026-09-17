@@ -5,13 +5,21 @@ class Settings(BaseSettings):
     app_name: str = "Apigee ADK Agent Service"
     environment: str = os.getenv("ENVIRONMENT", "development")
     
-    # Apigee Gateway Endpoints
+    # Apigee Gateway Endpoints.
+    # Both gateway URLs default to the local mock endpoints served by main.py so
+    # the agent is runnable offline. Override BOTH in any deployed environment —
+    # leaving them unset silently bypasses the AI and Tools gateways entirely.
     apigee_ai_gateway_url: str = os.getenv("APIGEE_AI_GATEWAY_URL", "http://localhost:8000/mock/ai")
     apigee_tools_gateway_url: str = os.getenv("APIGEE_TOOLS_GATEWAY_URL", "http://localhost:8000/mock/tools")
-    apigee_api_key: str = os.getenv("APIGEE_API_KEY", "demo-apigee-api-key")
-    
-    # Default Model
-    default_model: str = os.getenv("DEFAULT_MODEL", "gemini-1.5-flash")
+
+    # No literal fallback: a hardcoded key would be a committed credential, and a
+    # bogus one turns an auth misconfiguration into a confusing 401 from the
+    # gateway. Fail loudly at startup instead.
+    apigee_api_key: str = os.getenv("APIGEE_API_KEY", "")
+
+    # Default Model. Must be a model entitled by the caller's API product —
+    # an unentitled ID is rejected at VA-VerifyAPIKey before it reaches Vertex.
+    default_model: str = os.getenv("DEFAULT_MODEL", "gemini-3.1-flash-lite")
     
     class Config:
         env_file = ".env"

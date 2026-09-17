@@ -157,7 +157,8 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
 
           {telemetry.status === 429 ? (
             <div className="p-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 rounded-lg text-[10px] text-amber-900 dark:text-amber-200 font-medium">
-              Token rate quota exceeded (200 tokens/min limit on Standard tier).
+              Token rate quota exceeded. The per-minute LLM token limit for this
+              model is defined by your API product tier.
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[11px]">
@@ -384,7 +385,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
                         <span className="text-slate-800 dark:text-slate-200 text-right break-all font-mono">{v}</span>
                       </div>
                     ))}
-                  {Object.keys(telemetry.headersReceived).filter(([k]) => k.startsWith('x-gateway')).length === 0 && (
+                  {Object.keys(telemetry.headersReceived).filter((k) => k.startsWith('x-gateway')).length === 0 && (
                     <div className="text-slate-500 italic text-[10px] py-1">
                       No custom x-gateway headers in direct response (Standard HTTP headers received)
                     </div>

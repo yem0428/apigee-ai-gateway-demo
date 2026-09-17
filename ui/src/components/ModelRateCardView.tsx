@@ -665,7 +665,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
                 <input
                   type="text"
                   required
-                  placeholder="e.g., gemini-1.5-pro, claude-3-opus"
+                  placeholder="e.g., gemini-3.1-pro-preview, claude-opus-4-5@20251101"
                   value={newModelId}
                   onChange={(e) => setNewModelId(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"

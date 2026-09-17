@@ -62,8 +62,8 @@ which `OAS-ValidateRequest` enforces.
 | `POST /models/gemini-*` | `GeminiDirectFlow` | `AM-PrepGeminiDirect` pins `flow.target_provider = google` |
 | `POST /models/gemini-2.5-flash*` | `LLMTokenLimitFlow` (+ `GeminiDirectFlow`) | Additionally runs `LTQ-TokenEnforce` — the token-limit demo path |
 | `POST /models/claude-*` | `AnthropicDirectFlow` | `AM-PrepClaudeDirect` pins `flow.target_provider = anthropic` |
-| `POST /v1/messages` | `AnthropicDirectFlow` | Native Anthropic Messages payload |
-| `POST /v1/projects/**` | `VertexPassthroughFlow` | Native Vertex AI path shape; `AM-PrepGeminiDirect` also applies |
+| `POST /v1/messages` | `AnthropicDirectFlow` | Native Anthropic Messages payload. **Declared in the OAS and matched by the flow, but entitled by no API product** — returns 401 at `VA-VerifyAPIKey`. See §14 |
+| `POST /v1/projects/**` | `VertexPassthroughFlow` | Native Vertex AI path shape; `AM-PrepGeminiDirect` also applies. ⚠️ **This includes `publishers/anthropic/...` paths, which are therefore pinned to `google` and misrouted** — see §14 |
 
 The OpenAPI spec additionally declares `:streamGenerateContent` and
 `publishers/anthropic/.../:rawPredict` path shapes so that
@@ -152,7 +152,7 @@ or any upstream model.
 > `SanitizeUserPrompt` policy itself fails the request and Apigee returns its
 > default policy fault (HTTP 400, `fault.faultstring` mentioning Model Armor).
 > The live test at
-> [gateway-live.test.mjs#L163-L187](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs#L163-L187)
+> [gateway-live.test.mjs#L197-L221](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs#L197-L221)
 > accepts either that default fault shape or a `PROMPT_SAFETY_VIOLATION`
 > envelope, so it passes without a custom RaiseFault present.
 
@@ -437,7 +437,8 @@ flowchart LR
   C --> D["QC-DeductBudget (Weight = flow.tx_cost_micros)"]
 ```
 
-- `EV-ModelResponse` extracts `flow.modelVersion`, `flow.promptTokenCount`,
+- `EV-ModelResponse` extracts `flow.model` (from `$.modelVersion`),
+  `flow.promptTokenCount`,
   `flow.candidatesTokenCount`, `flow.totalTokenCount` (Gemini shape) **and**
   `flow.claudePromptTokens` / `flow.claudeCandidatesTokens`
   (`$.usage.input_tokens` / `$.usage.output_tokens`, Anthropic shape).
@@ -943,6 +944,8 @@ not documentation.
 
 | Item | Detail |
 | :--- | :--- |
+| **Anthropic native Vertex paths misroute to the Gemini target** | `AM-PrepGeminiDirect`'s condition includes `proxy.pathsuffix MatchesPath "/v1/projects/**"`, which also matches `…/publishers/anthropic/models/claude-…`. `AM-PrepClaudeDirect` matches only `/models/claude*` or `/v1/messages/**`, so it never fires for these. Result: `flow.target_provider=google`, the `claude-target` RouteRule evaluates false, and the request is rebuilt against `publishers/google/models/claude-opus-4-5@20251101`. Both AI products **grant** these resources and the OAS declares them, so the call passes `VA-VerifyAPIKey` and `OAS-ValidateRequest`, then **404s upstream**. Fix: exclude `publishers/anthropic` from `AM-PrepGeminiDirect` and add it to `AM-PrepClaudeDirect` |
+| **`/v1/messages` is advertised but entitled by no product** | `AnthropicDirectFlow` matches it and the OAS declares it, but zero of the 28 product entitlements grant it, so it returns 401 at `VA-VerifyAPIKey`. It also lacks the paired `JavaRegex` alternative that `/auto` has, so a bare `/v1/messages` additionally hits the trailing-`*` glob trap described in §5 |
 | Semantic cache infrastructure IDs are hardcoded | Index endpoint, index ID, and project are literals in the SCL/SCP policy XML — not parameterised per environment |
 | `/models/auto` is entitled but unroutable | Both products grant `/models/auto` and `/models/auto:*`, yet no proxy flow matches them, so the call returns 400. Either add a flow condition or drop the entitlement |
 | `AM-PrepGeminiDirect` hardcodes a default model | Its `<Value>` fallback is `gemini-3-flash-preview`, which must be updated by hand whenever the default Gemini model changes |

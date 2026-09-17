@@ -1459,7 +1459,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g., gemini-1.5-pro, claude-3-opus"
+                  placeholder="e.g., gemini-3.1-pro-preview, claude-opus-4-5@20251101"
                   value={newModelId}
                   onChange={(e) => setNewModelId(e.target.value)}
                   className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"

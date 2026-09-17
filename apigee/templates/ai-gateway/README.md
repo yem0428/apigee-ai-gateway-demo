@@ -7,12 +7,13 @@ A declarative, configurable template for generating the **Apigee Enterprise AI G
 ## 📁 Directory Structure
 
 ```text
-templates/ai-gateway/
+apigee/templates/ai-gateway/
 ├── apiproxy.yaml                  # Root template (APIProxy, ProxyEndpoints, TargetEndpoints, Resources)
-├── values.yaml                    # Declarative configuration & models catalog
+├── values.yaml                    # Declarative configuration & models catalog (full reference config)
+├── values.quickstart.yaml         # Minimal starter config — smallest viable render
 ├── _helpers.tmpl                  # Go template helper macros (Dynamic PropertySets & URL builders)
 ├── policies.yaml                  # Aggregated policy definitions template
-├── policies/                      # Decomposed YAML policy definitions
+├── policies/                      # 42 decomposed YAML policy definitions
 │   ├── VA-ApiKey.yaml
 │   ├── MLC-EnforceMonetizationLimits.yaml
 │   ├── SC-LLMJudge.yaml
@@ -22,19 +23,41 @@ templates/ai-gateway/
 │   ├── LTQ-CountOnly.yaml
 │   └── ...
 └── resources/
-    ├── jsc/                       # JavaScript callouts (Smart Router, Converters, Rating)
-    ├── oas/                       # OpenAPI schema definitions
-    └── properties/                # Target directory for generated propertysets
+    ├── jsc/                       # 16 JavaScript callouts (Smart Router, Converters, Rating)
+    ├── oas/                       # 3 OpenAPI schema definitions (claude, gemini, openai)
+    └── properties/                # EMPTY placeholder — propertysets are generated at render time
 ```
+
+> [!NOTE]
+> `resources/properties/` ships empty. Because Git does not track empty directories it may be
+> absent on a fresh clone; `apigee-go-gen` writes the rendered propertysets into it. Create it if
+> your render fails on a missing path.
+
+> [!IMPORTANT]
+> These policy filenames follow the template set's own convention, **not** the hand-maintained
+> `ai-gateway-v1` XML bundle's. The `SC-` prefix exists only here, and suffixes are lowercase and
+> hyphenated (`AM-model.yaml`, `JS-extract-prompt.yaml`). Do not normalise one set to the other.
 
 ---
 
 ## 🛠 Usage & Generation
 
-### 1. Build or Install `apigee-go-gen`
+All commands below are written to run from the **repository root**.
+
+### 1. Install `apigee-go-gen`
+
+`apigee-go-gen` is an **external, upstream tool** — it is not vendored in this repository and there
+is no `apigeegg/` directory here. Get it from
+[github.com/apigee/apigee-go-gen](https://github.com/apigee/apigee-go-gen) (see the
+[releases page](https://github.com/apigee/apigee-go-gen/releases) for prebuilt binaries):
+
 ```bash
-cd apigeegg/apigee-go-gen
-go build -o ./bin/apigee-go-gen ./cmd/apigee-go-gen
+# Option A — install the released binary directly
+go install github.com/apigee/apigee-go-gen/cmd/apigee-go-gen@latest
+
+# Option B — clone and build from source, anywhere outside this repo
+git clone https://github.com/apigee/apigee-go-gen.git
+cd apigee-go-gen && go build -o ./bin/apigee-go-gen ./cmd/apigee-go-gen
 ```
 
 ### 2. Render Proxy Bundle
@@ -42,22 +65,98 @@ Generate a deployable Apigee API proxy bundle (`.zip` or directory):
 
 ```bash
 apigee-go-gen render apiproxy \
-    --template ./templates/ai-gateway/apiproxy.yaml \
-    --values ./templates/ai-gateway/values.yaml \
+    --template ./apigee/templates/ai-gateway/apiproxy.yaml \
+    --values ./apigee/templates/ai-gateway/values.yaml \
     --output ./out/ai-gateway.zip
 ```
 
+Swap in `values.quickstart.yaml` for a minimal render.
+
 ### 3. Deploy to Apigee
+
+> [!CAUTION]
+> `values.yaml` sets `gateway.name: ai-gateway-v1`, which is the **live, primary proxy** serving
+> `https://api.maloosatyam.demo.altostrat.com/ai/v1`. Deploying this rendered bundle under that
+> name with `--ovr` **overwrites the hand-maintained `ai-gateway-v1` bundle**. The XML bundle in
+> `apigee/proxies/ai-gateway-v1/` is the source of truth for production; this template set is a
+> parallel, experimental generator and the two are not kept in sync.
+
+**Recommended — side-by-side experimental deploy** under a distinct name, leaving production alone.
+Override the name at render time so the bundle's internal name matches:
+
+```bash
+apigee-go-gen render apiproxy \
+    --template ./apigee/templates/ai-gateway/apiproxy.yaml \
+    --values ./apigee/templates/ai-gateway/values.yaml \
+    --set gateway.name=ai-gateway-gen \
+    --output ./out/ai-gateway-gen.zip
+
+apigeecli apis create bundle \
+    --proxy-zip ./out/ai-gateway-gen.zip \
+    --name ai-gateway-gen \
+    --org "$PROJECT_ID" \
+    --env "$APIGEE_ENV" \
+    --wait \
+    --default-token
+```
+
+**Only if you intend to replace production** — this is destructive and creates a new revision of
+the live proxy:
+
 ```bash
 apigeecli apis create bundle \
     --proxy-zip ./out/ai-gateway.zip \
-    --name ai-gateway \
+    --name ai-gateway-v1 \
     --org "$PROJECT_ID" \
     --env "$APIGEE_ENV" \
     --ovr \
     --wait \
     --default-token
 ```
+
+---
+
+## 📚 Model Catalog
+
+The `models:` block in `values.yaml` is rendered into `models.catalog` by `_helpers.tmpl` and
+served from the `/v1/models` endpoint, so **every entry is advertised to clients**. Only list
+models that actually resolve in this project, and keep pricing in sync with the authoritative rate
+card at
+[`apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties).
+
+Rates are USD per 1M tokens.
+
+| Model | Publisher | Region | Input | Output |
+| :--- | :--- | :--- | ---: | ---: |
+| `gemini-3.1-flash-lite` | google | global | 0.075 | 0.300 |
+| `gemini-3-flash-preview` | google | global | 0.150 | 0.600 |
+| `gemini-3.5-flash` | google | global | 0.150 | 0.600 |
+| `gemini-2.5-flash` | google | global | 0.300 | 2.500 |
+| `gemini-3.1-pro-preview` | google | global | 1.250 | 5.000 |
+| `gemini-2.5-pro` | google | global | 1.250 | 5.000 |
+| `claude-haiku-4-5` | anthropic | us-east5 | 1.000 | 5.000 |
+| `claude-opus-4-5` | anthropic | us-east5 | 15.000 | 75.000 |
+
+> [!WARNING]
+> **Deliberately absent**: `gemini-3-flash`, `claude-3-5-sonnet`, `claude-3-5-haiku` and
+> `claude-3-7-sonnet`. These return **HTTP 404** from Vertex in this project — there is no
+> `claude-3-x` generation published here at all. Verify any new model ID against the live
+> `bap-apac-demo2` publisher catalog before adding it.
+
+The legacy names are still handled: the `routing.aliases` block **forward-maps** them onto models
+that do resolve, so an old client gets a working response instead of a 404. These aliases are
+intentional and must not be removed alongside the catalog entries.
+
+| Alias | Resolves to |
+| :--- | :--- |
+| `claude-3-5-sonnet`, `claude-3-7-sonnet`, `claude-sonnet` | `claude-opus-4-5@20251101` |
+| `claude-3-5-haiku`, `claude-haiku` | `claude-haiku-4-5@20251001` |
+| `gemini-flash` / `gemini-flash-lite` / `gemini-pro` | the corresponding Gemini 3.x model |
+| `gpt-4o` / `gpt-4o-mini` | `gemini-3.1-pro-preview` / `gemini-3.1-flash-lite` |
+| `auto`, `gateway/auto` | `gemini-3-flash-preview` |
+
+`gemini-2.5-flash` is retained deliberately as the token-quota demo model despite its 2026-10-20
+retirement date.
 
 ---
 
@@ -97,21 +196,31 @@ models:
 
 ## 🎛 Feature Toggles
 
-You can toggle features on or off in `values.yaml`:
+You can toggle features on or off in `values.yaml`. These are the **actual shipped defaults** —
+note that `monetization` and `llm_judge` default to `false`:
 
 ```yaml
 features:
   monetization:
-    enabled: true
+    enabled: false
+    default_currency: "USD"
+    default_markup: 1.0
   model_armor:
     enabled: true
+    location: "global"
+    template: "ai-gateway-filter"
   llm_judge:
-    enabled: true
+    enabled: false
+    classifier_model: "gemini-3.1-flash-lite"
   quotas:
     enabled: true
   cors:
     enabled: true
   auth:
     enabled: true
-    type: "apikey"
+    type: "apikey"   # apikey | none
+  identity_check:
+    enabled: true
+  semantic_cache:
+    enabled: true
 ```

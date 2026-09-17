@@ -228,8 +228,8 @@ Source: [defaultSettings.ts#L15-L49](file:///Users/maloosatyam/Codebase/AI%20Cod
 | `custom` — "Custom Endpoint" | user-supplied | — | user-supplied | — |
 
 Additional reverse-proxy routes declared in
-[vite.config.ts#L1087-L1140](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1087-L1140)
-and mirrored in [server.js#L1109-L1155](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1109-L1155):
+[vite.config.ts#L1593-L1646](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1593-L1646)
+and mirrored in [server.js#L1683-L1729](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1683-L1729):
 
 | Route | Target |
 | :--- | :--- |
@@ -295,9 +295,10 @@ Identity and authorization are decoupled:
 
 ### 4.1 Persona registry
 
-Source: [defaultSettings.ts#L118-L193](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L118-L193),
+Source: [defaultSettings.ts#L159-L182](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L159-L182)
+(`USERS`) and [#L205-L235](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L205-L235) (`KEY_TIERS`),
 [apigee/apps/](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/apps),
-[server.js#L185-L234](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L185-L234).
+[server.js#L327-L470](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L327-L470).
 
 | Persona (`UserPersona`) | Key tier | Developer app | Bound API products | Effect |
 | :--- | :--- | :--- | :--- | :--- |
@@ -313,6 +314,16 @@ A fourth key tier, `custom`, exists in `KEY_TIERS` for pasting an arbitrary key.
 > `unified_loans_app.json`). The Admin app is created at runtime by the Node server /
 > Vite middleware against the Apigee Management API and is bound to
 > `['Enterprise AI Tier', 'Enterprise Tools MCP']`.
+
+> [!NOTE]
+> **`maloosatyam@google.com` is no longer the only developer of record.** The demo
+> developer apps were migrated to `maloosatyam@gmail.com` with every `consumerKey` /
+> `consumerSecret` preserved, so `ui/.env` did not change. `/api/me` resolves
+> `Unified Sales App` and `Unified Loans App` against `maloosatyam@gmail.com` **first** and
+> uses `maloosatyam@google.com` only as a `||` fallback
+> ([server.js#L516-L522](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L516-L522)).
+> `maloosatyam@google.com` is still the `--dev` default for `deploy_all.sh`, the `?dev=`
+> default on the monetization routes, and the wallet owner used by the provisioning script.
 
 ### 4.2 API Products
 
@@ -485,10 +496,10 @@ clicking **Refresh Tools** replaces it with the live catalog.
 
 ### 6.1 Model dropdown
 
-Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L211-L223).
-Eight entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L327)
+Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L252-L265).
+Eight entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L389)
 in the compact selector and again in the mobile panel under the label
-**"Vertex AI Model"** ([Navbar.tsx#L609](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L609)).
+**"Vertex AI Model"** ([Navbar.tsx#L675](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L675)).
 
 | Model ID | Display name | Tag | Reachable? |
 | :--- | :--- | :--- | :--- |
@@ -509,7 +520,7 @@ in the compact selector and again in the mobile panel under the label
 `DEFAULT_SETTINGS` uses `model: 'auto'`, `environment: 'prod'`, `activeUser: 'admin'`,
 `keyTier: 'admin'`, `projectId: 'bap-apac-demo2'`, `location: 'global'`, `useCache: false`,
 `omitEmailHeader: false`
-([defaultSettings.ts#L195-L208](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L195-L208)).
+([defaultSettings.ts#L236-L249](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L236-L249)).
 
 URL construction differs per selection
 ([apigeeClient.ts#L81-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L81-L85)):
@@ -550,8 +561,26 @@ here.
 
 ### 6.3 Cost rate card
 
+The **live** rate card is the Apigee environment-scoped KVM `ai-model-rates`, key
+`rate_card`. [KVM-GetModelRates](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/KVM-GetModelRates.xml)
+is a `KeyValueMapOperations` policy with `mapIdentifier="ai-model-rates"` and
+`<Scope>environment</Scope>` that `Get`s the `rate_card` key into `flow.model_rates_json`.
+It **never reads the property set**.
+
 [model_rates.properties](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties)
-is loaded by `KVM-GetModelRates` and consumed by `JS-CalculateCost`. USD per 1M tokens:
+is only the **fallback**. `JS-CalculateCost` runs `CalculateCost.js`, which first parses
+`flow.model_rates_json`; only when that variable is empty, unparseable, or yields no rate
+does it fall through to `propertyset.model_rates.<model>.input` / `.output`
+([CalculateCost.js#L12-L58](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L12-L58)
+KVM path, [#L60-L95](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L60-L95)
+property-set fallback).
+
+> [!IMPORTANT]
+> When debugging an unexpected `x-gateway-cost-usd`, inspect the `ai-model-rates` KVM
+> **first**. Editing `model_rates.properties` and redeploying the bundle changes nothing
+> while the KVM holds a `rate_card` value that resolves for the model.
+
+The property-set fallback values, USD per 1M tokens:
 
 | Key | Input | Output | Notes |
 | :--- | ---: | ---: | :--- |
@@ -581,6 +610,35 @@ Version suffixes are stripped before lookup:
 `claude-opus-4-5` key. A prefix table then catches near-misses, and `default` is the last
 resort. The rate card contains **no** `claude-3-x` keys — that model generation is not
 published to Vertex in this project.
+
+#### Editing the rate card from the UI
+
+The rate-card screen that actually ships is the **Model Rate Cards (KVM)** sub-tab inside
+`MonetizationManager`. It reads and writes the *KVM*, never the property set:
+`fetchModelRates()` issues `GET /api/kvm/rates?env=<env>` and `updateModelRates()` issues a
+**`PUT`** to the same route, which writes `ai-model-rates:rate_card` through the Management
+API ([api.ts#L5-L40](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/api.ts#L5-L40),
+[server.js#L857-L956](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L857-L956)).
+
+> [!WARNING]
+> A UI edit is **never** written back to `model_rates.properties`. The KVM and the
+> committed property set can therefore diverge silently — the gateway bills from the edited
+> KVM value while the file in git still shows the old rate. Treat the property set as a
+> disaster-recovery default and re-sync it by hand after a UI edit.
+
+Two client-side behaviours matter before a live demo:
+
+- **Hardcoded backstop** — the cost simulator resolves
+  `rates[model] || rates['default'] || { input: 0.15, output: 0.60 }`, so an unrecognised
+  model is quoted at 0.15 / 0.60 even when the KVM has no `default` entry at all
+  ([MonetizationManager.tsx#L390](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx#L390); the
+  identical line lives at [ModelRateCardView.tsx#L186](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ModelRateCardView.tsx#L186),
+  which is on disk but never mounted).
+- **`default` is delete-protected** — removing the `default` card is refused with
+  `The "default" rate card cannot be deleted as it serves as the baseline fallback.`
+  ([MonetizationManager.tsx#L344](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx#L344);
+  [ModelRateCardView.tsx#L140](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ModelRateCardView.tsx#L140) carries the
+  same guard).
 
 ---
 
@@ -673,13 +731,15 @@ The Navbar renders four primary tabs: **AI Gateway**, **MCP Gateway**, **Analyti
 **Monetization**. Monetization-family tabs are hidden for non-admin personas and the app
 falls back to `ai-gateway`.
 
-### 8.1 Components — the complete list (13)
+### 8.1 Components — the complete list (15)
 
 ```
 ui/src/components/
 ├── AnalyticsDashboard.tsx      # Analytics & Cost tab: fleet KPIs, token usage, cost distribution
 ├── ApigeeLogo.tsx              # Four-colour logo symbol (kept; no wordmark rendered)
+├── ArchitectureBlueprintModal.tsx  # Full-screen architecture blueprint, mounted by App.tsx
 ├── ChatPlayground.tsx          # AI Gateway chat thread, six demo chips, status footer
+├── DeveloperOnboardingModal.tsx    # First-run developer provisioning / profile modal
 ├── DonutPieChart.tsx           # Shared SVG donut/pie chart used by dashboards
 ├── GatewaySettingsModal.tsx    # "Gateway Configuration" modal
 ├── GatewayTraceViewer.tsx      # "Gateway Telemetry" pane (six cards + raw accordion)
@@ -716,11 +776,13 @@ graph TD
     App --> McpP["McpPlayground.tsx"]
     App --> McpT["McpTraceViewer.tsx"]
     App --> Modal["GatewaySettingsModal.tsx"]
+    App --> Blueprint["ArchitectureBlueprintModal.tsx"]
+    App --> Onboard["DeveloperOnboardingModal.tsx"]
     App --> Analytics["AnalyticsDashboard.tsx"]
     App --> Money["MonetizationManager.tsx"]
     Chat --> Presets["ScenarioPresets.tsx"]
     Analytics --> Donut["DonutPieChart.tsx"]
-    Money --> Rates["ModelRateCardView.tsx"]
+    Money -.-> Rates["ModelRateCardView.tsx (on disk, never mounted)"]
     Navbar --> Theme["ThemeSelector.tsx"]
     Navbar --> Logo["ApigeeLogo.tsx"]
 ```
@@ -737,10 +799,15 @@ graph TD
 | 3 | **Latency** | `Round Trip` ms; `Vector Cache (~90% Faster)` vs `Live LLM Inference` |
 | 4 | **Semantic Cache** | clickable on/off toggle; `$0 Token Cost` on a hit |
 | 5 | **Model Armor** | `Secured` or `Blocked (400)` |
-| 6 | **Monetization** | `Prepaid Active` / `Depleted`, `Start Balance`, `Remaining` |
+| 6 | **Wallet** | `Prepaid Active` / `Depleted`, `Start Balance`, `Remaining` |
 
 Followed by an **"Inspect HTTP Headers & Raw JSON"** accordion. The empty state reads
 **"Ready for Gateway Traffic"**.
+
+> [!NOTE]
+> Card 6 renders the label **"Wallet"** — renamed from "Monetization & Wallet"
+> ([GatewayTraceViewer.tsx#L308-L318](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L308-L318)).
+> The underlying signal is unchanged: the `x-gateway-monetization-status` header.
 
 ### 8.4 UI branding
 
@@ -764,6 +831,35 @@ logo symbol is retained. Strings that render today:
 
 Code identifiers (`ApigeeLogo`, `apigeeClient.ts`, `sendPromptToApigee`) intentionally keep
 the name — this constraint applies to rendered text only.
+
+### 8.5 Wallet balance precision — 2 dp on screen, 6 dp on hover
+
+Every wallet figure in the UI is **rounded to 2 decimal places for display and carries the
+full 6-decimal value in a `title=` hover tooltip**. The gateway rates each request in
+micro-dollars, so a raw balance of `19.987421` legitimately renders as `$19.99`.
+
+| Surface | Rendered | Hover tooltip |
+| :--- | :--- | :--- |
+| Analytics "Available Balance" KPI | `toFixed(2)` | `Exact balance: $<toFixed(6)> USD` |
+| Monetization header wallet chip | `toFixed(2)` | `Exact balance: $<toFixed(6)> USD` |
+| Wallet table — `Total Consumed` | `toFixed(2)` | `Exact consumed: $<toFixed(6)> USD` |
+| Wallet table — `Active Balance` | `toFixed(2)` | `Exact balance: $<toFixed(6)> USD` |
+
+`AnalyticsDashboard` builds the pair explicitly as
+`{ amount: Number(bal).toFixed(2), exactAmount: Number(bal).toFixed(6) }`
+([AnalyticsDashboard.tsx#L201-L230](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/AnalyticsDashboard.tsx#L201-L230))
+and surfaces `exactAmount` through the `title` attribute
+([#L600](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/AnalyticsDashboard.tsx#L600)). `MonetizationManager` repeats
+the pattern at [#L508](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx#L508),
+[#L788](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx#L788) and
+[#L807](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx#L807).
+The `exactAmount` helper trims trailing zeros past the second decimal, so a clean top-up
+reads `20.00`, not `20.000000`.
+
+> [!IMPORTANT]
+> This is **not** a rounding bug. An audience comparing the on-screen `$19.99` against a
+> 6-decimal `/api/monetization/balance` response will assume it is one — hover the figure
+> to reveal the exact value.
 
 ---
 
@@ -915,9 +1011,21 @@ Chip: **`⚡ Cache: Seed (Miss)`** → **`⚡ Cache: Instant Hit ($0)`**, then
   Management API for `Unified Admin <username> App`, `Unified Sales App`, and
   `Unified Loans App`.
 
+- **Which developer owns the Sales and Loans apps** — the demo developer apps were
+  migrated to `maloosatyam@gmail.com`, and every `consumerKey` / `consumerSecret` was
+  **preserved** across the move, so existing `ui/.env` values stay valid and no key
+  rotation is needed. `/api/me` therefore resolves each app against
+  `maloosatyam@gmail.com` **first**, falling back to `maloosatyam@google.com` only when
+  that lookup returns nothing
+  ([server.js#L516-L522](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L516-L522), mirrored in the dev middleware at
+  [vite.config.ts#L540-L546](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L540-L546)).
+  `maloosatyam@google.com` remains the default everywhere else: it is the `--dev` default
+  in `deploy_all.sh`, the `?dev=` default on the monetization routes, and the wallet owner
+  used by `provision_unified_credentials.py`.
+
 - **Caller identity in production** — `/api/me` derives the email from the IAP header
   `x-goog-authenticated-user-email` and returns
-  [`token: ''`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L438-L471).
+  [`token: ''`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L759).
   No SSO ID token is issued to the browser, so gateway requests from the deployed UI
   authenticate the caller with `X-User-Email` rather than `Authorization: Bearer`.
   Only the Vite dev middleware shells out to `gcloud auth print-identity-token` to supply a
@@ -925,8 +1033,11 @@ Chip: **`⚡ Cache: Seed (Miss)`** → **`⚡ Cache: Instant Hit ($0)`**, then
 
 > [!WARNING]
 > There is **no Secret Manager wiring and no entrypoint script** in the deployed image.
-> [ui/Dockerfile](file:///Users/maloosatyam/Codebase/AI%20Code/ui/Dockerfile) is six lines:
-> `node:20-alpine`, `ENV PORT=8080`, copy `dist/` and `server.js`, `CMD ["node", "server.js"]`.
+> [ui/Dockerfile](file:///Users/maloosatyam/Codebase/AI%20Code/ui/Dockerfile) is 11 lines carrying exactly seven
+> directives, in this order: `FROM node:20-alpine`, `WORKDIR /app`, `ENV PORT=8080`,
+> `COPY dist ./dist`, `COPY server.js ./`, `EXPOSE 8080`, `CMD ["node", "server.js"]`.
+> There is no build stage, no `npm install` and no `ENTRYPOINT` — `dist/` must already be
+> built on the host before `docker build`.
 > The Cloud Run revision declares no secret references and no environment variables beyond
 > `PORT`. [ui/nginx.conf.template](file:///Users/maloosatyam/Codebase/AI%20Code/ui/nginx.conf.template)
 > and [ui/generate-env.sh](file:///Users/maloosatyam/Codebase/AI%20Code/ui/generate-env.sh)
