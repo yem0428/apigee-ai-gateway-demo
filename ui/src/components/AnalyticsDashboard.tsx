@@ -150,9 +150,34 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     }
   }, [registerRefresh, timeRange]);
 
-  // Analytics Management API data
+  // Analytics Management API data.
+  //
+  // The fleet-stats endpoint can emit MORE THAN ONE row for the same
+  // (userEmail, model) pair: the Analytics-indexed row and the wallet
+  // reconciliation row for spend that analytics has not indexed yet. Left as-is
+  // those pairs produce duplicate React keys in the ledger table, which breaks
+  // list reconciliation and leaves stale <tr> nodes in the DOM whenever the row
+  // set shrinks (e.g. when the user filter is applied). Collapse them here so
+  // every (userEmail, model) pair appears exactly once with summed totals.
   const allConsumptionRecords: UserConsumptionRecord[] = useMemo(() => {
-    return fleetData?.consumptionRows || [];
+    const rows = fleetData?.consumptionRows || [];
+    const merged = new Map<string, UserConsumptionRecord>();
+
+    rows.forEach((row) => {
+      const key = `${row.userEmail.toLowerCase()}__${row.model}`;
+      const existing = merged.get(key);
+      if (!existing) {
+        merged.set(key, { ...row });
+        return;
+      }
+      existing.totalTraffic += row.totalTraffic;
+      existing.inputTokens += row.inputTokens;
+      existing.outputTokens += row.outputTokens;
+      existing.costUsd += row.costUsd;
+      existing.isUnauthenticated = Boolean(existing.isUnauthenticated) && Boolean(row.isUnauthenticated);
+    });
+
+    return Array.from(merged.values());
   }, [fleetData]);
 
   // Authoritative user/developer list based strictly on Developer Management API
@@ -363,18 +388,25 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       .sort((a, b) => b.cost - a.cost);
   }, [activeConsumptionRecords]);
 
-  // Pie Chart 1: Model vs Cost Slices (only models that have actual traffic and non-zero spend)
+  // Pie Chart 1: Model vs Cost Slices.
+  // Every model with traffic and non-zero spend is shown. Do NOT reintroduce a
+  // minimum-cost threshold here: it silently drops models that the Tokens view
+  // still lists, and leaves the legend unable to account for the donut total.
   const costSlices: DonutSlice[] = useMemo(() => {
     const totalCost = modelStatsForPies.reduce((acc, m) => acc + m.cost, 0);
     return modelStatsForPies
-      .filter((m) => m.calls > 0 && m.cost >= 0.01)
+      .filter((m) => m.calls > 0 && m.cost > 0)
       .map((m) => ({
         id: m.model,
         label: m.model,
         badge: m.badge,
         sublabel: `${m.provider} • ${m.tier.toUpperCase()}`,
         value: m.cost,
-        formattedValue: `$${m.cost.toFixed(2)} USD`,
+        // Sub-cent spend is common on flash-tier models; $0.00 would be misleading.
+        formattedValue:
+          m.cost > 0 && m.cost < 0.01
+            ? `$${m.cost.toFixed(4)} USD`
+            : `$${m.cost.toFixed(2)} USD`,
         percentage: totalCost > 0 ? (m.cost / totalCost) * 100 : 0,
         color: m.color,
       }));

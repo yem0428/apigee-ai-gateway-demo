@@ -345,6 +345,24 @@ Pass-through proxies (prefix match,
 ([server.js#L1731-L1734](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1731-L1734)),
 which forwards to `https://api.maloosatyam.demo.altostrat.com` with the path preserved verbatim.
 
+> [!WARNING]
+> `/api/analytics/fleet-stats` can return **more than one `consumptionRows` entry for the same
+> `(userEmail, model)` pair**. One comes from the Analytics-indexed traffic, the other from the
+> wallet reconciliation block
+> ([server.js#L1418-L1488](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1418-L1488)),
+> which synthesises `gemini-2.5-flash` / `gemini-3.1-pro-preview` rows for prepaid spend that
+> analytics has not indexed yet. `AnalyticsDashboard` therefore **merges duplicate pairs** in
+> `allConsumptionRecords` before anything else consumes them. Do not remove that merge: the ledger
+> table keys its rows on `` `${userEmail}__${model}` ``, so duplicate pairs produce duplicate React
+> keys, and React then fails to unmount rows when the list shrinks — the symptom was the **User**
+> filter updating the ledger title, model dropdown and KPI cards while leaving other users' rows
+> visibly stranded in the table.
+
+> [!NOTE]
+> The **Model Split Across Catalog** card shows every model with `cost > 0` in the Spend ($) view,
+> formatting sub-cent values with four decimals. It previously required `cost >= 0.01`, which
+> silently dropped cheap models from Spend while they remained visible under Tokens.
+
 ### 6.1 Actual payload shapes
 
 `GET /api/monetization/balance` returns the raw Apigee response nested under `data` — **not** a
