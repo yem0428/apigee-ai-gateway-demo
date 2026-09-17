@@ -196,11 +196,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       );
       const bal = match ? match.currentBalanceUsd : 0;
       const isPrepaid = match ? match.billingType === 'PREPAID' : true;
+      const handle = currentUserEmail.split('@')[0] || currentUserEmail;
       return {
         amount: Number(bal || 0).toFixed(2),
         exactAmount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
-        subtitle: `Authenticated User (${currentUserEmail})`,
+        subtitle: `Active Wallet (${handle})`,
         sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
       };
     }
@@ -211,11 +212,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       );
       const bal = match ? match.currentBalanceUsd : 0;
       const isPrepaid = match ? match.billingType === 'PREPAID' : true;
+      const handle = userFilter.split('@')[0] || userFilter;
       return {
         amount: Number(bal || 0).toFixed(2),
         exactAmount: Number(bal || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
         badge: isPrepaid ? 'Prepaid' : 'Postpaid',
-        subtitle: isPrepaid ? `Prepaid Balance (${userFilter})` : `Postpaid Plan (${userFilter})`,
+        subtitle: isPrepaid ? `Prepaid Wallet (${handle})` : `Postpaid Plan (${handle})`,
         sparkline: bal > 0 ? [bal, bal, bal, bal, bal] : [0, 0, 0, 0, 0],
       };
     }
@@ -226,8 +228,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return {
       amount: Number(totalPool || 0).toFixed(2),
       exactAmount: Number(totalPool || 0).toFixed(6).replace(/(\.\d{2,}?)0+$/, '$1'),
-      badge: 'All Users',
-      subtitle: `All Users Pool (${userCount} active developer${userCount === 1 ? '' : 's'})`,
+      badge: 'Pool',
+      subtitle: `All Users Pool • ${userCount} developer${userCount === 1 ? '' : 's'}`,
       sparkline: totalPool > 0 ? [totalPool, totalPool, totalPool, totalPool, totalPool] : [0, 0, 0, 0, 0],
     };
   }, [viewMode, userFilter, currentUserEmail, attributions, userList]);
@@ -603,7 +605,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {availableBalanceData.badge}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={availableBalanceData.subtitle}>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight" title={availableBalanceData.subtitle}>
                 {availableBalanceData.subtitle}
               </div>
               {/* Mini Area Sparkline */}

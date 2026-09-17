@@ -1745,6 +1745,11 @@ const server = http.createServer(async (req, res) => {
   try {
     const content = fs.readFileSync(filePath);
     res.setHeader('Content-Type', contentType);
+    if (ext === '.html') {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else if (pathname.startsWith('/assets/')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
     res.end(content);
   } catch (err) {
     res.statusCode = 404;
