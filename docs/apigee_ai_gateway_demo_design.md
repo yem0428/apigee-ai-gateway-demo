@@ -22,7 +22,7 @@ Capabilities that are actually implemented and deployed:
 | :-- | :--- | :--- |
 | 1 | **Multi-provider model routing** (Gemini + Claude on Vertex) | [default.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L187-L193) route rules |
 | 2 | **Intelligent auto-routing** driven by prompt heuristics + product tier | [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js) |
-| 3 | **Caller identity enforcement** (JWT `email` claim or `X-User-Email`) | `DJWT-ExtractUserIdentity` → `RF-MissingUserEmail` |
+| 3 | **Caller identity enforcement** (JWT `email` claim) | `DJWT-ExtractUserIdentity` → `RF-MissingUserEmail` |
 | 4 | **Model Armor prompt/response guardrails** | `SUP-UserPrompt`, `SMR-SanitizeModelResponse` |
 | 5 | **Semantic caching** on Vertex Vector Search | `SCL-Semantic-Cache-Lookup`, `SCP-Semantic-Cache-Populate` |
 | 6 | **Product-driven LLM token quotas** | `LTQ-TokenEnforce` / `LTQ-TokenCount` + API Product config |
@@ -125,12 +125,11 @@ Every step carries `request.verb != "OPTIONS"`.
 | # | Policy | Additional condition |
 | :-- | :--- | :--- |
 | 1 | `CORS-Headers` | — |
-| 2 | `OAS-ValidateRequest` | — |
+| 2 | `OAS-ValidateRequest` | — (validates the body; rejects before identity, key or quota) |
 | 3 | `EV-RequestDetails` | — |
 | 4 | `EV-ExtractBearerToken` | — |
 | 5 | `DJWT-ExtractUserIdentity` | `flow.rawToken != null` |
 | 6 | `AM-SetUserIdentity` | a JWT `email` claim resolved |
-| 7 | `AM-SetUserEmailFromHeader` | `flow.emailId = null` and `X-User-Email` present |
 | 8 | `RF-MissingUserEmail` | `flow.emailId = null` → **raises HTTP 401** |
 | 9 | `JS-ExtractPromptAndModel` | — |
 | 10 | `VA-VerifyAPIKey` | — |
@@ -281,10 +280,10 @@ https://api.maloosatyam.demo.altostrat.com/ai/v1/models/gemini-2.5-flash:generat
 Identity and authorization are decoupled:
 
 1. **Identity (who you are)** — a Bearer JWT (`Authorization`) whose `email` claim is decoded
-   by `DJWT-ExtractUserIdentity`, or an `X-User-Email` header fallback. If neither resolves,
+   by `DJWT-ExtractUserIdentity`. If no email claim resolves,
    `RF-MissingUserEmail` returns HTTP 401 with:
    ```json
-   {"error":{"code":401,"status":"UNAUTHENTICATED","message":"Missing required caller identity. Provide a valid Bearer JWT in Authorization header, an X-Identity-Token with an email claim, or an X-User-Email header."}}
+   {"error":{"code":401,"status":"UNAUTHENTICATED","message":"Missing required caller identity. Provide a JWT with an email claim as a Bearer token in the Authorization header, or in X-Identity-Token."}}
    ```
 2. **Entitlement (what you may invoke)** — the `x-apikey` header, validated by
    `VA-VerifyAPIKey` against the developer app's bound API Products.
@@ -412,12 +411,28 @@ Source: [apigeeClient.ts#L149-L166](file:///Users/maloosatyam/Codebase/AI%20Code
 | :--- | :--- |
 | `Content-Type: application/json` | always |
 | `x-apikey: <resolved key>` | always |
-| `Authorization: Bearer <idToken>` | when an SSO ID token is present and `omitEmailHeader` is false |
-| `X-User-Email: <email>` | when an email is resolved and `omitEmailHeader` is false |
+| `Authorization: Bearer <idToken>` | whenever a token is available and `omitEmailHeader` is false |
 | `use-cache: true` | only when the Semantic Cache toggle is on |
 
-Setting `omitEmailHeader` drops **both** `Authorization` and `X-User-Email`, which is how
-the 401 identity demo is triggered.
+`X-User-Email` is **no longer sent or honoured** — the `AM-SetUserEmailFromHeader` policy
+was removed from the proxy. `/api/me` always returns a token: the real IAP assertion in
+production, or a locally minted stand-in when running without IAP.
+
+Setting `omitEmailHeader` drops the `Authorization` header, which is how the 401 identity
+demo is triggered.
+
+> [!IMPORTANT]
+> The token must declare `alg: RS256` and carry a **non-empty signature segment**. Apigee's
+> DecodeJWT rejects the `alg: none` / empty-signature form with a 401 even though it never
+> verifies the signature — confirmed against dev rev 11.
+
+> [!WARNING]
+> `DJWT-ExtractUserIdentity` is a **DecodeJWT**, not a VerifyJWT — the signature is never
+> checked. Preferring the JWT is therefore a tidiness win, **not yet a security win**: a
+> caller holding a valid API key can still mint an unsigned token with any `email` claim,
+> exactly as they could previously spoof `X-User-Email`. Since identity drives the
+> consumption ledger, wallets and quotas, this should become a `VerifyJWT` against
+> Google's IAP JWKS before the email fallback is removed.
 
 ---
 
@@ -644,7 +659,7 @@ Two client-side behaviours matter before a live demo:
 | Policy | Apigee type | Role |
 | :--- | :--- | :--- |
 | `CORS-Headers` | CORS | Cross-origin headers; also the `OPTIONS` pre-flight flow |
-| `OAS-ValidateRequest` | OASValidation | Schema/parameter validation against `openapi.yaml` |
+| `OAS-ValidateRequest` | OASValidation | Path, parameter **and request-body** validation against `openapi.yaml` (`ValidateMessageBody` is on) |
 | `EV-RequestDetails` | ExtractVariables | Pulls request metadata into flow vars |
 | `EV-ExtractBearerToken` | ExtractVariables | Extracts the raw JWT into `flow.rawToken` |
 | `DJWT-ExtractUserIdentity` | DecodeJWT | Decodes the JWT to read the `email` claim |

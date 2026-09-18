@@ -11,6 +11,7 @@ import { DeveloperOnboardingModal, DeveloperOnboardingResult } from './component
 import { ThemeSelector } from './components/ThemeSelector';
 import { GatewaySettings, ChatMessage, GatewayTelemetry, McpTelemetry, UserPersona, AppTab, AppTheme } from './types';
 import { DEFAULT_SETTINGS, USERS, createSsoUserFromEmail } from './services/defaultSettings';
+import { isSessionExpiredResponse, recoverExpiredSession, markSessionHealthy } from './services/session';
 
 export function App() {
   const [onboardingModal, setOnboardingModal] = useState<{
@@ -141,70 +142,105 @@ export function App() {
     async function syncAuthenticatedUser() {
       try {
         const res = await fetch('/api/me');
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await res.json();
-            let email = (data.email || '').trim();
-            const idToken = (data.token || '').trim();
-            const apiKey = (data.apiKey || '').trim();
-            const fullName = (data.name || '').trim();
 
-            if (email.startsWith('accounts.google.com:')) {
-              email = email.replace(/^accounts\.google\.com:/, '').trim();
-            }
-            if (email) {
-              const provider = data.provider || (idToken ? 'Google Cloud Identity SSO (gcloud)' : 'Google Cloud Identity SSO (IAP)');
-              const authUser = createSsoUserFromEmail(email, provider, idToken, fullName);
-
-              if (data.needsOnboarding) {
-                setOnboardingModal({
-                  isOpen: true,
-                  email,
-                  suggestedFirstName: data.suggestedFirstName || '',
-                  suggestedLastName: data.suggestedLastName || '',
-                  isEditMode: false,
-                });
-                setSettings((prev) => ({
-                  ...prev,
-                  userEmail: email,
-                  ssoUser: authUser,
-                  idToken: idToken || undefined,
-                }));
-                return;
-              }
-
-              const apiKeys = data.apiKeys || {};
-
-              if (apiKeys.admin || apiKey) {
-                USERS.admin.apiKey = apiKeys.admin || apiKey;
-              }
-              if (apiKeys.sales_agent) {
-                USERS.sales_agent.apiKey = apiKeys.sales_agent;
-              }
-              if (apiKeys.loans_agent) {
-                USERS.loans_agent.apiKey = apiKeys.loans_agent;
-              }
-
-              setSettings((prev) => ({
-                ...prev,
-                userEmail: email,
-                ssoUser: authUser,
-                idToken: idToken || undefined,
-                // Resolve within the active persona only. Falling back to
-                // apiKeys.admin here would store Enterprise credentials on
-                // state for a non-admin persona.
-                apiKey: apiKeys[prev.activeUser] || USERS[prev.activeUser]?.apiKey || '',
-              }));
-            }
+        // An expired IAP session does not arrive as an error -- it arrives as a
+        // 200 HTML sign-in page. Detect that explicitly and reload, otherwise
+        // the app renders signed-in-looking but with no key and every call
+        // fails silently.
+        if (isSessionExpiredResponse(res)) {
+          if (recoverExpiredSession(`GET /api/me -> ${res.status} ${res.headers.get('content-type') || 'no content-type'}`)) {
+            return;
           }
+          return;
+        }
+
+        markSessionHealthy();
+
+        const data = await res.json();
+        let email = (data.email || '').trim();
+        const idToken = (data.token || '').trim();
+        const apiKey = (data.apiKey || '').trim();
+        const fullName = (data.name || '').trim();
+
+        if (email.startsWith('accounts.google.com:')) {
+          email = email.replace(/^accounts\.google\.com:/, '').trim();
+        }
+        if (email) {
+          const provider = data.provider || (idToken ? 'Google Cloud Identity SSO (gcloud)' : 'Google Cloud Identity SSO (IAP)');
+          const authUser = createSsoUserFromEmail(email, provider, idToken, fullName);
+
+          if (data.needsOnboarding) {
+            setOnboardingModal({
+              isOpen: true,
+              email,
+              suggestedFirstName: data.suggestedFirstName || '',
+              suggestedLastName: data.suggestedLastName || '',
+              isEditMode: false,
+            });
+            setSettings((prev) => ({
+              ...prev,
+              userEmail: email,
+              ssoUser: authUser,
+              idToken: idToken || undefined,
+            }));
+            return;
+          }
+
+          const apiKeys = data.apiKeys || {};
+
+          if (apiKeys.admin || apiKey) {
+            USERS.admin.apiKey = apiKeys.admin || apiKey;
+          }
+          if (apiKeys.sales_agent) {
+            USERS.sales_agent.apiKey = apiKeys.sales_agent;
+          }
+          if (apiKeys.loans_agent) {
+            USERS.loans_agent.apiKey = apiKeys.loans_agent;
+          }
+
+          setSettings((prev) => ({
+            ...prev,
+            userEmail: email,
+            ssoUser: authUser,
+            idToken: idToken || undefined,
+            // Resolve within the active persona only. Falling back to
+            // apiKeys.admin here would store Enterprise credentials on
+            // state for a non-admin persona.
+            apiKey: apiKeys[prev.activeUser] || USERS[prev.activeUser]?.apiKey || '',
+          }));
         }
       } catch (err) {
-        console.debug('No active session detected on /api/me, using runtime defaults.');
+        // A cross-origin block on the IdP redirect also lands here.
+        console.debug('No active session detected on /api/me, using runtime defaults.', err);
       }
     }
 
     syncAuthenticatedUser();
+
+    // The IAP session outlives most sittings but not an overnight one. Re-check
+    // whenever the tab is brought back to the foreground -- that is exactly the
+    // moment a demo machine resumes from sleep with a dead cookie. Throttled so
+    // ordinary tab switching does not hammer /api/me, which does provisioning
+    // work server-side.
+    let lastCheck = Date.now();
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastCheck < 60_000) return;
+      lastCheck = Date.now();
+      try {
+        const res = await fetch('/api/me');
+        if (isSessionExpiredResponse(res)) {
+          recoverExpiredSession('tab refocus');
+        } else {
+          markSessionHealthy();
+        }
+      } catch {
+        recoverExpiredSession('tab refocus (network/CORS block)');
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   // Save settings changes to localStorage (excluding temporary simulation flags and dynamic API keys)

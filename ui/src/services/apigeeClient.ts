@@ -116,14 +116,14 @@ export async function sendPromptToApigee(
     'x-apikey': effectiveApiKey,
   };
 
-  // Attach caller identity headers unless intentionally omitted for 401 test scenario
-  if (!settings.omitEmailHeader) {
-    if (effectiveIdToken) {
-      headersSent['Authorization'] = `Bearer ${effectiveIdToken}`;
-    }
-    if (effectiveEmail) {
-      headersSent['X-User-Email'] = effectiveEmail;
-    }
+  // Attach caller identity unless intentionally omitted for the 401 test scenario.
+  //
+  // The gateway resolves identity solely from the JWT `email` claim
+  // (EV-ExtractBearerToken -> DJWT-ExtractUserIdentity -> AM-SetUserIdentity).
+  // The old X-User-Email fallback was removed from the proxy, so the token is
+  // now the only identity we send. `/api/me` always supplies one.
+  if (!settings.omitEmailHeader && effectiveIdToken) {
+    headersSent['Authorization'] = `Bearer ${effectiveIdToken}`;
   }
 
   if (settings.useCache) {

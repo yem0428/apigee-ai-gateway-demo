@@ -9,7 +9,7 @@
   "error": {
     "code": 401,
     "status": "UNAUTHENTICATED",
-    "message": "Missing required caller identity. Provide a valid Bearer JWT in Authorization header, an X-Identity-Token with an email claim, or an X-User-Email header."
+    "message": "Missing required caller identity. Provide a JWT with an email claim as a Bearer token in the Authorization header, or in X-Identity-Token."
   }
 }
       </Payload>

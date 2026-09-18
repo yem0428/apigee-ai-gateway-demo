@@ -4,6 +4,11 @@
   <OASResource>oas://openapi.yaml</OASResource>
   <Options>
     <AllowUnspecifiedParameters>true</AllowUnspecifiedParameters>
+    <!-- Defaults to false. Without this the policy validates only the path and
+         parameters, never the payload, so a body missing `contents` (or shaped
+         for a different provider) reached Vertex AI and was rejected upstream
+         as an ErrorResponseCode fault instead of at the gateway. -->
+    <ValidateMessageBody>true</ValidateMessageBody>
   </Options>
   <Source>request</Source>
 </OASValidation>

@@ -753,10 +753,36 @@ const server = http.createServer(async (req, res) => {
       if (provResult.fullName) name = provResult.fullName;
     }
 
+    // The proxy resolves caller identity from the JWT `email` claim only, so a
+    // token must always be present or every call 401s. Behind IAP that is the
+    // real assertion. On localhost there is none, so mint a stand-in.
+    //
+    // It must say RS256 and carry a non-empty signature segment: Apigee's
+    // DecodeJWT rejects the `alg: none` / empty-signature form outright (401),
+    // even though it never verifies the signature. Same shape as
+    // apigee/scripts/generate_demo_traffic.py. Development affordance only --
+    // see the VerifyJWT note in docs/apigee_ai_gateway_demo_design.md.
+    let identityToken = iapJwtHeader;
+    if (!identityToken) {
+      const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+      const sig = Buffer.from('dummysignature12345678901234567890').toString('base64url');
+      identityToken = `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64({
+        email,
+        sub: email,
+        name,
+        iss: 'local-dev',
+        iat: Math.floor(Date.now() / 1000),
+      })}.${sig}`;
+    }
+
     res.end(
       JSON.stringify({
         email,
-        token: '',
+        // Hand the IAP assertion to the client so it can authenticate to the
+        // gateway with a token instead of a self-asserted email header. The
+        // proxy's DJWT-ExtractUserIdentity/AM-SetUserIdentity pair already
+        // prefers this; it simply never received one before.
+        token: identityToken,
         name,
         username,
         apiKey,

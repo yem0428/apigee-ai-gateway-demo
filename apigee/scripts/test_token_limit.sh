@@ -12,6 +12,12 @@ fi
 
 BASE_URL="${BASE_URL:-https://api.maloosatyam.demo.altostrat.com/ai/v1}"
 USER_EMAIL="${USER_EMAIL:-maloosatyam@google.com}"
+# The proxy resolves identity from a JWT email claim only; the X-User-Email
+# fallback was removed. DecodeJWT never verifies the signature, but it does
+# reject `alg: none` with an empty signature -- so use RS256 with a placeholder,
+# matching apigee/scripts/generate_demo_traffic.py.
+b64url() { printf '%s' "$1" | base64 | tr '+/' '-_' | tr -d '=\n'; }
+USER_JWT="$(b64url '{"alg":"RS256","typ":"JWT"}').$(b64url "{\"email\":\"${USER_EMAIL}\",\"sub\":\"${USER_EMAIL}\"}").$(b64url 'dummysignature12345678901234567890')"
 
 # Never hardcode a consumer key here - this file is version controlled.
 # Export one before running, e.g.
@@ -36,7 +42,7 @@ echo "TEST 1: Request Within Quota Limit (Model: gemini-2.5-flash, <100 Tokens)"
 echo "------------------------------------------------------------------------------"
 RESPONSE1=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.5-flash:generateContent" \
   -H "Content-Type: application/json" \
-  -H "X-User-Email: ${USER_EMAIL}" \
+  -H "Authorization: Bearer ${USER_JWT}" \
   -H "x-apikey: ${API_KEY}" \
   -d '{"contents":[{"role":"user","parts":[{"text":"What is an API gateway? Answer in 1 sentence."}]}]}')
 
@@ -59,7 +65,7 @@ LONG_PROMPT="Generate an exhaustive 2,500 word architectural breakdown and step-
 
 RESPONSE2=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.5-flash:generateContent" \
   -H "Content-Type: application/json" \
-  -H "X-User-Email: ${USER_EMAIL}" \
+  -H "Authorization: Bearer ${USER_JWT}" \
   -H "x-apikey: ${API_KEY}" \
   -d "{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"${LONG_PROMPT}\"}]}]}")
 

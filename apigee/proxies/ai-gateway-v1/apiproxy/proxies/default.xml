@@ -27,10 +27,6 @@
         <Condition>request.verb != "OPTIONS" and (jwt.DJWT-ExtractUserIdentity.decoded.claim.email != null or jwt.DJWT-ExtractUserIdentity.claim.email != null)</Condition>
       </Step>
       <Step>
-        <Name>AM-SetUserEmailFromHeader</Name>
-        <Condition>request.verb != "OPTIONS" and flow.emailId = null and request.header.x-user-email != null</Condition>
-      </Step>
-      <Step>
         <Name>RF-MissingUserEmail</Name>
         <Condition>request.verb != "OPTIONS" and flow.emailId = null</Condition>
       </Step>

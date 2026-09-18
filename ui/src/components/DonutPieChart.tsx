@@ -106,7 +106,7 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
       {/* Chart & Categorized Legend (Inspired by Semrush On Page SEO Checker) */}
       <div className="flex flex-col sm:flex-row items-center gap-6 pt-1">
         {/* SVG Donut Canvas */}
-        <div className="relative w-44 h-44 shrink-0 flex items-center justify-center">
+        <div className="relative w-48 h-48 shrink-0 flex items-center justify-center">
           <svg viewBox="0 0 200 200" className="w-full h-full overflow-visible">
             {/* Background ring */}
             <circle
@@ -144,15 +144,20 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
             })}
           </svg>
 
-          {/* Center Callout Overlay */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-2">
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-500 dark:text-slate-400 font-semibold leading-none mb-1 truncate max-w-[90px]">
+          {/* Center Callout Overlay.
+              The hole is a circle, so each line must fit the chord at ITS OWN
+              vertical offset, not one shared box. Measured at w-48: the hole is
+              104px across, the centre value line has ~101px to work with, but
+              the label and share lines sit ~18px off-centre where the chord
+              narrows to ~90px. Hence the two different max widths. */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+            <span className="max-w-[84px] truncate text-[10px] uppercase font-mono tracking-wider text-slate-500 dark:text-slate-400 font-semibold leading-none mb-1">
               {activeSlice ? activeSlice.label : totalLabel}
             </span>
-            <span className={`text-base sm:text-lg font-bold font-mono tracking-tight leading-none ${centerBadgeColor}`}>
+            <span className={`max-w-[98px] truncate text-sm sm:text-base font-bold font-mono tracking-tight leading-none ${centerBadgeColor}`}>
               {activeSlice ? activeSlice.formattedValue : totalFormatted}
             </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-none mt-1">
+            <span className="max-w-[84px] truncate text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-none mt-1">
               {activeSlice ? `${activeSlice.percentage.toFixed(1)}% Share` : unitLabel || 'Total'}
             </span>
           </div>

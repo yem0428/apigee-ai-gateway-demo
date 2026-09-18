@@ -13,7 +13,6 @@
     <Policy>AM-SetCacheHitExpected</Policy>
     <Policy>AM-SetCacheMiss</Policy>
     <Policy>AM-SetResponseHeaders</Policy>
-    <Policy>AM-SetUserEmailFromHeader</Policy>
     <Policy>AM-SetUserIdentity</Policy>
     <Policy>CORS-Headers</Policy>
     <Policy>DC-ModelAnalytics</Policy>
