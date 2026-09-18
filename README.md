@@ -27,7 +27,7 @@ product-driven LLM token quotas, and Apigee native monetization.
 
 ## ✨ Core Features & Architectural Capabilities
 
-### 1. 🧠 Intelligent Model Auto-Routing (`/ai/v1/auto`)
+### 1. 🧠 Model Routing (`/ai/v1/auto`)
 
 [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
 classifies the prompt with regex heuristics and then picks a model **based on the caller's API
@@ -57,7 +57,7 @@ policy writes `flow.target_model`, `flow.model`, `flow.target_provider`, `flow.a
 `flow.costTier` and `flow.routingTier`; `flow.target_provider == "anthropic"` is what selects the
 Claude Vertex target at route time.
 
-### 2. 🛡️ Model Armor Guardrails & Zero-Trust Identity
+### 2. 🛡️ Access Control & Model Armor
 
 - **Prompt sanitization** — [SUP-UserPrompt.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SUP-UserPrompt.xml)
   is a `SanitizeUserPrompt` policy bound to Model Armor template
@@ -74,7 +74,7 @@ Claude Vertex target at route time.
 > **HTTP 401** before any prompt is sent for safety evaluation, so an unauthenticated caller
 > cannot drive a billable Model Armor call.
 
-### 3. 🎟️ Product-Driven LLM Token Quotas
+### 3. 🎟️ Tokenomics — Product-Driven LLM Token Quotas
 
 Token limits are **not hardcoded in the proxy**. Both
 [LTQ-TokenEnforce.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/LTQ-TokenEnforce.xml)
@@ -148,7 +148,7 @@ regex `^/models/gemini-2.5-flash.*`. Breaching the limit returns **HTTP 429**.
 - **Rate plans & attribution** — surfaced through the `/api/monetization/*` endpoints
   (rate plans, subscriptions, attributions, credit, config).
 
-### 5. ⚡ Semantic Caching (Vertex AI Vector Search)
+### 5. ⚡ Cache (Vertex AI Vector Search)
 
 [SCL-Semantic-Cache-Lookup.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SCL-Semantic-Cache-Lookup.xml)
 embeds the prompt with Vertex AI `text-embedding-004` and queries a Vertex AI Vector Search index
@@ -190,7 +190,7 @@ so an unset variable yields an absent or empty header rather than a fault — cl
 header as optional. On a cache hit the cost and token variables are never populated, which is why
 `x-gateway-cached` is the field to branch on.
 
-### 7. 🛠️ MCP Tools Gateway Governance
+### 7. 🛠️ Native MCP Server & Tools Governance
 
 The [mcp](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp/apiproxy) proxy governs
 JSON-RPC 2.0 `tools/list` and `tools/call` traffic with six policies

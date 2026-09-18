@@ -133,8 +133,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'ai-auth',
       step: '01',
-      title: 'Identity & Product Entitlements',
-      subtitle: 'Verify API Key / JWT & Resolve Tier',
+      title: 'Access Control',
+      subtitle: 'Model & Tool Access by User / Agent Permission',
       badge: 'Security & RBAC',
       badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800',
       icon: <Key className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
@@ -157,7 +157,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'ai-armor',
       step: '02',
-      title: 'Perimeter Guardrails (Model Armor)',
+      title: 'Model Armor',
       subtitle: 'Prompt Injection, Jailbreak & PII Defense',
       badge: 'Safety Perimeter',
       badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
@@ -180,8 +180,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'ai-cache',
       step: '03',
-      title: 'Semantic Cache Lookup',
-      subtitle: 'Vector Similarity Matching (<100ms)',
+      title: 'Cache',
+      subtitle: 'Semantic Vector Similarity Matching (<100ms)',
       badge: 'Latency & Cost Saver',
       badgeColor: 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800',
       icon: <Database className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
@@ -203,8 +203,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'ai-router',
       step: '04',
-      title: 'Smart Auto-Router & Complexity Scoring',
-      subtitle: 'Dynamic Model Selection (/auto)',
+      title: 'Model Routing',
+      subtitle: 'Dynamic Routing Across Providers & Private Models (/auto)',
       badge: 'Intelligent Routing',
       badgeColor: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800',
       icon: <Cpu className="w-4 h-4 text-amber-600 dark:text-amber-400" />,
@@ -229,8 +229,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'ai-quota',
       step: '05',
-      title: 'Product-Driven LLM Token Quotas',
-      subtitle: 'Dynamic Per-Minute Token Budgets',
+      title: 'Tokenomics',
+      subtitle: 'Product-Driven Token Limits & Per-Minute Budgets',
       badge: 'FinOps Governance',
       badgeColor: 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800',
       icon: <Coins className="w-4 h-4 text-rose-600 dark:text-rose-400" />,
@@ -271,7 +271,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       talkingPoints: [
         'Abstracts credential management: the gateway authenticates to Vertex AI / Model Garden via Google Cloud Workload Identity.',
         'Calculates real-time per-request USD cost using live KVM rate cards and injects x-gateway-* telemetry headers.',
-        'Feeds custom analytics dimensions (dc_model_name, dc_user_email, dc_total_tokens) for the Analytics & Billing dashboard.',
+        'Feeds the BI Dashboard with custom analytics dimensions (dc_model_name, dc_user_email, dc_total_tokens) to track consumption across tools and models.',
       ],
       liveStatus: aiTelemetry
         ? {
@@ -312,8 +312,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'mcp-auth',
       step: '02',
-      title: 'API Key Auth & Request Throttling',
-      subtitle: 'Consumer Key Verification & Spike Arrest',
+      title: 'Tokenomics',
+      subtitle: 'Agent Key Verification & Granular Tool Call Rate Limits',
       badge: 'Traffic Control',
       badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800',
       icon: <Lock className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
@@ -335,8 +335,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'mcp-rbac',
       step: '03',
-      title: 'Persona & RBAC Tool Governance',
-      subtitle: 'Dynamic Catalog Filtering & Execution Authorization',
+      title: 'Access Control',
+      subtitle: 'Persona-Based Tool Visibility & Execution Authorization',
       badge: 'Zero-Trust RBAC',
       badgeColor: 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800',
       icon: <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
@@ -357,8 +357,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
     {
       id: 'mcp-bridge',
       step: '04',
-      title: 'JSON-RPC to REST/gRPC Bridge',
-      subtitle: 'Protocol Mediation & Schema Validation',
+      title: 'Native MCP Server',
+      subtitle: 'Existing REST APIs Served as MCP Tools — No New Infrastructure',
       badge: 'Protocol Bridge',
       badgeColor: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800',
       icon: <Workflow className="w-4 h-4 text-amber-600 dark:text-amber-400" />,
@@ -404,45 +404,45 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
         visibleStages = aiStages.slice(0, 1); // Only Step 01 executed
         terminationInfo = {
           stoppedAtStep: '01',
-          stoppedAtTitle: 'Identity & Product Entitlements',
+          stoppedAtTitle: 'Access Control',
           reasonTitle: `Request Blocked at Step 01 — HTTP ${aiStatus} ${aiStatus === 401 ? 'Unauthorized' : 'Forbidden'}`,
           reasonDescription:
-            'Authentication or API Product model entitlement check failed (VA-VerifyAPIKey / OAS-ValidateRequest). Downstream policies (Model Armor, Semantic Cache, Auto-Router, Token Quotas, and Upstream Models) were never executed.',
+            'Authentication or API Product model entitlement check failed (VA-VerifyAPIKey / OAS-ValidateRequest). Downstream policies (Model Armor, Cache, Model Routing, Tokenomics, and Upstream Models) were never executed.',
           badgeText: 'SHORT-CIRCUITED AT AUTH',
           type: 'blocked-security',
-          skippedStages: ['02 Perimeter Guardrails', '03 Semantic Cache', '04 Smart Auto-Router', '05 LLM Token Quotas', '06 Upstream LLM'],
+          skippedStages: ['02 Model Armor', '03 Cache', '04 Model Routing', '05 Tokenomics', '06 Upstream LLM'],
         };
       } else if (isAiGuardrailBlocked) {
         visibleStages = aiStages.slice(0, 2); // Only Steps 01 & 02 executed
         terminationInfo = {
           stoppedAtStep: '02',
-          stoppedAtTitle: 'Perimeter Guardrails (Model Armor)',
+          stoppedAtTitle: 'Model Armor',
           reasonTitle: 'Perimeter Defense Triggered — Prompt Blocked by Model Armor',
           reasonDescription:
             aiTelemetry.guardrailMessage ||
-            'SUP-UserPrompt.xml detected a safety violation (Prompt Injection, Jailbreak, or Destructive intent) and immediately terminated execution. Upstream Semantic Cache, Auto-Router, Token Quotas, and Foundation Models were never invoked ($0.00 cost, 0 tokens consumed).',
+            'SUP-UserPrompt.xml detected a safety violation (Prompt Injection, Jailbreak, or Destructive intent) and immediately terminated execution. Cache, Model Routing, Tokenomics, and Foundation Models were never invoked ($0.00 cost, 0 tokens consumed).',
           badgeText: 'BLOCKED AT PERIMETER (HTTP 400)',
           type: 'blocked-security',
-          skippedStages: ['03 Semantic Cache Lookup', '04 Smart Auto-Router', '05 LLM Token Quotas', '06 Upstream Foundation Models'],
+          skippedStages: ['03 Cache', '04 Model Routing', '05 Tokenomics', '06 Upstream Foundation Models'],
         };
       } else if (isAiCached) {
         visibleStages = aiStages.slice(0, 3); // Steps 01, 02 & 03 executed (Cache Hit short-circuit)
         terminationInfo = {
           stoppedAtStep: '03',
-          stoppedAtTitle: 'Semantic Cache Lookup',
+          stoppedAtTitle: 'Cache',
           reasonTitle: `Semantic Cache HIT — Response Served in ${aiTelemetry.latencyMs} ms`,
           reasonDescription:
-            'SCL-Semantic-Cache-Lookup.xml matched the prompt embedding in the vector store and returned the cached completion immediately. Smart Auto-Router, Token Quota Enforcement, and Upstream LLM inference were completely bypassed ($0.00 upstream model cost, 0 quota tokens deducted).',
+            'SCL-Semantic-Cache-Lookup.xml matched the prompt embedding in the vector store and returned the cached completion immediately. Model Routing, Tokenomics enforcement, and Upstream LLM inference were completely bypassed ($0.00 upstream model cost, 0 quota tokens deducted).',
           badgeText: 'CACHE SHORT-CIRCUIT ($0 COST)',
           type: 'cache-hit',
-          skippedStages: ['04 Smart Auto-Router', '05 LLM Token Quotas', '06 Upstream Foundation Models'],
+          skippedStages: ['04 Model Routing', '05 Tokenomics', '06 Upstream Foundation Models'],
         };
       } else if (isAiQuotaBlocked) {
         visibleStages = aiStages.slice(0, 5); // Steps 01 -> 05 executed; Step 06 blocked
         terminationInfo = {
           stoppedAtStep: '05',
-          stoppedAtTitle: 'Product-Driven LLM Token Quotas',
-          reasonTitle: 'FinOps Quota Exhausted — Request Throttled at Step 05 (HTTP 429)',
+          stoppedAtTitle: 'Tokenomics',
+          reasonTitle: 'Token Quota Exhausted — Request Throttled at Step 05 (HTTP 429)',
           reasonDescription:
             'LTQ-TokenEnforce.xml blocked the request because the caller exceeded the per-minute LLM token quota configured on their API Product tier. Upstream Foundation Model invocation was prevented.',
           badgeText: 'THROTTLED AT QUOTA (HTTP 429)',
@@ -455,25 +455,25 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
         visibleStages = mcpStages.slice(0, 2); // Steps 01 & 02
         terminationInfo = {
           stoppedAtStep: '02',
-          stoppedAtTitle: 'API Key Auth & Request Throttling',
+          stoppedAtTitle: 'Tokenomics',
           reasonTitle: `MCP Request Blocked at Step 02 — HTTP ${mcpStatus}`,
           reasonDescription:
             'VA-VerifyAPIKey or Q-Limit rejected the request before tool authorization or backend bridging.',
           badgeText: `BLOCKED (HTTP ${mcpStatus})`,
           type: 'blocked-quota',
-          skippedStages: ['03 Persona & RBAC Governance', '04 JSON-RPC to REST Bridge', '05 Enterprise Backend Microservices'],
+          skippedStages: ['03 Access Control', '04 Native MCP Server', '05 Enterprise Backend Microservices'],
         };
       } else if (isMcpRbacBlocked) {
         visibleStages = mcpStages.slice(0, 3); // Steps 01, 02, 03
         terminationInfo = {
           stoppedAtStep: '03',
-          stoppedAtTitle: 'Persona & RBAC Tool Governance',
+          stoppedAtTitle: 'Access Control',
           reasonTitle: 'Zero-Trust RBAC Denied — Unauthorized Tool Invocation',
           reasonDescription:
             'PP-MCP blocked the tool call because the active persona (Developer App entitlement) is not authorized to execute this tool. Downstream REST bridge and Enterprise Backend Microservices were never invoked.',
           badgeText: 'RBAC DENIED (-32001)',
           type: 'blocked-security',
-          skippedStages: ['04 JSON-RPC to REST/gRPC Bridge', '05 Enterprise Backend Microservices'],
+          skippedStages: ['04 Native MCP Server', '05 Enterprise Backend Microservices'],
         };
       }
     }

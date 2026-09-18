@@ -209,8 +209,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     {
       label:
         authStep === 0
-          ? '🚫 Auth (401): Missing Auth (1/2)'
-          : '🚫 Auth (401): Restricted Model (2/2)',
+          ? '🚫 Access Control: Missing Auth (1/2)'
+          : '🚫 Access Control: Restricted Model (2/2)',
       promptId: 'unauthorized-toggle',
       title:
         authStep === 0
@@ -223,10 +223,10 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     {
       label:
         armorStep === 0
-          ? '🛡️ Armor: Destructive (1/3)'
+          ? '🛡️ Model Armor: Destructive (1/3)'
           : armorStep === 1
-          ? '🛡️ Armor: Jailbreak (2/3)'
-          : '🛡️ Armor: PII Exfil (3/3)',
+          ? '🛡️ Model Armor: Jailbreak (2/3)'
+          : '🛡️ Model Armor: PII Exfil (3/3)',
       promptId: 'model-armor-toggle',
       title:
         armorStep === 0
@@ -241,10 +241,10 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     {
       label:
         autoStep === 0
-          ? '🧠 Auto: General / Fast (1/3)'
+          ? '🧠 Model Routing: General / Fast (1/3)'
           : autoStep === 1
-          ? '🧠 Auto: Deep Reasoning (2/3)'
-          : '🧠 Auto: Coding (3/3)',
+          ? '🧠 Model Routing: Deep Reasoning (2/3)'
+          : '🧠 Model Routing: Coding (3/3)',
       promptId: 'auto-routing',
       title:
         autoStep === 0
@@ -259,8 +259,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     {
       label:
         tokenStep === 0
-          ? '⚡ Token Quota: Pass (1/2)'
-          : '🛑 Token Limit: Exceeded (2/2)',
+          ? '⚡ Tokenomics: Within Limit (1/2)'
+          : '🛑 Tokenomics: Limit Exceeded (2/2)',
       promptId: 'token-limit-toggle',
       title:
         tokenStep === 0
