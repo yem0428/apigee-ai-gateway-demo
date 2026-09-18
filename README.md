@@ -264,10 +264,14 @@ Each record carries the identity (`userEmail`), the resolved `model` and path-de
 `requestedModel`, `targetProvider`, `autoRouted`, `cached`, `costUsd`, token counts, the full
 `prompt` and `response`, plus `faultName` / `errorMessage`.
 
-In the UI, the **Model Consumption Ledger** (BI Dashboard) has a **View logs** link on every
+In the UI, the **Model Consumption Ledger** (Analytics & Cost) has a **View logs** link on every
 `(user, model)` row. It opens a per-call table — timestamp, status, request, response, tokens, cost
-and auto-routed / cached flags — with a `1h / 24h / 7d / 30d` window selector and an
-**Open in Cloud Logging** deep link. Rows expand to reveal the untruncated request and response.
+and auto-routed / cached flags — with an **Open in Cloud Logging** deep link. Rows expand to reveal
+the untruncated request and response.
+
+The window selector offers `1h / 24h / 7d / 30d` and **opens on whichever range is selected on the
+Analytics & Cost tab** (`24h` by default), so the drill-down always covers the same period as the
+ledger row that spawned it. Narrowing it inside the modal does not change the dashboard.
 
 | Piece | Location |
 | :--- | :--- |

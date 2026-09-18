@@ -225,10 +225,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-purple-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
-              title="BI Dashboard: Track consumption and cost across tools and models"
+              title="Enterprise Model Consumption & Cost Tracking Dashboard"
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>BI Dashboard</span>
+              <span>Analytics & Cost</span>
             </button>
             {/* 4th Tab: Monetization - Strictly visible ONLY in Admin view */}
             {isAdminView && (

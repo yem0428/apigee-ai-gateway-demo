@@ -190,7 +190,7 @@ export interface FleetAnalyticsResponse {
 }
 
 export async function fetchFleetAnalytics(
-  timeRange: '24h' | '7d' | '30d' = '7d',
+  timeRange: '24h' | '7d' | '30d' = '24h',
   env: 'dev' | 'prod' = 'prod'
 ): Promise<FleetAnalyticsResponse> {
   const response = await fetch(`/api/analytics/fleet-stats?timeRange=${timeRange}&env=${env}`);
@@ -255,7 +255,7 @@ export interface CallLogsResponse {
 export async function fetchCallLogs(
   userEmail: string,
   model: string,
-  window: CallLogWindow = '7d'
+  window: CallLogWindow = '24h'
 ): Promise<CallLogsResponse> {
   const params = new URLSearchParams({ user: userEmail, model, window });
   const response = await fetch(`/api/logs/calls?${params.toString()}`);

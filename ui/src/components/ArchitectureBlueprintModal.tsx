@@ -271,7 +271,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       talkingPoints: [
         'Abstracts credential management: the gateway authenticates to Vertex AI / Model Garden via Google Cloud Workload Identity.',
         'Calculates real-time per-request USD cost using live KVM rate cards and injects x-gateway-* telemetry headers.',
-        'Feeds the BI Dashboard with custom analytics dimensions (dc_model_name, dc_user_email, dc_total_tokens) to track consumption across tools and models.',
+        'Feeds the Analytics & Cost dashboard with custom analytics dimensions (dc_model_name, dc_user_email, dc_total_tokens) to track consumption across tools and models.',
       ],
       liveStatus: aiTelemetry
         ? {

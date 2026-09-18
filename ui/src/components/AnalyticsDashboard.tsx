@@ -88,7 +88,7 @@ const AreaSparkline: React.FC<{
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   settings,
   viewMode = 'admin',
-  timeRange = '7d',
+  timeRange = '24h',
   setLoading: controlledSetLoading,
   registerRefresh,
   userFilter: controlledUserFilter,
@@ -1197,13 +1197,23 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </table>
           </div>
         </div>
-        {/* Per-call audit trail for a single ledger row. */}
-        <CallLogsModal
-          isOpen={logsTarget !== null}
-          onClose={() => setLogsTarget(null)}
-          userEmail={logsTarget?.userEmail || ''}
-          model={logsTarget?.model || ''}
-        />
+        {/*
+          Per-call audit trail for a single ledger row. Keyed on the target and
+          the dashboard range so React remounts it on each open -- that re-seeds
+          the window selector from `timeRange` without an extra sync effect,
+          which would otherwise fire a second Cloud Logging query on the stale
+          window every time the modal opened.
+        */}
+        {logsTarget && (
+          <CallLogsModal
+            key={`${logsTarget.userEmail}|${logsTarget.model}|${timeRange}`}
+            isOpen
+            onClose={() => setLogsTarget(null)}
+            userEmail={logsTarget.userEmail}
+            model={logsTarget.model}
+            initialWindow={timeRange}
+          />
+        )}
       </div>
     </div>
   );

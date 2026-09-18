@@ -541,7 +541,7 @@ Consumption Ledger.
 | --- | --- | --- |
 | `user` | email address | Validated against a strict pattern |
 | `model` | model ID | Validated against a strict pattern |
-| `window` | `1h`, `24h`, `7d`, `30d` | Defaults to `7d` |
+| `window` | `1h`, `24h`, `7d`, `30d` | Defaults to `24h`. The UI always sends an explicit value — whichever range is selected on the Analytics & Cost tab. |
 
 > [!IMPORTANT]
 > `user` and `model` are interpolated into a Cloud Logging filter expression, so

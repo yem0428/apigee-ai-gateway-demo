@@ -347,9 +347,9 @@ export function App() {
       const v = new URLSearchParams(window.location.search).get('view');
       if (v === 'admin' || v === 'user') return v;
     }
-    return 'admin';
+    return 'user';
   });
-  const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
+  const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsUserFilter, setAnalyticsUserFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {

@@ -18,6 +18,13 @@ interface CallLogsModalProps {
   /** The ledger row this modal was opened from. */
   userEmail: string;
   model: string;
+  /**
+   * Window to open on, inherited from the range selected on the Analytics tab
+   * so the drill-down covers the same period as the ledger row that spawned it.
+   * The parent remounts this modal (via `key`) whenever it changes, so this is
+   * read once per open and the in-modal selector stays free to narrow further.
+   */
+  initialWindow?: CallLogWindow;
 }
 
 const WINDOW_OPTIONS: { value: CallLogWindow; label: string }[] = [
@@ -80,8 +87,9 @@ export const CallLogsModal: React.FC<CallLogsModalProps> = ({
   onClose,
   userEmail,
   model,
+  initialWindow = '24h',
 }) => {
-  const [logWindow, setLogWindow] = useState<CallLogWindow>('7d');
+  const [logWindow, setLogWindow] = useState<CallLogWindow>(initialWindow);
   const [entries, setEntries] = useState<CallLogEntry[]>([]);
   const [consoleUrl, setConsoleUrl] = useState('');
   const [loading, setLoading] = useState(false);

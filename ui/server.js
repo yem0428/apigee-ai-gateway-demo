@@ -1316,7 +1316,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const rangeParam = parsedUrl.searchParams.get('timeRange') || '7d';
+    const rangeParam = parsedUrl.searchParams.get('timeRange') || '24h';
     const envParam = parsedUrl.searchParams.get('env') || 'prod';
     const org = 'bap-apac-demo2';
     const apigeeEnv = envParam === 'dev' || envParam === 'bap' ? 'dev' : 'prod';
@@ -1687,7 +1687,7 @@ const server = http.createServer(async (req, res) => {
 
     const userEmail = (parsedUrl.searchParams.get('user') || '').trim();
     const model = (parsedUrl.searchParams.get('model') || '').trim();
-    const windowParam = (parsedUrl.searchParams.get('window') || '7d').trim();
+    const windowParam = (parsedUrl.searchParams.get('window') || '24h').trim();
 
     // These values are interpolated into a Cloud Logging filter expression.
     // Validate against strict allowlists instead of escaping: a double quote

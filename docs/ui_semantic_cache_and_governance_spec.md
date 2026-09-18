@@ -139,6 +139,22 @@ Admin view is `analyticsControls?.viewMode === 'admin'` on the analytics tab, ot
 `settings.activeUser === 'admin'`
 ([Navbar.tsx#L107-L110](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L107-L110)).
 
+### Analytics tab defaults
+
+| Control | Default | Override |
+| --- | --- | --- |
+| View mode | **User** | `Admin` / `User` toggle, or `?view=admin` |
+| Time range | **24H** | `24H` / `7D` / `30D` selector |
+| User filter | `All Users (Fleet)` — admin view only | `?userFilter=<email>` |
+
+> [!IMPORTANT]
+> Because `Monetization` is gated on admin view *while the analytics tab is active*, the default
+> User view hides that tab until the toggle is switched to **Admin**. This is expected, not a
+> regression — the tab reappears immediately on switching.
+
+The **View logs** modal opens on whichever time range is selected here, so the audit drill-down
+always covers the same period as the ledger row behind it.
+
 > [!CAUTION]
 > The word "Apigee" is deliberately absent from all rendered UI text; only the logo symbol remains.
 > Quote only the strings above. Code identifiers (`ApigeeLogo`, `sendPromptToApigee`,
