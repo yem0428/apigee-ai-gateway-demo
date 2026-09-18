@@ -66,11 +66,13 @@ Claude Vertex target at route time.
 - **Identity first** — the request PreFlow resolves identity from a Bearer JWT
   (`DJWT-ExtractUserIdentity` → `AM-SetUserIdentity`), falls back to the `X-User-Email` header
   (`AM-SetUserEmailFromHeader`), and raises `RF-MissingUserEmail` → **HTTP 401** if neither resolves.
-- **API key verification** — `VA-VerifyAPIKey` runs *after* identity resolution and *after* Model Armor.
+- **API key verification** — `VA-VerifyAPIKey` runs *after* identity resolution and *before* Model Armor.
 
 > [!IMPORTANT]
-> Model Armor executes **before** API key verification in the PreFlow. Prompt injection is blocked
-> even for requests that would later fail key validation.
+> API key verification executes **before** Model Armor in the PreFlow. A request that fails key
+> validation — including one naming a model its API Product does not entitle — is rejected with
+> **HTTP 401** before any prompt is sent for safety evaluation, so an unauthenticated caller
+> cannot drive a billable Model Armor call.
 
 ### 3. 🎟️ Product-Driven LLM Token Quotas
 

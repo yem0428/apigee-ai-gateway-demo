@@ -92,8 +92,8 @@ condition. The extra conditions listed below are the per-step remainder.
 | 7 | `AM-SetUserEmailFromHeader` | `flow.emailId = null and request.header.x-user-email != null` |
 | 8 | `RF-MissingUserEmail` | `flow.emailId = null` → raises **HTTP 401** |
 | 9 | `JS-ExtractPromptAndModel` | — |
-| 10 | `SUP-UserPrompt` | `flow.userPrompt != null and flow.userPrompt != ""` |
-| 11 | `VA-VerifyAPIKey` | — |
+| 10 | `VA-VerifyAPIKey` | — |
+| 11 | `SUP-UserPrompt` | `flow.userPrompt != null and flow.userPrompt != ""` |
 | 12 | `MLC-EnforceMonetizationLimits` | — |
 | 13 | `QC-EnforceBudgetLimit` | — |
 | 14 | `AM-RemoveAuthorization` | — |
@@ -105,12 +105,22 @@ condition. The extra conditions listed below are the per-step remainder.
 | 20 | `SCL-Semantic-Cache-Lookup` | same cache-header condition as #19 |
 
 > [!IMPORTANT]
-> Two ordering facts are load-bearing and are frequently documented backwards:
-> **identity resolution (steps 4–8) completes before `VA-VerifyAPIKey` (step 11)**,
-> and **Model Armor `SUP-UserPrompt` (step 10) also runs before `VA-VerifyAPIKey`**.
-> An unauthenticated or malicious caller is rejected before the API key is even
-> looked up, and therefore before any monetization, budget, or token counter is
-> touched.
+> Two ordering facts are load-bearing:
+> **identity resolution (steps 4–8) completes before `VA-VerifyAPIKey` (step 10)**,
+> and **`VA-VerifyAPIKey` (step 10) runs before Model Armor `SUP-UserPrompt`
+> (step 11)**. A caller is therefore identified and authorised *before* any
+> content inspection happens, and a rejected caller is turned away before any
+> monetization, budget, or token counter is touched.
+
+> [!NOTE]
+> `VA-VerifyAPIKey` and `SUP-UserPrompt` were **swapped** relative to earlier
+> revisions of this proxy, where Model Armor ran first. Authenticating first
+> means an unauthenticated or unentitled caller can no longer drive a billable
+> external Model Armor evaluation — the request is rejected at the key check.
+> The practical consequence for demos: a call to a model the product does not
+> entitle now returns **401 at step 10** regardless of prompt content, whereas
+> previously a malicious prompt on an unentitled model would surface **400**
+> from Model Armor instead.
 
 ### 3.1 Identity resolution
 
@@ -139,9 +149,14 @@ pointed at the Model Armor template
 reading `{flow.userPrompt}`
 ([SUP-UserPrompt.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SUP-UserPrompt.xml)).
 
-Placing it at step 10 means a blocked prompt never reaches
+Placing it at step 11 means a blocked prompt never reaches
 `MLC-EnforceMonetizationLimits`, `QC-EnforceBudgetLimit`, `LTQ-TokenEnforce`,
 or any upstream model.
+
+Because `VA-VerifyAPIKey` now runs immediately ahead of it at step 10, Model
+Armor is only ever invoked for a caller holding a valid key whose API Product
+entitles the requested model. An unauthenticated or unentitled caller cannot
+drive a billable external Model Armor evaluation.
 
 > [!NOTE]
 > The bundle contains **no custom fault-response policy** for Model Armor. There
@@ -663,7 +678,7 @@ when they are not already set (so a URI-derived model always wins).
 
 > [!IMPORTANT]
 > This is the policy that produces `flow.userPrompt`, and it is why it must run
-> at step 9 — immediately before `SUP-UserPrompt` (step 10) and well before
+> at step 9 — ahead of `SUP-UserPrompt` (step 11) and well before
 > `SCL-Semantic-Cache-Lookup` (step 20), both of which read `{flow.userPrompt}`.
 > `EV-RequestDetails` does **not** extract the prompt; it only extracts the model
 > from the URI path and `$.model` from the body.
@@ -741,8 +756,8 @@ Complete and exhaustive. Verified against both the policy directory and the
 | 32 | `SCL-Semantic-Cache-Lookup` | SemanticCacheLookup | PreFlow 20 | Vector Search lookup, threshold 0.95 |
 | 33 | `SCP-Semantic-Cache-Populate` | SemanticCachePopulate | PostFlow resp 7 | Upsert datapoints, TTL 600 s |
 | 34 | `SMR-SanitizeModelResponse` | SanitizeModelResponse | PostFlow resp 8 | Model Armor response inspection |
-| 35 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 10 | Model Armor prompt guardrails |
-| 36 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 11 | Validates `request.header.x-apikey` |
+| 35 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 11 | Model Armor prompt guardrails |
+| 36 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 10 | Validates `request.header.x-apikey` |
 
 > [!WARNING]
 > The following policies were described in earlier revisions of this document

@@ -29,7 +29,7 @@ Use this document to edit, refine, or leave comments on the titles, badges, desc
     - *Why a mundane business prompt:* the prompt content is irrelevant here — `RF-MissingUserEmail` is PreFlow step 8, before Model Armor and `VA-VerifyAPIKey`. Using a realistic request makes the point that ordinary traffic is refused purely for missing identity, rather than narrating the test back to the audience.
   - `Restricted Model` (Alternate options: `Model Entitlement`, `Forbidden Model`, `Role Restricted`) -> Prompt: `Compare three multi-region failover architectures for a payments platform, model the cost and latency trade-offs of each, and recommend one with a staged migration plan.`
     - *Required override (do not drop):* `{ activeUser: 'admin', model: 'gemini-3.1-ultra', useCache: false }`. This is the **entitlement-block** demo — it deliberately uses the strongest credential in the demo (Enterprise AI Tier) to prove that even an admin key is rejected at `VA-VerifyAPIKey` for a model no product names. Rewording it back to "Gemini Pro with standard sales agent credentials" inverts the persona and breaks the scenario.
-    - *Keep the prompt benign:* `SUP-UserPrompt` (Model Armor) runs at PreFlow step 10, **before** `VA-VerifyAPIKey` at step 11. A prompt that trips the safety filter returns 400 and masks the 401 this scenario exists to demonstrate.
+    - *Prompt content is unconstrained:* `VA-VerifyAPIKey` is PreFlow step 10, **ahead of** `SUP-UserPrompt` (Model Armor) at step 11, so the entitlement 401 fires regardless of what the prompt says. Earlier revisions of this file required a benign prompt; that constraint was removed when the two steps were swapped.
 
 ---
 

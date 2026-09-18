@@ -73,8 +73,8 @@ flowchart TB
         P1["1. CORS-Headers + OAS-ValidateRequest"]
         P2["2. Identity: EV-ExtractBearerToken, DJWT-ExtractUserIdentity,<br/>AM-SetUserEmailFromHeader, RF-MissingUserEmail (401)"]
         P3["3. JS-ExtractPromptAndModel"]
-        P4["4. SUP-UserPrompt (Model Armor, 400 on match)"]
-        P5["5. VA-VerifyAPIKey (401 on product mismatch)"]
+        P4["4. VA-VerifyAPIKey (401 on product mismatch)"]
+        P5["5. SUP-UserPrompt (Model Armor, 400 on match)"]
         P6["6. MLC-EnforceMonetizationLimits (403) + QC-EnforceBudgetLimit"]
         P7["7. Routing prep: JS-AutoRouting / AM-PrepGeminiDirect / AM-PrepClaudeDirect"]
         P8["8. SCL-Semantic-Cache-Lookup (only when use-cache header is true)"]
@@ -113,8 +113,9 @@ flowchart TB
 ```
 
 > [!NOTE]
-> Identity is resolved **before** API key verification, and Model Armor (`SUP-UserPrompt`)
-> runs **before** `VA-VerifyAPIKey`. Older diagrams that put auth first are wrong.
+> Identity is resolved **before** API key verification, and `VA-VerifyAPIKey` runs
+> **before** Model Armor (`SUP-UserPrompt`). Older diagrams that put Model Armor
+> ahead of the key check are wrong.
 
 ### 2.1 Request PreFlow — verified step order
 
@@ -132,8 +133,8 @@ Every step carries `request.verb != "OPTIONS"`.
 | 7 | `AM-SetUserEmailFromHeader` | `flow.emailId = null` and `X-User-Email` present |
 | 8 | `RF-MissingUserEmail` | `flow.emailId = null` → **raises HTTP 401** |
 | 9 | `JS-ExtractPromptAndModel` | — |
-| 10 | `SUP-UserPrompt` | `flow.userPrompt` non-empty |
-| 11 | `VA-VerifyAPIKey` | — |
+| 10 | `VA-VerifyAPIKey` | — |
+| 11 | `SUP-UserPrompt` | `flow.userPrompt` non-empty |
 | 12 | `MLC-EnforceMonetizationLimits` | — |
 | 13 | `QC-EnforceBudgetLimit` | — |
 | 14 | `AM-RemoveAuthorization` | — |
@@ -890,10 +891,12 @@ Chip: **`🚫 Auth (401): Missing Auth (1/2)`** → **`🚫 Auth (401): Restrict
    for the Enterprise key — the strongest credential in the demo. Using the admin key keeps
    the scenario deterministic instead of depending on the sales key resolving.
 
-   > [!IMPORTANT]
-   > The prompt must stay benign. `SUP-UserPrompt` (Model Armor) runs at PreFlow step 10,
-   > **before** `VA-VerifyAPIKey` at step 11, so a prompt that trips the safety filter
-   > returns 400 and masks the 401 this scenario exists to show.
+   > [!NOTE]
+   > `VA-VerifyAPIKey` runs at PreFlow step 10, **ahead of** `SUP-UserPrompt`
+   > (Model Armor) at step 11, so the entitlement 401 fires regardless of prompt
+   > content and can never be masked by a 400 from the safety filter. Earlier
+   > revisions of this document warned that the prompt had to stay benign; that
+   > constraint no longer applies.
 
    See [UNAUTHORIZED_401_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L329-L357).
 

@@ -349,10 +349,9 @@ export const UNAUTHORIZED_401_EXAMPLES = [
     // its product. This keeps the scenario deterministic instead of depending
     // on the sales key resolving.
     //
-    // The prompt must stay benign. `SUP-UserPrompt` (Model Armor) runs at
-    // PreFlow step 10, *before* `VA-VerifyAPIKey` at step 11, so a prompt that
-    // trips the safety filter would return 400 and mask the 401 this scenario
-    // is meant to demonstrate.
+    // `VA-VerifyAPIKey` runs at PreFlow step 10, ahead of `SUP-UserPrompt`
+    // (Model Armor) at step 11, so the 401 fires on entitlement regardless of
+    // prompt content and cannot be masked by a 400 from the safety filter.
     settingsOverride: { activeUser: 'admin', model: 'gemini-3.1-ultra', useCache: false },
   },
 ];
