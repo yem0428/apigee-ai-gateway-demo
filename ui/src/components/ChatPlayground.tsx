@@ -214,8 +214,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       promptId: 'unauthorized-toggle',
       title:
         authStep === 0
-          ? 'Step 1: Omits Authorization header -> HTTP 401 Unauthorized'
-          : 'Step 2: Enterprise key calling a non-whitelisted model -> HTTP 401 Unauthorized',
+          ? 'Step 1: Ordinary request with no caller identity -> HTTP 401 Unauthorized'
+          : 'Step 2: Enterprise key calling a model its product does not entitle -> HTTP 401 Unauthorized',
       color: 'hover:border-rose-500 hover:text-rose-500',
       icon: ShieldAlert,
       iconColor: 'text-rose-500',

@@ -158,13 +158,35 @@ export const Navbar: React.FC<NavbarProps> = ({
     ? analyticsControls?.viewMode === 'admin'
     : settings.activeUser === 'admin';
 
+  // Clicking the brand mark returns to the default view, as on most sites.
+  // The `?tab=` param is also cleared so a subsequent reload stays on home
+  // rather than restoring the tab the user just navigated away from.
+  const handleLogoHome = () => {
+    onTabChange('ai-gateway');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('tab')) {
+        url.searchParams.delete('tab');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  };
+
   return (
     <header className="bg-white/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 backdrop-blur w-full">
       {/* Primary Bar - Full viewport width */}
       <div className="w-full px-3 sm:px-6 py-2 flex items-center justify-between gap-2 sm:gap-3">
         {/* Left: Official Apigee Brand & Gateway Tabs */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <ApigeeLogo />
+          <button
+            type="button"
+            onClick={handleLogoHome}
+            className="flex items-center rounded-lg cursor-pointer transition hover:opacity-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+            aria-label="Go to home"
+            title="Go to home"
+          >
+            <ApigeeLogo />
+          </button>
 
           {/* Primary Gateway Tabs Switcher - Analytics is 3rd Tab */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">

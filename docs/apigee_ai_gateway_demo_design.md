@@ -505,7 +505,7 @@ in the compact selector and again in the mobile panel under the label
 | `claude-opus-4-5@20251101` | claude-opus-4-5@20251101 | Claude Opus | ✅ Enterprise only |
 
 > [!NOTE]
-> `gemini-3.1-ultra` is deliberately absent from every API Product whitelist. It exists so
+> `gemini-3.1-ultra` is deliberately entitled by no API Product. It exists so
 > the "Restricted Model" scenario can show an entitlement block at `VA-VerifyAPIKey` before
 > any upstream call, even with the Enterprise key.
 
@@ -877,16 +877,25 @@ Two entry points drive the AI Gateway demo, both wired to
 Chip: **`🚫 Auth (401): Missing Auth (1/2)`** → **`🚫 Auth (401): Restricted Model (2/2)`**
 (`UNAUTHORIZED_401_EXAMPLES`).
 
-1. *Missing Auth* — prompt *"Can I access the API without an Authorization token?"* with
-   `omitEmailHeader: true`. Both `Authorization` and `X-User-Email` are dropped, so
-   `RF-MissingUserEmail` returns **HTTP 401 UNAUTHENTICATED**. The chat shows
-   `[Gateway Policy Fault]:` / `⚠️ **Gateway Notification (401)**`.
-2. *Restricted Model* — keeps `activeUser: admin` and overrides
-   `model: gemini-3.1-ultra`. That model is absent from **every** API Product, so
-   `VA-VerifyAPIKey` returns **HTTP 401** even for the Enterprise key — the strongest
-   credential in the demo. Using the admin key here keeps the scenario deterministic
-   instead of depending on the sales key resolving. See
-   [UNAUTHORIZED_401_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L305-L318).
+1. *Missing Auth* — an ordinary business prompt (*"Summarise the top three risks in our Q3
+   supplier contract renewals…"*) sent with `omitEmailHeader: true`. Both `Authorization`
+   and `X-User-Email` are dropped, so `RF-MissingUserEmail` returns **HTTP 401
+   UNAUTHENTICATED**. The chat shows `[Gateway Policy Fault]:` /
+   `⚠️ **Gateway Notification (401)**`. The prompt is deliberately mundane — the point is
+   that a perfectly legitimate request is refused purely because identity is absent, and
+   nothing is billed.
+2. *Restricted Model* — a genuine deep-reasoning prompt (multi-region failover architecture
+   comparison) that keeps `activeUser: admin` and overrides `model: gemini-3.1-ultra`. That
+   model is entitled by **no** API Product, so `VA-VerifyAPIKey` returns **HTTP 401** even
+   for the Enterprise key — the strongest credential in the demo. Using the admin key keeps
+   the scenario deterministic instead of depending on the sales key resolving.
+
+   > [!IMPORTANT]
+   > The prompt must stay benign. `SUP-UserPrompt` (Model Armor) runs at PreFlow step 10,
+   > **before** `VA-VerifyAPIKey` at step 11, so a prompt that trips the safety filter
+   > returns 400 and masks the 401 this scenario exists to show.
+
+   See [UNAUTHORIZED_401_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L329-L357).
 
 `omitEmailHeader` is reset to `false` after the run, so the session is never left locked.
 
@@ -956,7 +965,7 @@ Chip: **`⚡ Cache: Seed (Miss)`** → **`⚡ Cache: Instant Hit ($0)`**, then
 2. Keep **Sales**, switch to `gemini-3.1-pro-preview` → **HTTP 401** from `VA-VerifyAPIKey`;
    Pro Preview is only present in `Enterprise AI Tier`.
 3. Switch to **Admin** with `gemini-3.1-pro-preview` → **HTTP 200**.
-4. Still on **Admin**, switch to `gemini-3.1-ultra` → **HTTP 401**. No product whitelists it,
+4. Still on **Admin**, switch to `gemini-3.1-ultra` → **HTTP 401**. No product entitles it,
    so even the Enterprise key is rejected before any upstream call.
 5. Move to the **MCP Gateway** tab and click **Refresh Tools** for each persona:
    - **Sales** → discount tools only; `listAllDiscounts` returns 200, loan tools are denied.
