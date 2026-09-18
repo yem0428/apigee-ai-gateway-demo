@@ -827,7 +827,9 @@ All UI labels below are quoted exactly as they render today.
 **Preconditions**
 
 - Sign in so `/api/me` provisions the admin app and returns all three persona keys.
-- Persona selector (top right, AI/MCP Gateway tabs only): **Admin** / **Sales** / **Loans**
+- Persona selector (top right, **MCP Gateway tab only**): **Admin** / **Sales** / **Loans**.
+  The AI Gateway tab always runs as **Admin**; the key is pinned back to Admin on leaving
+  the MCP tab, so model entitlement is shown via the model dropdown instead.
   in the compact control, **Admin** / **Sales Agent** / **Loans Agent** in the dropdown.
 - Quick-scenario chips in the chat pane are: **Unauthorized**, **Model Armor**,
   **Auto Routing**, **Token Limits**, **Semantic Cache**, **Direct LLM**

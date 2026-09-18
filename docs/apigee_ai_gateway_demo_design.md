@@ -742,7 +742,7 @@ ui/src/components/
 ├── McpTraceViewer.tsx          # MCP telemetry cards, structured result tables + collapsible raw accordion
 ├── ModelRateCardView.tsx       # KVM-backed model rate cards
 ├── MonetizationManager.tsx     # Prepaid wallets, rate plans, subscriptions
-├── Navbar.tsx                  # Tabs, persona pills, env pills, model dropdown, SSO chip
+├── Navbar.tsx                  # Tabs, MCP-only persona pills, model dropdown, SSO chip
 ├── ScenarioPresets.tsx         # "AI Demo Presets" grid above the chat input
 └── ThemeSelector.tsx           # Theme picker
 ```
@@ -966,18 +966,22 @@ Chip: **`⚡ Cache: Seed (Miss)`** → **`⚡ Cache: Instant Hit ($0)`**, then
 
 ### Step 6 — Role-based governance across both gateways
 
-1. In the Navbar persona pills select **Sales**, model `gemini-3.1-flash-lite`, send any
-   prompt → **HTTP 200** (`Standard AI Tier` grants `/models/gemini-3.1-flash-lite:*`).
-2. Keep **Sales**, switch to `gemini-3.1-pro-preview` → **HTTP 401** from `VA-VerifyAPIKey`;
-   Pro Preview is only present in `Enterprise AI Tier`.
-3. Switch to **Admin** with `gemini-3.1-pro-preview` → **HTTP 200**.
-4. Still on **Admin**, switch to `gemini-3.1-ultra` → **HTTP 401**. No product entitles it,
-   so even the Enterprise key is rejected before any upstream call.
-5. Move to the **MCP Gateway** tab and click **Refresh Tools** for each persona:
+> [!NOTE]
+> The persona pills are scoped to the **MCP Gateway** tab, because a persona selects an
+> agent's *tool* entitlements. The AI Gateway tab always runs as **Admin** — the key is
+> pinned back to Admin whenever you leave the MCP tab — so model entitlement is
+> demonstrated with the model dropdown alone.
+
+1. On the **AI Gateway** tab, select `gemini-3.1-pro-preview` and send any prompt →
+   **HTTP 200** (`Enterprise AI Tier` grants `/models/gemini-3.1-pro-preview:*`).
+2. Switch to `gemini-3.1-ultra` → **HTTP 401** from `VA-VerifyAPIKey`. No product
+   entitles it, so even the Enterprise key is rejected before any upstream call.
+3. Move to the **MCP Gateway** tab — the persona pills appear here — and click
+   **Refresh Tools** for each persona:
    - **Sales** → discount tools only; `listAllDiscounts` returns 200, loan tools are denied.
    - **Loans** → loan tools only; `getLoanApplication` returns 200, discount tools are denied.
    - **Admin** → all five tools visible and executable.
-6. Run the **Rapid Burst (Quota 429)** MCP preset to breach `listAllDiscounts`
+4. Run the **Rapid Burst (Quota 429)** MCP preset to breach `listAllDiscounts`
    (1 call / 5 s on `Sales Tools MCP`) and observe `Q-Limit` returning **429**.
 
 ---

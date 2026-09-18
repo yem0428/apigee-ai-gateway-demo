@@ -13,7 +13,6 @@ import {
   Terminal,
   Coins,
   BarChart3,
-  Key,
   Users,
   User,
   RotateCcw,
@@ -22,7 +21,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { GatewaySettings, UserPersona, AppTab, AppTheme } from '../types';
-import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER, createSsoUserFromEmail } from '../services/defaultSettings';
+import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER } from '../services/defaultSettings';
 import { ApigeeLogo } from './ApigeeLogo';
 
 export interface AnalyticsNavControls {
@@ -47,7 +46,6 @@ interface NavbarProps {
   onResetChat?: () => void;
   theme?: AppTheme;
   onThemeChange?: (theme: AppTheme) => void;
-  onRequireOnboarding?: (email: string, suggestedFirstName: string, suggestedLastName: string) => void;
   onEditProfileName?: (email: string, currentName: string) => void;
   analyticsControls?: AnalyticsNavControls;
 }
@@ -58,7 +56,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   onOpenArchitecture,
-  onRequireOnboarding,
   onEditProfileName,
   analyticsControls,
 }) => {
@@ -98,60 +95,21 @@ export const Navbar: React.FC<NavbarProps> = ({
     setSettings((prev) => ({ ...prev, model: modelId }));
   };
 
-  const handleEmailUpdate = async (newEmail: string, newIdToken?: string, refresh?: boolean) => {
-    const cleanEmail = newEmail.trim() || DEFAULT_SSO_USER.email;
-    try {
-      const url = `/api/me?email=${encodeURIComponent(cleanEmail)}${refresh ? '&refresh=true' : ''}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        const resolvedEmail = (data.email || cleanEmail).replace(/^accounts\.google\.com:/, '').trim();
-        const resolvedName = (data.name || '').trim();
-        const token = data.token || newIdToken || ssoUser.idToken;
-        const apiKeys = data.apiKeys || {};
-
-        if (data.needsOnboarding && onRequireOnboarding) {
-          setSsoPopoverOpen(false);
-          onRequireOnboarding(
-            resolvedEmail,
-            data.suggestedFirstName || '',
-            data.suggestedLastName || ''
-          );
-          return;
-        }
-
-        if (apiKeys.admin || data.apiKey) {
-          USERS.admin.apiKey = apiKeys.admin || data.apiKey;
-        }
-        if (apiKeys.sales_agent) {
-          USERS.sales_agent.apiKey = apiKeys.sales_agent;
-        }
-        if (apiKeys.loans_agent) {
-          USERS.loans_agent.apiKey = apiKeys.loans_agent;
-        }
-
-        const updatedSso = createSsoUserFromEmail(resolvedEmail, ssoUser.provider, token, resolvedName);
-        setSettings((prev) => ({
-          ...prev,
-          userEmail: resolvedEmail,
-          idToken: token,
-          ssoUser: updatedSso,
-          apiKey: apiKeys[prev.activeUser] || USERS[prev.activeUser]?.apiKey || prev.apiKey,
-        }));
-        return;
-      }
-    } catch {
-      // Fallback to client-side update if offline
+  // The persona picker is MCP-only (persona selects an agent's tool
+  // entitlements). The AI Gateway demo always runs as Admin -- access
+  // restriction is shown by requesting a model the API product does not
+  // entitle, not by downgrading the persona. Pin the key back to Admin on
+  // leaving the MCP tab so a persona chosen there cannot silently keep
+  // signing AI Gateway calls with a Standard-tier key.
+  useEffect(() => {
+    if (activeTab !== 'mcp-gateway' && settings.activeUser !== 'admin') {
+      setSettings((prev) => ({ ...prev, activeUser: 'admin', apiKey: USERS.admin.apiKey }));
     }
+  }, [activeTab, settings.activeUser, setSettings]);
 
-    const fallbackSso = createSsoUserFromEmail(cleanEmail, ssoUser.provider, newIdToken !== undefined ? newIdToken : ssoUser.idToken);
-    setSettings((prev) => ({
-      ...prev,
-      userEmail: cleanEmail,
-      idToken: newIdToken !== undefined ? newIdToken : prev.idToken,
-      ssoUser: fallbackSso,
-    }));
-  };
+  // Identity is fixed for the session: it comes from the SSO login and is
+  // resolved once by App.tsx via /api/me (which also drives first-time
+  // developer onboarding). There is deliberately no in-app way to change it.
 
   // Monetization tab is strictly visible only in Admin view
   const isAdminView = activeTab === 'analytics'
@@ -201,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="AI Gateway: Access Control, Model Armor, Cache, Model Routing & Tokenomics"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>AI Gateway</span>
+              <span className="hidden min-[1400px]:inline">AI Gateway</span>
             </button>
             <button
               type="button"
@@ -214,7 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Native MCP Tools Server (/mcp)"
             >
               <Terminal className="w-3.5 h-3.5" />
-              <span>MCP Gateway</span>
+              <span className="hidden min-[1400px]:inline">MCP Gateway</span>
             </button>
             {/* 3rd Tab: Analytics & Cost */}
             <button
@@ -228,7 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Enterprise Model Consumption & Cost Tracking Dashboard"
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>Analytics & Cost</span>
+              <span className="hidden min-[1400px]:inline">Analytics & Cost</span>
             </button>
             {/* 4th Tab: Monetization - Strictly visible ONLY in Admin view */}
             {isAdminView && (
@@ -243,7 +201,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 title="Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
               >
                 <Coins className="w-3.5 h-3.5" />
-                <span>Monetization</span>
+                <span className="hidden min-[1400px]:inline">Monetization</span>
               </button>
             )}
           </div>
@@ -353,48 +311,55 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           ) : (
             <>
-              {/* User Persona / Entitlement Tier Segmented Control (Only on AI & MCP Gateway) */}
-              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleUserChange('admin')}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                    settings.activeUser === 'admin'
-                      ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                  title="Admin Persona (Enterprise Tier: All Models + All MCP Tools)"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'admin' ? 'bg-purple-500' : 'bg-slate-400'}`} />
-                  <span>Admin</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUserChange('sales_agent')}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                    settings.activeUser === 'sales_agent'
-                      ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                  title="Sales Agent Persona (Standard Tier: Flash Models + Sales MCP Tools)"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'sales_agent' ? 'bg-blue-500' : 'bg-slate-400'}`} />
-                  <span>Sales</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUserChange('loans_agent')}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                    settings.activeUser === 'loans_agent'
-                      ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                  title="Loans Agent Persona (Standard Tier: Flash Models + Loans MCP Tools)"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'loans_agent' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                  <span>Loans</span>
-                </button>
-              </div>
+              {/* User Persona / Entitlement Tier Segmented Control.
+                  Scoped to the MCP Gateway tab: persona selects which agent's
+                  tool entitlements apply. The AI Gateway tab keeps the model
+                  selector only. NOTE: `settings.activeUser` still determines the
+                  API key sent on AI Gateway calls -- it is simply not switchable
+                  from that tab. */}
+              {activeTab === 'mcp-gateway' && (
+                <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleUserChange('admin')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                      settings.activeUser === 'admin'
+                        ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                    title="Admin Persona (Enterprise Tier: All Models + All MCP Tools)"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'admin' ? 'bg-purple-500' : 'bg-slate-400'}`} />
+                    <span>Admin</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUserChange('sales_agent')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                      settings.activeUser === 'sales_agent'
+                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                    title="Sales Agent Persona (Standard Tier: Flash Models + Sales MCP Tools)"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'sales_agent' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                    <span>Sales</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUserChange('loans_agent')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                      settings.activeUser === 'loans_agent'
+                        ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                    title="Loans Agent Persona (Standard Tier: Flash Models + Loans MCP Tools)"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${settings.activeUser === 'loans_agent' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    <span>Loans</span>
+                  </button>
+                </div>
+              )}
 
               {/* Model Selector */}
               {activeTab === 'ai-gateway' && (
@@ -421,7 +386,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Right: Top-Right SSO User Profile */}
-        <div className="flex items-center shrink-0 ml-auto" ref={ssoPopoverRef}>
+        {/* `relative` anchors the absolutely-positioned SSO popover below the
+            button; without it the popover resolves against a distant ancestor
+            and renders detached, clipped off the top of the viewport. */}
+        <div className="relative flex items-center shrink-0 ml-auto" ref={ssoPopoverRef}>
           <button
             type="button"
             onClick={() => setSsoPopoverOpen(!ssoPopoverOpen)}
@@ -449,9 +417,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition shrink-0 ml-1" />
           </button>
 
-            {/* SSO Profile Popover */}
+            {/* SSO Profile Popover.
+                `top-full` is required: with `top:auto` an absolutely-positioned
+                child uses its static position, which inside an `items-center`
+                flex row is vertically centred -- pushing this 220px panel above
+                the navbar and off the top of the viewport. */}
             {ssoPopoverOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 text-xs z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute top-full right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 text-xs z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div className="flex items-start justify-between pb-3 border-b border-slate-800">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-sm ring-2 ring-emerald-400/50">
@@ -505,19 +477,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span className="text-slate-200 font-mono">{ssoUser.organization}</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="flex items-center gap-1.5">
-                      <Key className="w-3.5 h-3.5 text-amber-400" />
-                      OIDC Identity Token:
-                    </span>
-                    <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border ${
-                      ssoUser.idToken
-                        ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
-                        : 'text-slate-400 bg-slate-900 border-slate-700'
-                    }`}>
-                      {ssoUser.idToken ? 'Bearer Active (gcloud)' : 'Header Fallback'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-400">
                     <span>Session Status:</span>
                     <span className="text-emerald-400 font-semibold flex items-center gap-1">
                       <Check className="w-3 h-3" /> Active / Authenticated
@@ -526,42 +485,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <div className="pt-3">
-                  <div>
-                    <div className="text-[10px] text-slate-400 mb-1.5">
-                      User Identity (<code className="font-mono text-emerald-400">Authorization: Bearer</code>):
-                    </div>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="email"
-                        key={ssoUser.email}
-                        defaultValue={ssoUser.email}
-                        onBlur={(e) => handleEmailUpdate(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleEmailUpdate((e.target as HTMLInputElement).value);
-                            setSsoPopoverOpen(false);
-                          }
-                        }}
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="user@domain.com"
-                      />
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await handleEmailUpdate(ssoUser.email || DEFAULT_SSO_USER.email, undefined, true);
-                          setSsoPopoverOpen(false);
-                        }}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] transition cursor-pointer"
-                        title="Re-generate and sync SSO token from gcloud"
-                      >
-                        Re-sync
-                      </button>
-                    </div>
-                  </div>
+                  {/*
+                    Identity is derived from the SSO session and is deliberately
+                    not editable here -- the gateway authorises on this value.
+                    The signed-in address is shown in the header above.
+                  */}
                   <p className="text-[10px] text-slate-500 leading-relaxed">
                     {ssoUser.idToken
                       ? 'Authenticated via Google SSO Bearer token. Identity is validated by the gateway on every request for zero-trust governance.'
-                      : 'Authenticated user email associated with the active session token.'}
+                      : 'Identity comes from the active SSO session and is sent to the gateway on every request. It cannot be changed here.'}
                   </p>
                 </div>
               </div>
@@ -569,9 +501,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-      {/* Collapsible Mobile Controls Drawer (< md) */}
+      {/* Collapsible Mobile Controls Drawer.
+          `lg:hidden` must match the toggle button above (`flex lg:hidden`);
+          it was `md:hidden`, so between 768px and 1023px the toggle opened
+          a drawer that was still display:none. */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-800/80 bg-slate-900/95 px-4 py-3 space-y-3 animate-in slide-in-from-top-2 duration-150">
+        <div className="lg:hidden border-t border-slate-800/80 bg-slate-900/95 px-4 py-3 space-y-3 animate-in slide-in-from-top-2 duration-150">
           {/* Production Status */}
           <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs">
             <span className="flex items-center gap-2 font-medium">
@@ -642,54 +577,56 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           ) : (
             <>
-              {/* Entitlement Tiers */}
-              <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Entitlement Tier (API Key)</div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleUserChange('admin');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                      settings.activeUser === 'admin'
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'bg-slate-800 text-slate-300'
-                    }`}
-                  >
-                    Admin
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleUserChange('sales_agent');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                      settings.activeUser === 'sales_agent'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-slate-800 text-slate-300'
-                    }`}
-                  >
-                    Sales Agent
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleUserChange('loans_agent');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
-                      settings.activeUser === 'loans_agent'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-slate-800 text-slate-300'
-                    }`}
-                  >
-                    Loans Agent
-                  </button>
+              {/* Entitlement Tiers - MCP Gateway only, mirroring the desktop control */}
+              {activeTab === 'mcp-gateway' && (
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Entitlement Tier (API Key)</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUserChange('admin');
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
+                        settings.activeUser === 'admin'
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      Admin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUserChange('sales_agent');
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
+                        settings.activeUser === 'sales_agent'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      Sales Agent
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUserChange('loans_agent');
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition truncate ${
+                        settings.activeUser === 'loans_agent'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      Loans Agent
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Model Selection */}
               {activeTab === 'ai-gateway' && (

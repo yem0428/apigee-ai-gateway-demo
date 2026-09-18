@@ -155,6 +155,30 @@ Admin view is `analyticsControls?.viewMode === 'admin'` on the analytics tab, ot
 The **View logs** modal opens on whichever time range is selected here, so the audit drill-down
 always covers the same period as the ledger row behind it.
 
+### Navbar layout and identity chip
+
+| Element | Behaviour |
+| --- | --- |
+| Tab labels | Collapse to icon-only below **1400px**; the `title` tooltip still names each tab |
+| Persona pills (`Admin` / `Sales` / `Loans`) | Rendered on the **MCP Gateway tab only** |
+| Active persona elsewhere | Pinned back to `admin` on leaving the MCP tab |
+| Controls drawer (`☰`) | Below **1024px**, matching its toggle button |
+| SSO chip + popover | Read-only; no identity field, no OIDC token row |
+
+Persona selects an agent's *tool* entitlements, which is an MCP concern. The AI Gateway
+tab therefore always runs on the Enterprise (`admin`) key, and model entitlement is
+demonstrated by selecting a model no API product grants.
+
+> [!WARNING]
+> Two CSS traps caused the SSO popover to render detached off the top-right of the
+> viewport. Do not reintroduce either:
+> 1. The popover needs an explicit **`top-full`**. With `top: auto` an absolutely
+>    positioned child falls back to its static position, which inside an `items-center`
+>    flex row is *vertically centred* — placing the panel ~95px above the navbar.
+> 2. Every navbar group was `shrink-0`, so the row had a fixed **1487px** intrinsic
+>    width and simply overflowed the viewport, carrying the whole SSO block off-screen
+>    below that width. Anything added to the navbar must stay within the budget.
+
 > [!CAUTION]
 > The word "Apigee" is deliberately absent from all rendered UI text; only the logo symbol remains.
 > Quote only the strings above. Code identifiers (`ApigeeLogo`, `sendPromptToApigee`,

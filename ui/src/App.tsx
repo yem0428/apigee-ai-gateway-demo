@@ -402,15 +402,6 @@ export function App() {
         onResetChat={handleResetChat}
         theme={theme}
         onThemeChange={setTheme}
-        onRequireOnboarding={(email, suggestedFirstName, suggestedLastName) => {
-          setOnboardingModal({
-            isOpen: true,
-            email,
-            suggestedFirstName,
-            suggestedLastName,
-            isEditMode: false,
-          });
-        }}
         onEditProfileName={(email, currentFullName) => {
           const parts = (currentFullName || '').split(/\s+/).filter(Boolean);
           const firstName = parts[0] || '';
