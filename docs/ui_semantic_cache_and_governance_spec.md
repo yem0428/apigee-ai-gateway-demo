@@ -34,7 +34,7 @@
 
 ## 2. Component inventory (Implemented)
 
-**Fifteen** components exist under
+**Sixteen** components exist under
 [`ui/src/components/`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components).
 
 | Component | Purpose | Mounted today? |
@@ -42,6 +42,7 @@
 | [AnalyticsDashboard.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/AnalyticsDashboard.tsx) | Fleet consumption / cost KPIs | Yes — `analytics` tab |
 | [ApigeeLogo.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ApigeeLogo.tsx) | Exports `ApigeeLogo` and `ApigeeColorSymbol` | Yes — Navbar, ChatPlayground |
 | [ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) | Interactive AI Gateway, MCP Tools Gateway & ADK Dual-Pattern architecture pipeline diagram with clickable XML policy inspector, live trace correlation, and dynamic short-circuit `Tested Request Flow` mode | Yes — App (`Architecture` button in Navbar + inline `Request Flow` button next to Target URL / MCP Operation) |
+| [CallLogsModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/CallLogsModal.tsx) | **Full Audit Logs** — per-call Cloud Logging table for one `(user, model)` pair, with window selector, expandable rows and a Cloud Logging deep link | Yes — AnalyticsDashboard (`View logs` link in the consumption ledger) |
 | [ChatPlayground.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ChatPlayground.tsx) | Chat pane + scenario chips + trace pane | Yes — `ai-gateway` tab |
 | [DeveloperOnboardingModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DeveloperOnboardingModal.tsx) | First-run name-confirmation gate; collects first/last name and `POST`s to `/api/me/onboard` to create the developer, app, prepaid wallet and subscription | Yes — App, conditionally: rendered only when `GET /api/me` returns `needsOnboarding: true` ([App.tsx#L528](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/App.tsx#L528)) |
 | [DonutPieChart.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/DonutPieChart.tsx) | Chart primitive | Yes — AnalyticsDashboard |

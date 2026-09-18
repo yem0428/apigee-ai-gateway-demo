@@ -97,7 +97,7 @@ All resources are provisioned in project `bap-apac-demo2` and were re-verified w
 | **Static external IP** | `apigee-ai-ui-ip` | `136.68.103.117` (global IPv4, `IN_USE`) |
 | **Cloud Run service** | `apigee-ai-gateway-ui` | Region `asia-southeast1`<br>Port `8080`<br>Ingress `internal-and-cloud-load-balancing`<br>Auth `--no-allow-unauthenticated` |
 | **Cloud Run runtime config** | — | CPU `1000m`, memory `512Mi`, container concurrency `80`, min scale `0`, max scale `100`, request timeout `300s`, startup CPU boost on |
-| **Cloud Run service account** | `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` | Calls the Apigee Management API via the metadata server; no static key env vars |
+| **Cloud Run service account** | `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` | Calls the Apigee Management API via the metadata server; no static key env vars.<br>Requires `roles/apigee.admin`, `roles/apigee.monetizationAdmin`, `roles/secretmanager.secretAccessor`, and **`roles/logging.viewer`** (for the Full Audit Logs view, `GET /api/logs/calls`) |
 | **Artifact Registry** | `cloud-run-source-deploy` | `asia-southeast1-docker.pkg.dev/bap-apac-demo2/cloud-run-source-deploy/apigee-ai-gateway-ui:latest` |
 | **Serverless NEG** | `apigee-ai-ui-neg` | Region `asia-southeast1`, type `SERVERLESS`, target Cloud Run `apigee-ai-gateway-ui` |
 | **Backend service** | `apigee-ai-ui-backend` | Scheme `EXTERNAL_MANAGED`, protocol `HTTP`, `timeoutSec: 30`, backend `apigee-ai-ui-neg`, **IAP enabled** |

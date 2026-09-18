@@ -1679,6 +1679,137 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Per-call audit log view: Cloud Logging entries for one user + model pair.
+  // Backs the "View Logs" link in the Model Consumption Ledger.
+  if (pathname === '/api/logs/calls') {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+
+    const userEmail = (parsedUrl.searchParams.get('user') || '').trim();
+    const model = (parsedUrl.searchParams.get('model') || '').trim();
+    const windowParam = (parsedUrl.searchParams.get('window') || '7d').trim();
+
+    // These values are interpolated into a Cloud Logging filter expression.
+    // Validate against strict allowlists instead of escaping: a double quote
+    // or a boolean operator in either field would otherwise let a caller
+    // rewrite the filter and read log entries belonging to other users.
+    const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    const MODEL_RE = /^[A-Za-z0-9._@-]{1,100}$/;
+    const WINDOWS = { '1h': 1, '24h': 24, '7d': 168, '30d': 720 };
+
+    if (userEmail && !EMAIL_RE.test(userEmail)) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'Invalid user parameter' }));
+      return;
+    }
+    if (model && !MODEL_RE.test(model)) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'Invalid model parameter' }));
+      return;
+    }
+    if (!Object.prototype.hasOwnProperty.call(WINDOWS, windowParam)) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'Invalid window parameter' }));
+      return;
+    }
+
+    const token = await getGcpAccessToken();
+    if (!token) {
+      res.statusCode = 500;
+      res.end(JSON.stringify({ error: 'Could not obtain GCP access token' }));
+      return;
+    }
+
+    const project = 'bap-apac-demo2';
+    const sinceIso = new Date(Date.now() - WINDOWS[windowParam] * 3600 * 1000).toISOString();
+
+    const filterParts = [
+      `logName="projects/${project}/logs/apigee"`,
+      `timestamp>="${sinceIso}"`,
+    ];
+    if (userEmail) filterParts.push(`jsonPayload.userEmail="${userEmail}"`);
+    // Model Armor (SUP-UserPrompt) faults in PreFlow *before* the target model
+    // is resolved, so a blocked call carries only the path-derived
+    // `requestedModel`. Match either field or blocked calls would silently
+    // vanish from this view.
+    if (model) {
+      filterParts.push(
+        `(jsonPayload.model="${model}" OR jsonPayload.requestedModel="${model}")`
+      );
+    }
+    const filter = filterParts.join(' AND ');
+
+    try {
+      const logRes = await fetch('https://logging.googleapis.com/v2/entries:list', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resourceNames: [`projects/${project}`],
+          filter,
+          orderBy: 'timestamp desc',
+          pageSize: 100,
+        }),
+      });
+
+      if (!logRes.ok) {
+        const detail = await logRes.text();
+        res.statusCode = logRes.status;
+        res.end(JSON.stringify({ error: 'Cloud Logging query failed', detail: detail.slice(0, 500) }));
+        return;
+      }
+
+      const data = await logRes.json();
+      const entries = (data.entries || []).map((e) => {
+        const p = e.jsonPayload || {};
+        const num = (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        };
+        // Latency: prefer the client round trip, fall back to the target leg.
+        const start = num(p.clientReceivedStartTimeEpoch);
+        const end = num(p.clientReceivedEndTimeEpoch);
+        const latencyMs = start > 0 && end >= start ? end - start : null;
+
+        return {
+          timestamp: e.timestamp || null,
+          trackingId: p.trackingId || '',
+          userEmail: p.userEmail || '',
+          model: p.model || '',
+          provider: p.targetProvider || '',
+          // The proxy logs the Gemini-shaped field first and the Anthropic
+          // shape as a fallback; exactly one of them resolves per call.
+          prompt: p.prompt || '',
+          response: p.response || p.responseClaude || '',
+          // On a fault the response status variable never resolves; the real
+          // HTTP code lands in error.status.code instead.
+          status: num(p.responseStatusCode) || num(p.errorStatusCode),
+          costUsd: num(p.costUsd),
+          promptTokens: num(p.promptTokens),
+          candidatesTokens: num(p.candidatesTokens),
+          totalTokens: num(p.totalTokens),
+          autoRouted: String(p.autoRouted || '') === 'true',
+          cached: String(p.cached || '') === 'true',
+          latencyMs,
+          faultName: p.faultName || '',
+          errorMessage: p.errorMessage || '',
+          pathSuffix: p.proxyPathSuffix || '',
+          environment: p.environmentName || '',
+        };
+      });
+
+      // Deep link into the Cloud Logging console for anything not shown here.
+      const consoleUrl =
+        `https://console.cloud.google.com/logs/query;query=${encodeURIComponent(filter)}` +
+        `?project=${project}`;
+
+      res.end(JSON.stringify({ status: 'ok', count: entries.length, window: windowParam, entries, consoleUrl }));
+    } catch (err) {
+      res.statusCode = 500;
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // Reverse proxy routes for Apigee Gateway
   if (pathname.startsWith('/api/ai-dev')) {
     const targetPath = pathname.replace(/^\/api\/ai-dev/, '');

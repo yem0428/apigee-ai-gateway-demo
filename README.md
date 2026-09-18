@@ -252,6 +252,45 @@ upstream call is made.
 
 ---
 
+### 8. 📜 Full Audit Logs
+
+Every governed call is written to Cloud Logging by
+[`ML-CloudLogging`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/ML-CloudLogging.xml)
+at `projects/bap-apac-demo2/logs/apigee`. The policy sits in **`PostClientFlow`**, which runs after
+the response is flushed **and still fires on faults** — so successful, blocked and failed calls are
+all captured.
+
+Each record carries the identity (`userEmail`), the resolved `model` and path-derived
+`requestedModel`, `targetProvider`, `autoRouted`, `cached`, `costUsd`, token counts, the full
+`prompt` and `response`, plus `faultName` / `errorMessage`.
+
+In the UI, the **Model Consumption Ledger** (BI Dashboard) has a **View logs** link on every
+`(user, model)` row. It opens a per-call table — timestamp, status, request, response, tokens, cost
+and auto-routed / cached flags — with a `1h / 24h / 7d / 30d` window selector and an
+**Open in Cloud Logging** deep link. Rows expand to reveal the untruncated request and response.
+
+| Piece | Location |
+| :--- | :--- |
+| Log policy | [`ML-CloudLogging.xml`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/ML-CloudLogging.xml) |
+| Response-text extraction | [`EV-ModelResponse.xml`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/EV-ModelResponse.xml) |
+| Read API | `GET /api/logs/calls` in [`server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js) |
+| UI | [`CallLogsModal.tsx`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/CallLogsModal.tsx) |
+
+> [!IMPORTANT]
+> The server identity (`apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com`) needs
+> `roles/logging.viewer`. The same service account backs both local development and Cloud Run, so a
+> single grant covers both.
+
+> [!CAUTION]
+> `prompt` and `response` persist **full, untruncated** user content to Cloud Logging. This is a
+> deliberate demo-fidelity choice. Redact or drop those two fields before handling real user data.
+
+Model Armor blocks at `SUP-UserPrompt` in PreFlow, *before* the target model is resolved — such a
+record has an empty `model`, which is why `requestedModel` is logged and why the read API matches
+**either** field.
+
+---
+
 ## 📁 Repository Structure
 
 ```

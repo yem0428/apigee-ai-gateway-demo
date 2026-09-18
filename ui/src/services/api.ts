@@ -213,3 +213,56 @@ export async function fetchDeveloperAttributions(): Promise<{
   return response.json();
 }
 
+/** Lookback windows accepted by /api/logs/calls. */
+export type CallLogWindow = '1h' | '24h' | '7d' | '30d';
+
+/**
+ * A single gateway transaction as recorded by the ML-CloudLogging policy.
+ * Emitted from PostClientFlow, so blocked and failed calls appear here too --
+ * those carry a non-2xx `status` and a populated `faultName`.
+ */
+export interface CallLogEntry {
+  timestamp: string | null;
+  trackingId: string;
+  userEmail: string;
+  model: string;
+  provider: string;
+  prompt: string;
+  response: string;
+  status: number;
+  costUsd: number;
+  promptTokens: number;
+  candidatesTokens: number;
+  totalTokens: number;
+  autoRouted: boolean;
+  cached: boolean;
+  latencyMs: number | null;
+  faultName: string;
+  errorMessage: string;
+  pathSuffix: string;
+  environment: string;
+}
+
+export interface CallLogsResponse {
+  status: string;
+  count: number;
+  window: CallLogWindow;
+  entries: CallLogEntry[];
+  /** Deep link to the same filter in the Cloud Logging console. */
+  consoleUrl: string;
+}
+
+export async function fetchCallLogs(
+  userEmail: string,
+  model: string,
+  window: CallLogWindow = '7d'
+): Promise<CallLogsResponse> {
+  const params = new URLSearchParams({ user: userEmail, model, window });
+  const response = await fetch(`/api/logs/calls?${params.toString()}`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch call logs (${response.status})`);
+  }
+  return response.json();
+}
+

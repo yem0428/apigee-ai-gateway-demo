@@ -507,8 +507,52 @@ flowchart LR
   `currency`, `transactionSuccess`.
 - `ML-CloudLogging` writes a structured JSON record to
   `projects/{organization.name}/logs/apigee` in `PostClientFlow`, including
-  `userEmail`, `model`, `targetProvider`, `autoRouted`, `costUsd`, token counts,
-  target timing stamps, `faultName` and `errorMessage`.
+  `userEmail`, `model`, `targetProvider`, `autoRouted`, `cached`, `costUsd`,
+  token counts, `prompt`, `response` / `responseClaude`, target timing stamps,
+  `faultName` and `errorMessage`. Because it runs in `PostClientFlow`, it fires
+  after the response is flushed **and still fires on faults** — so blocked and
+  failed calls are audited alongside successful ones.
+  - `prompt`, `response` and `responseClaude` come from `flow.userPrompt` and
+    the `responseText` / `claudeResponseText` variables extracted by
+    `EV-ModelResponse`. Exactly one of the two response fields resolves per call
+    depending on the provider.
+  - All three content fields **must** stay wrapped in `escapeJSON(...)`. The
+    `<Message>` body is a hand-built JSON template, so an unescaped quote or
+    newline in model output would corrupt the whole log entry.
+
+> [!CAUTION]
+> The `prompt` and `response` fields persist **full, untruncated** user content
+> to Cloud Logging. This is a deliberate choice for demo fidelity — it is what
+> makes the Full Audit Logs view compelling. Any deployment handling real user
+> data should truncate, redact, or drop these two fields and rely on
+> `SCL-ScrubPII` upstream.
+
+These fields back the **Full Audit Logs** drill-down in the UI; see
+[§7.5](#75-full-audit-logs-api) for the read path.
+
+### 7.5 Full Audit Logs API
+
+`GET /api/logs/calls` ([server.js](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js))
+reads the records above back out of Cloud Logging for a single
+`(userEmail, model)` pair. It backs the **View logs** link in the Model
+Consumption Ledger.
+
+| Param | Values | Notes |
+| --- | --- | --- |
+| `user` | email address | Validated against a strict pattern |
+| `model` | model ID | Validated against a strict pattern |
+| `window` | `1h`, `24h`, `7d`, `30d` | Defaults to `7d` |
+
+> [!IMPORTANT]
+> `user` and `model` are interpolated into a Cloud Logging filter expression, so
+> they are validated against **allowlist regexes** rather than escaped. A stray
+> quote or boolean operator would otherwise let a caller rewrite the filter and
+> read other users' log entries.
+
+The response returns at most the 100 most recent entries plus a `consoleUrl`
+deep link into Cloud Logging for anything beyond that. The calling identity
+(`apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com`) requires
+`roles/logging.viewer`.
 
 ---
 
@@ -747,7 +791,7 @@ Complete and exhaustive. Verified against both the policy directory and the
 | 23 | `KVM-GetModelRates` | KeyValueMapOperations | PostFlow resp 2 | KVM `ai-model-rates` key `rate_card` |
 | 24 | `LTQ-TokenCount` | LLMTokenQuota | PostFlow resp 5 | `CountOnly`, shares `common-counter` |
 | 25 | `LTQ-TokenEnforce` | LLMTokenQuota | `LLMTokenLimitFlow` | `EnforceOnly`, shares `common-counter` |
-| 26 | `ML-CloudLogging` | MessageLogging | PostClientFlow | Structured Cloud Logging record |
+| 26 | `ML-CloudLogging` | MessageLogging | PostClientFlow | Structured Cloud Logging record, incl. `prompt` / `response` / `cached`; fires on faults too |
 | 27 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | PreFlow 12 | 403 on rate-plan / prepaid-wallet exhaustion |
 | 28 | `OAS-ValidateRequest` | OASValidation | PreFlow 2 | Validates against `oas://openapi.yaml` |
 | 29 | `QC-DeductBudget` | Quota | PostFlow resp 4 | Deducts `flow.tx_cost_micros` |

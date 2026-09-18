@@ -174,7 +174,10 @@ Every step carries `request.verb != "OPTIONS"`.
 | 8 | `SMR-SanitizeModelResponse` | `200` and not a raw Anthropic passthrough |
 | 9 | `AM-SetResponseHeaders` | always |
 
-`ML-CloudLogging` runs in `PostClientFlow`.
+`ML-CloudLogging` runs in `PostClientFlow`, so it fires after the response is flushed **and on
+faults** — successful, blocked and failed calls are all audited. Its record includes the full
+`prompt` and `response` text plus `cached`, which back the **Full Audit Logs** drill-down in the
+consumption ledger.
 
 Target selection: `RouteRule claude-target` fires when `flow.target_provider == "anthropic"`;
 otherwise `gemini-target`. Both targets point at `https://aiplatform.googleapis.com` with
@@ -675,7 +678,7 @@ Two client-side behaviours matter before a live demo:
 | `SCP-Semantic-Cache-Populate` | **SemanticCachePopulate** | Writes prompt embedding + response into the vector index |
 | `SMR-SanitizeModelResponse` | **SanitizeModelResponse** (Model Armor) | Screens the model response |
 | `AM-SetResponseHeaders` | AssignMessage | Emits the `x-gateway-*` telemetry headers |
-| `ML-CloudLogging` | MessageLogging | PostClientFlow audit log |
+| `ML-CloudLogging` | MessageLogging | PostClientFlow audit log — incl. `prompt`, `response`, `cached`; fires on faults too |
 
 > [!NOTE]
 > The bundle contains exactly **36** policy files
