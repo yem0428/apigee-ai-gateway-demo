@@ -73,8 +73,8 @@ flowchart TB
         P1["1. CORS-Headers + OAS-ValidateRequest"]
         P2["2. Identity: EV-ExtractBearerToken, DJWT-ExtractUserIdentity,<br/>AM-SetUserEmailFromHeader, RF-MissingUserEmail (401)"]
         P3["3. JS-ExtractPromptAndModel"]
-        P4["4. SUP-UserPrompt (Model Armor, 400 on match)"]
-        P5["5. VA-VerifyAPIKey (401 on product mismatch)"]
+        P4["4. VA-VerifyAPIKey (401 on product mismatch)"]
+        P5["5. SUP-UserPrompt (Model Armor, 400 on match)"]
         P6["6. MLC-EnforceMonetizationLimits (403) + QC-EnforceBudgetLimit"]
         P7["7. Routing prep: JS-AutoRouting / AM-PrepGeminiDirect / AM-PrepClaudeDirect"]
         P8["8. SCL-Semantic-Cache-Lookup (only when use-cache header is true)"]
@@ -113,8 +113,9 @@ flowchart TB
 ```
 
 > [!NOTE]
-> Identity is resolved **before** API key verification, and Model Armor (`SUP-UserPrompt`)
-> runs **before** `VA-VerifyAPIKey`. Older diagrams that put auth first are wrong.
+> Identity is resolved **before** API key verification, and `VA-VerifyAPIKey` runs
+> **before** Model Armor (`SUP-UserPrompt`). Older diagrams that put Model Armor
+> ahead of the key check are wrong.
 
 ### 2.1 Request PreFlow — verified step order
 
@@ -132,8 +133,8 @@ Every step carries `request.verb != "OPTIONS"`.
 | 7 | `AM-SetUserEmailFromHeader` | `flow.emailId = null` and `X-User-Email` present |
 | 8 | `RF-MissingUserEmail` | `flow.emailId = null` → **raises HTTP 401** |
 | 9 | `JS-ExtractPromptAndModel` | — |
-| 10 | `SUP-UserPrompt` | `flow.userPrompt` non-empty |
-| 11 | `VA-VerifyAPIKey` | — |
+| 10 | `VA-VerifyAPIKey` | — |
+| 11 | `SUP-UserPrompt` | `flow.userPrompt` non-empty |
 | 12 | `MLC-EnforceMonetizationLimits` | — |
 | 13 | `QC-EnforceBudgetLimit` | — |
 | 14 | `AM-RemoveAuthorization` | — |
@@ -173,7 +174,10 @@ Every step carries `request.verb != "OPTIONS"`.
 | 8 | `SMR-SanitizeModelResponse` | `200` and not a raw Anthropic passthrough |
 | 9 | `AM-SetResponseHeaders` | always |
 
-`ML-CloudLogging` runs in `PostClientFlow`.
+`ML-CloudLogging` runs in `PostClientFlow`, so it fires after the response is flushed **and on
+faults** — successful, blocked and failed calls are all audited. Its record includes the full
+`prompt` and `response` text plus `cached`, which back the **Full Audit Logs** drill-down in the
+consumption ledger.
 
 Target selection: `RouteRule claude-target` fires when `flow.target_provider == "anthropic"`;
 otherwise `gemini-target`. Both targets point at `https://aiplatform.googleapis.com` with
@@ -505,7 +509,7 @@ in the compact selector and again in the mobile panel under the label
 | `claude-opus-4-5@20251101` | claude-opus-4-5@20251101 | Claude Opus | ✅ Enterprise only |
 
 > [!NOTE]
-> `gemini-3.1-ultra` is deliberately absent from every API Product whitelist. It exists so
+> `gemini-3.1-ultra` is deliberately entitled by no API Product. It exists so
 > the "Restricted Model" scenario can show an entitlement block at `VA-VerifyAPIKey` before
 > any upstream call, even with the Enterprise key.
 
@@ -674,7 +678,7 @@ Two client-side behaviours matter before a live demo:
 | `SCP-Semantic-Cache-Populate` | **SemanticCachePopulate** | Writes prompt embedding + response into the vector index |
 | `SMR-SanitizeModelResponse` | **SanitizeModelResponse** (Model Armor) | Screens the model response |
 | `AM-SetResponseHeaders` | AssignMessage | Emits the `x-gateway-*` telemetry headers |
-| `ML-CloudLogging` | MessageLogging | PostClientFlow audit log |
+| `ML-CloudLogging` | MessageLogging | PostClientFlow audit log — incl. `prompt`, `response`, `cached`; fires on faults too |
 
 > [!NOTE]
 > The bundle contains exactly **36** policy files
@@ -877,16 +881,27 @@ Two entry points drive the AI Gateway demo, both wired to
 Chip: **`🚫 Auth (401): Missing Auth (1/2)`** → **`🚫 Auth (401): Restricted Model (2/2)`**
 (`UNAUTHORIZED_401_EXAMPLES`).
 
-1. *Missing Auth* — prompt *"Can I access the API without an Authorization token?"* with
-   `omitEmailHeader: true`. Both `Authorization` and `X-User-Email` are dropped, so
-   `RF-MissingUserEmail` returns **HTTP 401 UNAUTHENTICATED**. The chat shows
-   `[Gateway Policy Fault]:` / `⚠️ **Gateway Notification (401)**`.
-2. *Restricted Model* — keeps `activeUser: admin` and overrides
-   `model: gemini-3.1-ultra`. That model is absent from **every** API Product, so
-   `VA-VerifyAPIKey` returns **HTTP 401** even for the Enterprise key — the strongest
-   credential in the demo. Using the admin key here keeps the scenario deterministic
-   instead of depending on the sales key resolving. See
-   [UNAUTHORIZED_401_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L305-L318).
+1. *Missing Auth* — an ordinary business prompt (*"Summarise the top three risks in our Q3
+   supplier contract renewals…"*) sent with `omitEmailHeader: true`. Both `Authorization`
+   and `X-User-Email` are dropped, so `RF-MissingUserEmail` returns **HTTP 401
+   UNAUTHENTICATED**. The chat shows `[Gateway Policy Fault]:` /
+   `⚠️ **Gateway Notification (401)**`. The prompt is deliberately mundane — the point is
+   that a perfectly legitimate request is refused purely because identity is absent, and
+   nothing is billed.
+2. *Restricted Model* — a genuine deep-reasoning prompt (multi-region failover architecture
+   comparison) that keeps `activeUser: admin` and overrides `model: gemini-3.1-ultra`. That
+   model is entitled by **no** API Product, so `VA-VerifyAPIKey` returns **HTTP 401** even
+   for the Enterprise key — the strongest credential in the demo. Using the admin key keeps
+   the scenario deterministic instead of depending on the sales key resolving.
+
+   > [!NOTE]
+   > `VA-VerifyAPIKey` runs at PreFlow step 10, **ahead of** `SUP-UserPrompt`
+   > (Model Armor) at step 11, so the entitlement 401 fires regardless of prompt
+   > content and can never be masked by a 400 from the safety filter. Earlier
+   > revisions of this document warned that the prompt had to stay benign; that
+   > constraint no longer applies.
+
+   See [UNAUTHORIZED_401_EXAMPLES](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L329-L357).
 
 `omitEmailHeader` is reset to `false` after the run, so the session is never left locked.
 
@@ -956,7 +971,7 @@ Chip: **`⚡ Cache: Seed (Miss)`** → **`⚡ Cache: Instant Hit ($0)`**, then
 2. Keep **Sales**, switch to `gemini-3.1-pro-preview` → **HTTP 401** from `VA-VerifyAPIKey`;
    Pro Preview is only present in `Enterprise AI Tier`.
 3. Switch to **Admin** with `gemini-3.1-pro-preview` → **HTTP 200**.
-4. Still on **Admin**, switch to `gemini-3.1-ultra` → **HTTP 401**. No product whitelists it,
+4. Still on **Admin**, switch to `gemini-3.1-ultra` → **HTTP 401**. No product entitles it,
    so even the Enterprise key is rejected before any upstream call.
 5. Move to the **MCP Gateway** tab and click **Refresh Tools** for each persona:
    - **Sales** → discount tools only; `listAllDiscounts` returns 200, loan tools are denied.

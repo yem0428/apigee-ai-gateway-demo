@@ -13,10 +13,12 @@ import {
   TableProperties,
   Info,
   User,
+  ScrollText,
 } from 'lucide-react';
 import { GatewaySettings, UserConsumptionRecord, UserMonetizationAttribution } from '../types';
 import { DEFAULT_SSO_USER } from '../services/defaultSettings';
 import { DonutPieChart, DonutSlice } from './DonutPieChart';
+import { CallLogsModal } from './CallLogsModal';
 import { fetchFleetAnalytics, FleetAnalyticsResponse, fetchDeveloperAttributions } from '../services/api';
 
 export interface AnalyticsDashboardProps {
@@ -116,6 +118,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   const [fleetData, setFleetData] = useState<FleetAnalyticsResponse | null>(null);
   const [attributions, setAttributions] = useState<UserMonetizationAttribution[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  // Ledger row whose per-call audit trail is open. Null == modal closed.
+  const [logsTarget, setLogsTarget] = useState<{ userEmail: string; model: string } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -1058,13 +1062,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                       )}
                     </div>
                   </th>
+
+                  {/* Audit trail drill-down (not sortable) */}
+                  <th className="pb-3 text-right">
+                    <span>Logs</span>
+                  </th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-xs">
                 {displayedConsumptionRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-500 font-sans">
+                    <td colSpan={7} className="py-8 text-center text-slate-500 font-sans">
                       No consumption records found with the selected model filter.
                     </td>
                   </tr>
@@ -1138,6 +1147,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                           </span>
                           <span className="text-[10px] text-slate-500 font-sans ml-1">USD</span>
                         </td>
+
+                        {/* Per-call audit trail for this user + model pair */}
+                        <td className="py-3 text-right">
+                          <button
+                            onClick={() =>
+                              setLogsTarget({ userEmail: row.userEmail, model: row.model })
+                            }
+                            title={`View every call by ${row.userEmail} on ${row.model}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-sans font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                          >
+                            <ScrollText className="w-3.5 h-3.5" />
+                            View logs
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -1166,12 +1189,21 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     <td className="py-3 text-right text-emerald-600 dark:text-emerald-400 text-sm">
                       ${tableTotals.cost} <span className="text-[10px] text-slate-500 font-sans font-normal">USD</span>
                     </td>
+                    {/* Logs column has no meaningful total. */}
+                    <td className="py-3" />
                   </tr>
                 </tfoot>
               )}
             </table>
           </div>
         </div>
+        {/* Per-call audit trail for a single ledger row. */}
+        <CallLogsModal
+          isOpen={logsTarget !== null}
+          onClose={() => setLogsTarget(null)}
+          userEmail={logsTarget?.userEmail || ''}
+          model={logsTarget?.model || ''}
+        />
       </div>
     </div>
   );

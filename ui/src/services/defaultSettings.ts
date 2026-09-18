@@ -248,7 +248,7 @@ export const AVAILABLE_MODELS = [
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
   { id: 'gemini-3-flash-preview', name: 'gemini-3-flash-preview', tag: 'Flash' },
   { id: 'gemini-3.1-pro-preview', name: 'gemini-3.1-pro-preview', tag: 'Pro Preview' },
-  // Deliberately absent from every API Product whitelist. Used by the
+  // Deliberately entitled by no API Product. Used by the
   // "Restricted Model" scenario to demonstrate an entitlement block: even an
   // Enterprise-tier key is rejected at VA-VerifyAPIKey before any upstream call.
   { id: 'gemini-3.1-ultra', name: 'gemini-3.1-ultra', tag: 'Restricted (Not Entitled)' },
@@ -332,8 +332,8 @@ export const UNAUTHORIZED_401_EXAMPLES = [
     id: 'auth-missing',
     title: 'Identity Check: Missing Auth Header (401)',
     tag: 'Missing Auth',
-    prompt: 'Can I access the API without an Authorization token?',
-    description: 'Omits Authorization header.',
+    prompt: 'Summarise the top three risks in our Q3 supplier contract renewals and flag anything that needs legal review.',
+    description: 'An ordinary business request sent with no caller identity. Rejected at the gateway before it reaches a model, so nothing is billed.',
     settingsOverride: { omitEmailHeader: true, useCache: false },
   },
   {
@@ -342,12 +342,16 @@ export const UNAUTHORIZED_401_EXAMPLES = [
     title: 'Unauthorized Model: Entitlement Block (401)',
     tag: 'Restricted Model',
     prompt:
-      'Attempting to run complex multi-step reasoning on gemini-3.1-ultra, a model that no API Product whitelists.',
-    description: 'Calls a model outside every product whitelist.',
+      'Compare three multi-region failover architectures for a payments platform, model the cost and latency trade-offs of each, and recommend one with a staged migration plan.',
+    description: 'A legitimate deep-reasoning request aimed at a model no API Product entitles. Blocked on entitlement, not on content.',
     // Uses the admin (Enterprise AI Tier) key on purpose: the strongest
     // credential in the demo still cannot reach a model that is not named in
     // its product. This keeps the scenario deterministic instead of depending
     // on the sales key resolving.
+    //
+    // `VA-VerifyAPIKey` runs at PreFlow step 10, ahead of `SUP-UserPrompt`
+    // (Model Armor) at step 11, so the 401 fires on entitlement regardless of
+    // prompt content and cannot be masked by a 400 from the safety filter.
     settingsOverride: { activeUser: 'admin', model: 'gemini-3.1-ultra', useCache: false },
   },
 ];
@@ -382,9 +386,9 @@ export const MODEL_ARMOR_EXAMPLES = [
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
     id: 'unauthorized-toggle',
-    title: 'Unauthorized',
-    category: 'Governance',
-    description: 'Demonstrate Unauthorized rejections.',
+    title: 'Access Control',
+    category: 'Access Control',
+    description: 'Control model and tool access based on user and agent permissions.',
     prompt: UNAUTHORIZED_401_EXAMPLES[0].prompt,
     badgeText: 'Rejected (401)',
     badgeColor: 'rose',
@@ -394,7 +398,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     id: 'model-armor-toggle',
     title: 'Model Armor',
     category: 'Security',
-    description: 'Demonstrates Model Armor safety blocks.',
+    description: 'Integrated prompt sanitization for enhanced security.',
     prompt: MODEL_ARMOR_EXAMPLES[0].prompt,
     badgeText: 'Blocked (400)',
     badgeColor: 'red',
@@ -402,9 +406,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   },
   {
     id: 'auto-routing',
-    title: 'Auto Routing',
+    title: 'Model Routing',
     category: 'Routing',
-    description: 'Demonstrates intelligent model routing.',
+    description: 'Dynamic request routing across multiple LLM providers and private models.',
     prompt: AUTO_ROUTING_EXAMPLES[0].prompt,
     badgeText: 'Intelligent',
     badgeColor: 'violet',
@@ -412,9 +416,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   },
   {
     id: 'token-limit-toggle',
-    title: 'Token Limits',
-    category: 'Quota',
-    description: 'Demonstrates token limit enforcement.',
+    title: 'Tokenomics',
+    category: 'Tokenomics',
+    description: 'Prevent abuse through granular token limits on every LLM call.',
     prompt: TOKEN_LIMIT_EXAMPLES[0].prompt,
     badgeText: 'Pass → Limit',
     badgeColor: 'emerald',
@@ -422,9 +426,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   },
   {
     id: 'cache-toggle',
-    title: 'Semantic Cache',
+    title: 'Cache',
     category: 'Performance',
-    description: 'Demonstrates semantic vector caching.',
+    description: 'Faster responses and lower cost when a similar query has been seen before.',
     prompt: CACHE_EXAMPLES[0].prompt,
     badgeText: 'Miss → Hit',
     badgeColor: 'emerald',
@@ -434,7 +438,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     id: 'no-cache',
     title: 'Direct LLM',
     category: 'Performance',
-    description: 'Demonstrates direct LLM inference.',
+    description: 'The same query with caching off, as a cost and latency baseline.',
     prompt: CACHE_EXAMPLES[0].prompt,
     badgeText: 'No Cache',
     badgeColor: 'cyan',

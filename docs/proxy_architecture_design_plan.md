@@ -92,8 +92,8 @@ condition. The extra conditions listed below are the per-step remainder.
 | 7 | `AM-SetUserEmailFromHeader` | `flow.emailId = null and request.header.x-user-email != null` |
 | 8 | `RF-MissingUserEmail` | `flow.emailId = null` → raises **HTTP 401** |
 | 9 | `JS-ExtractPromptAndModel` | — |
-| 10 | `SUP-UserPrompt` | `flow.userPrompt != null and flow.userPrompt != ""` |
-| 11 | `VA-VerifyAPIKey` | — |
+| 10 | `VA-VerifyAPIKey` | — |
+| 11 | `SUP-UserPrompt` | `flow.userPrompt != null and flow.userPrompt != ""` |
 | 12 | `MLC-EnforceMonetizationLimits` | — |
 | 13 | `QC-EnforceBudgetLimit` | — |
 | 14 | `AM-RemoveAuthorization` | — |
@@ -105,12 +105,22 @@ condition. The extra conditions listed below are the per-step remainder.
 | 20 | `SCL-Semantic-Cache-Lookup` | same cache-header condition as #19 |
 
 > [!IMPORTANT]
-> Two ordering facts are load-bearing and are frequently documented backwards:
-> **identity resolution (steps 4–8) completes before `VA-VerifyAPIKey` (step 11)**,
-> and **Model Armor `SUP-UserPrompt` (step 10) also runs before `VA-VerifyAPIKey`**.
-> An unauthenticated or malicious caller is rejected before the API key is even
-> looked up, and therefore before any monetization, budget, or token counter is
-> touched.
+> Two ordering facts are load-bearing:
+> **identity resolution (steps 4–8) completes before `VA-VerifyAPIKey` (step 10)**,
+> and **`VA-VerifyAPIKey` (step 10) runs before Model Armor `SUP-UserPrompt`
+> (step 11)**. A caller is therefore identified and authorised *before* any
+> content inspection happens, and a rejected caller is turned away before any
+> monetization, budget, or token counter is touched.
+
+> [!NOTE]
+> `VA-VerifyAPIKey` and `SUP-UserPrompt` were **swapped** relative to earlier
+> revisions of this proxy, where Model Armor ran first. Authenticating first
+> means an unauthenticated or unentitled caller can no longer drive a billable
+> external Model Armor evaluation — the request is rejected at the key check.
+> The practical consequence for demos: a call to a model the product does not
+> entitle now returns **401 at step 10** regardless of prompt content, whereas
+> previously a malicious prompt on an unentitled model would surface **400**
+> from Model Armor instead.
 
 ### 3.1 Identity resolution
 
@@ -139,9 +149,14 @@ pointed at the Model Armor template
 reading `{flow.userPrompt}`
 ([SUP-UserPrompt.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SUP-UserPrompt.xml)).
 
-Placing it at step 10 means a blocked prompt never reaches
+Placing it at step 11 means a blocked prompt never reaches
 `MLC-EnforceMonetizationLimits`, `QC-EnforceBudgetLimit`, `LTQ-TokenEnforce`,
 or any upstream model.
+
+Because `VA-VerifyAPIKey` now runs immediately ahead of it at step 10, Model
+Armor is only ever invoked for a caller holding a valid key whose API Product
+entitles the requested model. An unauthenticated or unentitled caller cannot
+drive a billable external Model Armor evaluation.
 
 > [!NOTE]
 > The bundle contains **no custom fault-response policy** for Model Armor. There
@@ -492,8 +507,52 @@ flowchart LR
   `currency`, `transactionSuccess`.
 - `ML-CloudLogging` writes a structured JSON record to
   `projects/{organization.name}/logs/apigee` in `PostClientFlow`, including
-  `userEmail`, `model`, `targetProvider`, `autoRouted`, `costUsd`, token counts,
-  target timing stamps, `faultName` and `errorMessage`.
+  `userEmail`, `model`, `targetProvider`, `autoRouted`, `cached`, `costUsd`,
+  token counts, `prompt`, `response` / `responseClaude`, target timing stamps,
+  `faultName` and `errorMessage`. Because it runs in `PostClientFlow`, it fires
+  after the response is flushed **and still fires on faults** — so blocked and
+  failed calls are audited alongside successful ones.
+  - `prompt`, `response` and `responseClaude` come from `flow.userPrompt` and
+    the `responseText` / `claudeResponseText` variables extracted by
+    `EV-ModelResponse`. Exactly one of the two response fields resolves per call
+    depending on the provider.
+  - All three content fields **must** stay wrapped in `escapeJSON(...)`. The
+    `<Message>` body is a hand-built JSON template, so an unescaped quote or
+    newline in model output would corrupt the whole log entry.
+
+> [!CAUTION]
+> The `prompt` and `response` fields persist **full, untruncated** user content
+> to Cloud Logging. This is a deliberate choice for demo fidelity — it is what
+> makes the Full Audit Logs view compelling. Any deployment handling real user
+> data should truncate, redact, or drop these two fields and rely on
+> `SCL-ScrubPII` upstream.
+
+These fields back the **Full Audit Logs** drill-down in the UI; see
+[§7.5](#75-full-audit-logs-api) for the read path.
+
+### 7.5 Full Audit Logs API
+
+`GET /api/logs/calls` ([server.js](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js))
+reads the records above back out of Cloud Logging for a single
+`(userEmail, model)` pair. It backs the **View logs** link in the Model
+Consumption Ledger.
+
+| Param | Values | Notes |
+| --- | --- | --- |
+| `user` | email address | Validated against a strict pattern |
+| `model` | model ID | Validated against a strict pattern |
+| `window` | `1h`, `24h`, `7d`, `30d` | Defaults to `7d` |
+
+> [!IMPORTANT]
+> `user` and `model` are interpolated into a Cloud Logging filter expression, so
+> they are validated against **allowlist regexes** rather than escaped. A stray
+> quote or boolean operator would otherwise let a caller rewrite the filter and
+> read other users' log entries.
+
+The response returns at most the 100 most recent entries plus a `consoleUrl`
+deep link into Cloud Logging for anything beyond that. The calling identity
+(`apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com`) requires
+`roles/logging.viewer`.
 
 ---
 
@@ -663,7 +722,7 @@ when they are not already set (so a URI-derived model always wins).
 
 > [!IMPORTANT]
 > This is the policy that produces `flow.userPrompt`, and it is why it must run
-> at step 9 — immediately before `SUP-UserPrompt` (step 10) and well before
+> at step 9 — ahead of `SUP-UserPrompt` (step 11) and well before
 > `SCL-Semantic-Cache-Lookup` (step 20), both of which read `{flow.userPrompt}`.
 > `EV-RequestDetails` does **not** extract the prompt; it only extracts the model
 > from the URI path and `$.model` from the body.
@@ -732,7 +791,7 @@ Complete and exhaustive. Verified against both the policy directory and the
 | 23 | `KVM-GetModelRates` | KeyValueMapOperations | PostFlow resp 2 | KVM `ai-model-rates` key `rate_card` |
 | 24 | `LTQ-TokenCount` | LLMTokenQuota | PostFlow resp 5 | `CountOnly`, shares `common-counter` |
 | 25 | `LTQ-TokenEnforce` | LLMTokenQuota | `LLMTokenLimitFlow` | `EnforceOnly`, shares `common-counter` |
-| 26 | `ML-CloudLogging` | MessageLogging | PostClientFlow | Structured Cloud Logging record |
+| 26 | `ML-CloudLogging` | MessageLogging | PostClientFlow | Structured Cloud Logging record, incl. `prompt` / `response` / `cached`; fires on faults too |
 | 27 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | PreFlow 12 | 403 on rate-plan / prepaid-wallet exhaustion |
 | 28 | `OAS-ValidateRequest` | OASValidation | PreFlow 2 | Validates against `oas://openapi.yaml` |
 | 29 | `QC-DeductBudget` | Quota | PostFlow resp 4 | Deducts `flow.tx_cost_micros` |
@@ -741,8 +800,8 @@ Complete and exhaustive. Verified against both the policy directory and the
 | 32 | `SCL-Semantic-Cache-Lookup` | SemanticCacheLookup | PreFlow 20 | Vector Search lookup, threshold 0.95 |
 | 33 | `SCP-Semantic-Cache-Populate` | SemanticCachePopulate | PostFlow resp 7 | Upsert datapoints, TTL 600 s |
 | 34 | `SMR-SanitizeModelResponse` | SanitizeModelResponse | PostFlow resp 8 | Model Armor response inspection |
-| 35 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 10 | Model Armor prompt guardrails |
-| 36 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 11 | Validates `request.header.x-apikey` |
+| 35 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 11 | Model Armor prompt guardrails |
+| 36 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 10 | Validates `request.header.x-apikey` |
 
 > [!WARNING]
 > The following policies were described in earlier revisions of this document

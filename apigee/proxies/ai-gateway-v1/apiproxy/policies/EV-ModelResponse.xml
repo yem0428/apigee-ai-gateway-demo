@@ -21,6 +21,15 @@
     <Variable name="claudeCandidatesTokens">
       <JSONPath>$.usage.output_tokens</JSONPath>
     </Variable>
+    <!-- Response body text, captured for the Full Audit Logs view.
+         Gemini shape first, Anthropic shape as fallback; whichever does not
+         match simply stays unresolved. -->
+    <Variable name="responseText">
+      <JSONPath>$.candidates[0].content.parts[0].text</JSONPath>
+    </Variable>
+    <Variable name="claudeResponseText">
+      <JSONPath>$.content[0].text</JSONPath>
+    </Variable>
   </JSONPayload>
   <Source clearPayload="false">response</Source>
   <VariablePrefix>flow</VariablePrefix>

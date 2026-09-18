@@ -158,13 +158,35 @@ export const Navbar: React.FC<NavbarProps> = ({
     ? analyticsControls?.viewMode === 'admin'
     : settings.activeUser === 'admin';
 
+  // Clicking the brand mark returns to the default view, as on most sites.
+  // The `?tab=` param is also cleared so a subsequent reload stays on home
+  // rather than restoring the tab the user just navigated away from.
+  const handleLogoHome = () => {
+    onTabChange('ai-gateway');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('tab')) {
+        url.searchParams.delete('tab');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  };
+
   return (
     <header className="bg-white/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 backdrop-blur w-full">
       {/* Primary Bar - Full viewport width */}
       <div className="w-full px-3 sm:px-6 py-2 flex items-center justify-between gap-2 sm:gap-3">
         {/* Left: Official Apigee Brand & Gateway Tabs */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <ApigeeLogo />
+          <button
+            type="button"
+            onClick={handleLogoHome}
+            className="flex items-center rounded-lg cursor-pointer transition hover:opacity-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+            aria-label="Go to home"
+            title="Go to home"
+          >
+            <ApigeeLogo />
+          </button>
 
           {/* Primary Gateway Tabs Switcher - Analytics is 3rd Tab */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
@@ -176,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
-              title="AI Gateway (Model Routing, Guardrails, Cache & Auto-Routing)"
+              title="AI Gateway: Access Control, Model Armor, Cache, Model Routing & Tokenomics"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>AI Gateway</span>
@@ -203,10 +225,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-purple-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
-              title="Enterprise Model Consumption & Cost Tracking Dashboard"
+              title="BI Dashboard: Track consumption and cost across tools and models"
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>Analytics & Cost</span>
+              <span>BI Dashboard</span>
             </button>
             {/* 4th Tab: Monetization - Strictly visible ONLY in Admin view */}
             {isAdminView && (

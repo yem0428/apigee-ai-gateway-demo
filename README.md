@@ -27,7 +27,7 @@ product-driven LLM token quotas, and Apigee native monetization.
 
 ## ✨ Core Features & Architectural Capabilities
 
-### 1. 🧠 Intelligent Model Auto-Routing (`/ai/v1/auto`)
+### 1. 🧠 Model Routing (`/ai/v1/auto`)
 
 [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
 classifies the prompt with regex heuristics and then picks a model **based on the caller's API
@@ -57,7 +57,7 @@ policy writes `flow.target_model`, `flow.model`, `flow.target_provider`, `flow.a
 `flow.costTier` and `flow.routingTier`; `flow.target_provider == "anthropic"` is what selects the
 Claude Vertex target at route time.
 
-### 2. 🛡️ Model Armor Guardrails & Zero-Trust Identity
+### 2. 🛡️ Access Control & Model Armor
 
 - **Prompt sanitization** — [SUP-UserPrompt.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SUP-UserPrompt.xml)
   is a `SanitizeUserPrompt` policy bound to Model Armor template
@@ -66,13 +66,15 @@ Claude Vertex target at route time.
 - **Identity first** — the request PreFlow resolves identity from a Bearer JWT
   (`DJWT-ExtractUserIdentity` → `AM-SetUserIdentity`), falls back to the `X-User-Email` header
   (`AM-SetUserEmailFromHeader`), and raises `RF-MissingUserEmail` → **HTTP 401** if neither resolves.
-- **API key verification** — `VA-VerifyAPIKey` runs *after* identity resolution and *after* Model Armor.
+- **API key verification** — `VA-VerifyAPIKey` runs *after* identity resolution and *before* Model Armor.
 
 > [!IMPORTANT]
-> Model Armor executes **before** API key verification in the PreFlow. Prompt injection is blocked
-> even for requests that would later fail key validation.
+> API key verification executes **before** Model Armor in the PreFlow. A request that fails key
+> validation — including one naming a model its API Product does not entitle — is rejected with
+> **HTTP 401** before any prompt is sent for safety evaluation, so an unauthenticated caller
+> cannot drive a billable Model Armor call.
 
-### 3. 🎟️ Product-Driven LLM Token Quotas
+### 3. 🎟️ Tokenomics — Product-Driven LLM Token Quotas
 
 Token limits are **not hardcoded in the proxy**. Both
 [LTQ-TokenEnforce.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/LTQ-TokenEnforce.xml)
@@ -146,7 +148,7 @@ regex `^/models/gemini-2.5-flash.*`. Breaching the limit returns **HTTP 429**.
 - **Rate plans & attribution** — surfaced through the `/api/monetization/*` endpoints
   (rate plans, subscriptions, attributions, credit, config).
 
-### 5. ⚡ Semantic Caching (Vertex AI Vector Search)
+### 5. ⚡ Cache (Vertex AI Vector Search)
 
 [SCL-Semantic-Cache-Lookup.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/SCL-Semantic-Cache-Lookup.xml)
 embeds the prompt with Vertex AI `text-embedding-004` and queries a Vertex AI Vector Search index
@@ -188,7 +190,7 @@ so an unset variable yields an absent or empty header rather than a fault — cl
 header as optional. On a cache hit the cost and token variables are never populated, which is why
 `x-gateway-cached` is the field to branch on.
 
-### 7. 🛠️ MCP Tools Gateway Governance
+### 7. 🛠️ Native MCP Server & Tools Governance
 
 The [mcp](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp/apiproxy) proxy governs
 JSON-RPC 2.0 `tools/list` and `tools/call` traffic with six policies
@@ -247,6 +249,45 @@ Bare `/auto` is the only auto surface: `AutoRoutingFlow` matches
 `gemini-3.1-ultra` is deliberately **unentitled in every product**. It powers the "Restricted Model"
 demo scenario: even an Enterprise key is rejected at `VA-VerifyAPIKey` with **HTTP 401** before any
 upstream call is made.
+
+---
+
+### 8. 📜 Full Audit Logs
+
+Every governed call is written to Cloud Logging by
+[`ML-CloudLogging`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/ML-CloudLogging.xml)
+at `projects/bap-apac-demo2/logs/apigee`. The policy sits in **`PostClientFlow`**, which runs after
+the response is flushed **and still fires on faults** — so successful, blocked and failed calls are
+all captured.
+
+Each record carries the identity (`userEmail`), the resolved `model` and path-derived
+`requestedModel`, `targetProvider`, `autoRouted`, `cached`, `costUsd`, token counts, the full
+`prompt` and `response`, plus `faultName` / `errorMessage`.
+
+In the UI, the **Model Consumption Ledger** (BI Dashboard) has a **View logs** link on every
+`(user, model)` row. It opens a per-call table — timestamp, status, request, response, tokens, cost
+and auto-routed / cached flags — with a `1h / 24h / 7d / 30d` window selector and an
+**Open in Cloud Logging** deep link. Rows expand to reveal the untruncated request and response.
+
+| Piece | Location |
+| :--- | :--- |
+| Log policy | [`ML-CloudLogging.xml`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/ML-CloudLogging.xml) |
+| Response-text extraction | [`EV-ModelResponse.xml`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/EV-ModelResponse.xml) |
+| Read API | `GET /api/logs/calls` in [`server.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js) |
+| UI | [`CallLogsModal.tsx`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/CallLogsModal.tsx) |
+
+> [!IMPORTANT]
+> The server identity (`apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com`) needs
+> `roles/logging.viewer`. The same service account backs both local development and Cloud Run, so a
+> single grant covers both.
+
+> [!CAUTION]
+> `prompt` and `response` persist **full, untruncated** user content to Cloud Logging. This is a
+> deliberate demo-fidelity choice. Redact or drop those two fields before handling real user data.
+
+Model Armor blocks at `SUP-UserPrompt` in PreFlow, *before* the target model is resolved — such a
+record has an empty `model`, which is why `requestedModel` is logged and why the read API matches
+**either** field.
 
 ---
 

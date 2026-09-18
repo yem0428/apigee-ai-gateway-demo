@@ -102,7 +102,15 @@ export interface ChatMessage {
 export interface ScenarioPreset {
   id: string;
   title: string;
-  category: 'Overview' | 'Security' | 'Performance' | 'Routing' | 'Governance' | 'Quota';
+  category:
+    | 'Overview'
+    | 'Access Control'
+    | 'Security'
+    | 'Performance'
+    | 'Routing'
+    | 'Tokenomics'
+    | 'Governance'
+    | 'Quota';
   prompt: string;
   description: string;
   badgeText: string;
