@@ -139,8 +139,8 @@ Every step carries `request.verb != "OPTIONS"`.
 | 14 | `AM-RemoveAuthorization` | — |
 | 15 | `AM-InitCacheStatus` | — |
 | 16 | `JS-AutoRouting` | `/auto*` **or** regex `^/auto.*` (so bare `/auto` matches) |
-| 17 | `AM-PrepGeminiDirect` | `/models/gemini*`, regex `^/models/gemini.*`, or `/v1/projects/**` |
-| 18 | `AM-PrepClaudeDirect` | `/models/claude*`, regex `^/models/claude.*`, or `/v1/messages/**` |
+| 17 | `AM-PrepGeminiDirect` | `/models/gemini*` or regex `^/models/gemini.*` |
+| 18 | `AM-PrepClaudeDirect` | `/models/claude*` or regex `^/models/claude.*` |
 | 19 | `AM-SetCacheHitExpected` | `use-cache` or `x-use-cache` header is `true` |
 | 20 | `SCL-Semantic-Cache-Lookup` | same cache-header condition |
 
@@ -152,8 +152,7 @@ Every step carries `request.verb != "OPTIONS"`.
 | `LLMTokenLimitFlow` | `/models/gemini-2.5-flash:generateContent`, or `flow.model == "gemini-2.5-flash"`, or regex `^/models/gemini-2.5-flash.*` | `LTQ-TokenEnforce` |
 | `AutoRoutingFlow` | `/auto*` or regex `^/auto.*` | — |
 | `GeminiDirectFlow` | `/models/gemini*` or regex `^/models/gemini.*` | — |
-| `AnthropicDirectFlow` | `/models/claude*`, regex `^/models/claude.*`, or `/v1/messages/**` | — |
-| `VertexPassthroughFlow` | `/v1/projects/**` | — |
+| `AnthropicDirectFlow` | `/models/claude*` or regex `^/models/claude.*` | — |
 
 > [!WARNING]
 > `LTQ-TokenEnforce` runs **only** inside `LLMTokenLimitFlow`. Token-limit rejections are
@@ -229,12 +228,10 @@ Source: [defaultSettings.ts#L15-L49](file:///Users/maloosatyam/Codebase/AI%20Cod
 
 Additional reverse-proxy routes declared in
 [vite.config.ts#L1593-L1646](file:///Users/maloosatyam/Codebase/AI%20Code/ui/vite.config.ts#L1593-L1646)
-and mirrored in [server.js#L1683-L1729](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1683-L1729):
+and mirrored in [server.js#L1683-L1717](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1683-L1717):
 
 | Route | Target |
 | :--- | :--- |
-| `/api/claude-dev` | `https://bap.api.maloosatyam.demo.altostrat.com/v1/messages` |
-| `/api/claude-prod` | `https://api.maloosatyam.demo.altostrat.com/v1/messages` |
 | `/api/vertexai-dev` | `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1` (legacy bundle) |
 | `/api/vertexai-prod` | `https://api.maloosatyam.demo.altostrat.com/vertexai/v1` (legacy bundle) |
 
@@ -248,13 +245,8 @@ and validated by `OAS-ValidateRequest`:
 | :--- | :--- |
 | `POST /auto:generateContent` | Intelligent auto-routing |
 | `POST /auto` | Intelligent auto-routing (bare form) |
-| `POST /models/{modelId}:generateContent` | Model-agnostic direct invocation |
+| `POST /models/{modelId}:generateContent` | Model-agnostic direct invocation, Gemini **and** Claude |
 | `POST /models/{modelId}:streamGenerateContent` | Streaming variant |
-| `POST /v1/projects/{projectId}/locations/{locationId}/publishers/google/models/{modelId}:generateContent` | Vertex-native passthrough |
-| `POST /v1/projects/{projectId}/locations/{locationId}/publishers/google/models/{modelId}:streamGenerateContent` | Vertex-native streaming |
-| `POST /v1/projects/{projectId}/locations/{locationId}/publishers/anthropic/models/{modelId}:generateContent` | Anthropic via Vertex |
-| `POST /v1/projects/{projectId}/locations/{locationId}/publishers/anthropic/models/{modelId}:rawPredict` | Anthropic raw predict |
-| `POST /v1/messages` | Anthropic Messages protocol |
 
 Concrete production examples:
 
@@ -272,9 +264,9 @@ https://api.maloosatyam.demo.altostrat.com/ai/v1/models/gemini-2.5-flash:generat
 > [!NOTE]
 > The UI client builds `{proxyPath}/models/{model}:generateContent` for a named model, and
 > the **bare** `{proxyPath}/auto` when `auto` is selected — see
-> [apigeeClient.ts#L81-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L81-L85).
-> `/models/auto` is entitled by both AI products but no proxy flow routes it, so it returns
-> 400. There is **no** `AM-RouteModel` policy; upstream URL construction is done by
+> [apigeeClient.ts#L42-L68](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L42-L68).
+> `/models/auto` is no longer entitled by any product nor declared in the OAS, so it is
+> rejected with 400 at `OAS-ValidateRequest`. There is **no** `AM-RouteModel` policy; upstream URL construction is done by
 > `AM-PrepGeminiDirect`/`AM-PrepClaudeDirect` in the proxy PreFlow plus
 > `AM-RouteGeminiTarget`/`AM-RouteClaudeTarget` in the target PreFlow.
 
@@ -341,15 +333,15 @@ The AI products carry `llmOperationGroup.llmTokenQuota`; the MCP products carry
 | Loans Tools MCP | `loans_tools_mcp.json` | `domain: loans` — loan tools |
 
 Each `operationConfig` carries exactly **one** `llmOperation`; the Management API rejects
-more with `Operations must contain exactly one entity`. Per model, two resources are
-granted:
+more with `Operations must contain exactly one entity`, and rejects a config with none at
+all with `Operations must contain exactly one entity but found 0 entities`. Per model, a
+single resource is granted:
 
 ```
 /models/<model>:*
-/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
 ```
 
-`auto` additionally gets four: `/auto`, `/auto:*`, `/models/auto`, `/models/auto:*`.
+`auto` instead gets two: `/auto` and `/auto:*`.
 
 #### Apigee glob semantics
 
@@ -522,14 +514,14 @@ in the compact selector and again in the mobile panel under the label
 `omitEmailHeader: false`
 ([defaultSettings.ts#L236-L249](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L236-L249)).
 
-URL construction differs per selection
-([apigeeClient.ts#L81-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L81-L85)):
+URL construction differs only between `auto` and a named model
+([apigeeClient.ts#L42-L68](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L42-L68)):
 
 | Selection | Endpoint the UI calls |
 | :--- | :--- |
 | `auto` | `{proxyPath}/auto` — the bare form, matched by `AutoRoutingFlow` |
 | any `gemini-*` | `{proxyPath}/models/{model}:generateContent` |
-| any `claude-*` | the separate Claude proxy path (`/api/claude-dev` / `/api/claude-prod`) |
+| any `claude-*` | `{proxyPath}/models/{model}:generateContent` — the same unified path; the gateway converts the request and normalises the response |
 
 ### 6.2 Auto-routing heuristics
 
@@ -548,16 +540,15 @@ The script reads `flow.userPrompt` plus
 
 > [!IMPORTANT]
 > Tier resolution **fails closed**. Premium routing (Pro / Opus) requires a positive
-> enterprise signal: the product `tier` attribute equals `enterprise`, or the attribute is
-> absent *and* the product name contains `enterprise`. Anything else — including an
-> unresolved entitlement — falls back to the constrained Standard branch rather than
-> handing out the expensive models by default. The decision is exposed as
+> enterprise signal: the API Product name must contain `enterprise`. Anything else —
+> including an unresolved entitlement — falls back to the constrained Standard branch
+> rather than handing out the expensive models by default. The decision is exposed as
 > `flow.routingTier` so a silent downgrade is visible in a trace
-> ([AutoRouting.js#L6-L21](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L6-L21)).
+> ([AutoRouting.js#L6-L19](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L6-L19)).
 
-The tier attribute must be read from the `apiproduct` namespace. The bare
-`verifyapikey.VA-VerifyAPIKey.tier` form addresses **app** attributes and never resolves
-here.
+No product carries a `tier` attribute any more — the only attribute left on any product is
+`access: private` — so the product **name** is the sole tier signal. It must be read from
+the `apiproduct` namespace: `verifyapikey.VA-VerifyAPIKey.apiproduct.name`.
 
 ### 6.3 Cost rate card
 
@@ -1148,7 +1139,7 @@ contains four suites:
 | Suite | Coverage |
 | :--- | :--- |
 | 1. Local Auth & Identity Endpoint (`/api/me`) | identity email + SSO token, `?refresh=true`, Bearer-token acceptance without `X-User-Email` |
-| 2. AI Gateway — Live Vertex AI (Gemini) | 200 success + usage metadata; Model Armor destructive / jailbreak / PII (400); `RF-MissingUserEmail` (401); invalid API key (401); OAS validation (400); semantic cache with `use-cache` and `x-use-cache`; token limits pass (200) and exceeded (429); `/api/claude-prod` rewrite |
+| 2. AI Gateway — Live Vertex AI (Gemini) | 200 success + usage metadata; Model Armor destructive / jailbreak / PII (400); `RF-MissingUserEmail` (401); invalid API key (401); OAS validation (400); semantic cache with `use-cache` and `x-use-cache`; token limits pass (200) and exceeded (429) |
 | 3. Tools Gateway — Live MCP Backend | `tools/list`, `tools/call listAllDiscounts`, `tools/call getDiscountForSku` |
 | 4. AI Gateway — Intelligent Auto-Routing (`/auto`) | simple → Flash Lite, deep reasoning → Pro Preview, coding → Claude Opus, Bearer-JWT identity through `/auto` |
 
@@ -1189,4 +1180,4 @@ provisioned (Anthropic target, MCP upstream, Cloud Logging reader).
 | `bronze` / `silver` entitlement tiers | Do not exist. Tiers are `admin`, `sales`, `loans`, `custom` |
 | `AM-RouteModel` policy | Does not exist. See `AM-PrepGeminiDirect` / `AM-RouteGeminiTarget` |
 | Caller identity in the Gateway Telemetry pane | Not rendered by `GatewayTraceViewer`; the SSO chip lives in the Navbar |
-| `/models/auto` | Entitled by both AI products, but no proxy flow routes it — it returns 400. The UI calls bare `/auto` |
+| `/models/auto` | Neither entitled by any product nor routed by any flow. The canonical auto surface is bare `/auto` (plus `/auto:*`), which is what the UI calls |

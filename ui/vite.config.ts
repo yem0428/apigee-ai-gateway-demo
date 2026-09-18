@@ -1602,23 +1602,6 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api\/ai-prod/, ''),
           secure: false,
         },
-        '/api/claude-dev': {
-          target: 'https://bap.api.maloosatyam.demo.altostrat.com/v1/messages',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/claude-dev/, ''),
-          secure: false,
-        },
-        '/api/claude-prod': {
-          target: 'https://api.maloosatyam.demo.altostrat.com/v1/messages',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/claude-prod/, ''),
-          secure: false,
-        },
-        '/v1': {
-          target: 'https://api.maloosatyam.demo.altostrat.com',
-          changeOrigin: true,
-          secure: false,
-        },
         '/api/vertexai-dev': {
           target: 'https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1',
           changeOrigin: true,

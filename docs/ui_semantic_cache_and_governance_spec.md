@@ -339,11 +339,11 @@ Both mint a GCP access token server-side and call the Apigee Management API.
 >   simulation layered on the real gateway balance, not a live Apigee wallet read.
 
 Pass-through proxies (prefix match,
-[server.js#L1683-L1734](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1683-L1734)):
-`/api/ai-dev`, `/api/ai-prod`, `/api/claude-dev`, `/api/claude-prod`, `/api/vertexai-dev`,
-`/api/vertexai-prod`, `/api/mcp-dev`, `/api/mcp-prod`, and the `/v1` catch-all
-([server.js#L1731-L1734](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1731-L1734)),
-which forwards to `https://api.maloosatyam.demo.altostrat.com` with the path preserved verbatim.
+[server.js#L1683-L1717](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1683-L1717)):
+`/api/ai-dev`, `/api/ai-prod`, `/api/vertexai-dev`, `/api/vertexai-prod`,
+`/api/mcp-dev`, `/api/mcp-prod`. Each prefix is stripped and the remainder is
+appended to the environment's upstream base (`/ai/v1`, `/vertexai/v1` or `/mcp`),
+query string preserved. Anything else falls through to static file serving.
 
 > [!WARNING]
 > `/api/analytics/fleet-stats` can return **more than one `consumptionRows` entry for the same
@@ -550,7 +550,7 @@ Completed:
 - [x] Request/response header contracts verified against `apigeeClient.ts` and `mcpClient.ts`.
 - [x] Monetization and analytics routes re-verified against `server.js` on 2026-09-17 — the previous
       tick was stale. `/api/monetization/debit`, `/api/me/onboard`, `/api/me/profile`,
-      `/env-config.js` and the `/v1` catch-all were missing, the `/api/kvm/rates` and
+      `/env-config.js` were missing, the `/api/kvm/rates` and
       `/api/monetization/config` method lists omitted `POST`, and every line anchor was off by
       +275 to +528. All corrected in Section 6.
 - [x] `McpTraceViewer` Headers tab rebuilt: theme-aware cards, header counts, `x-apikey` masking,

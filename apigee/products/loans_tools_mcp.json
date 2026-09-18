@@ -6,14 +6,6 @@
     {
       "name": "access",
       "value": "private"
-    },
-    {
-      "name": "domain",
-      "value": "loans"
-    },
-    {
-      "name": "description",
-      "value": "MCP tools product for financial services and banking loan application management"
     }
   ],
   "environments": [

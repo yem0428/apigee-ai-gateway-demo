@@ -5,8 +5,6 @@ export interface EnvironmentInfo {
   name: string;
   proxyPath: string;
   upstreamUrl: string;
-  claudeProxyPath?: string;
-  claudeUpstreamUrl?: string;
   mcpProxyPath: string;
   mcpUpstreamUrl: string;
   tag: string;
@@ -18,8 +16,6 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     name: 'Dev Gateway',
     proxyPath: '/api/ai-dev',
     upstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/ai/v1',
-    claudeProxyPath: '/api/claude-dev',
-    claudeUpstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/v1/messages',
     mcpProxyPath: '/api/mcp-dev',
     mcpUpstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/mcp',
     tag: 'Dev',
@@ -29,8 +25,6 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     name: 'Production Gateway',
     proxyPath: '/api/ai-prod',
     upstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1',
-    claudeProxyPath: '/api/claude-prod',
-    claudeUpstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1',
     mcpProxyPath: '/api/mcp-prod',
     mcpUpstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/mcp',
     tag: 'Prod',
@@ -40,8 +34,6 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     name: 'Custom Endpoint',
     proxyPath: '',
     upstreamUrl: '',
-    claudeProxyPath: '',
-    claudeUpstreamUrl: '',
     mcpProxyPath: '',
     mcpUpstreamUrl: '',
     tag: 'Custom',

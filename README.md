@@ -114,24 +114,19 @@ The inline `count="1000"` / `1` / `minute` values are fallback defaults only —
 
 **`gemini-2.5-flash` is the deliberate token-limit demo model at 100 tokens / 1 minute.**
 Every other operation in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
-is 2000 tokens / 1 minute. The product declares **12 `operationConfigs` across 5 models**, exactly
+is 2000 tokens / 1 minute. The product declares **6 `operationConfigs` across 5 models**, exactly
 one `llmOperation` per config (the Management API rejects more with
-`Operations must contain exactly one entity`):
+`Operations must contain exactly one entity`, and rejects an empty config with
+`Operations must contain exactly one entity but found 0 entities`):
 
 | Resource | Model | Token quota |
 | :--- | :--- | :--- |
 | `/auto` | `auto` | 2000 / 1 min |
 | `/auto:*` | `auto` | 2000 / 1 min |
-| `/models/auto` | `auto` | 2000 / 1 min |
-| `/models/auto:*` | `auto` | 2000 / 1 min |
 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100 / 1 min** |
-| **`/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100 / 1 min** |
 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
-| `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 / 1 min |
-| `/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 / 1 min |
 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 / 1 min |
-| `/v1/projects/*/locations/*/publishers/anthropic/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 / 1 min |
 
 Enforcement is wired through the dedicated `LLMTokenLimitFlow` conditional flow, which fires on
 `/models/gemini-2.5-flash:generateContent`, on `flow.model == "gemini-2.5-flash"`, or on the
@@ -213,22 +208,21 @@ A Sales-persona key calling a Loans tool is rejected because the operation is ab
 ### Entitlement tiers — what the products actually grant
 
 Every grant is enumerated per model. There are **no `model="*"` entitlements and no `**` resource
-globs** — both were removed. Each model gets two resources:
+globs** — both were removed. Each model gets a single gateway-shaped resource:
 
 ```
 /models/<model>:*
-/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
 ```
 
 | Product | Models | Resources | Token quota |
 | :--- | :--- | :--- | :--- |
-| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **5** | 12 `operationConfigs` | 2000 / min · `gemini-2.5-flash` → **100 / min** |
-| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 5 plus `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` — **7** | 16 `operationConfigs` | 10000 / min · `gemini-2.5-flash` → **100 / min** |
+| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **5** | 6 `operationConfigs` | 2000 / min · `gemini-2.5-flash` → **100 / min** |
+| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 5 plus `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` — **7** | 8 `operationConfigs` | 10000 / min · `gemini-2.5-flash` → **100 / min** |
 
-`auto` is special-cased with **four exact resources** in both products:
+`auto` is special-cased with **two exact resources** in both products:
 
 ```
-/auto        /auto:*        /models/auto        /models/auto:*
+/auto        /auto:*
 ```
 
 Apigee's `*` matches within a single path segment and requires **at least one character**, so
@@ -237,9 +231,10 @@ resource. The tightened `:*` suffix form is deliberate too: a trailing `*` place
 model name leaks siblings (`/models/gemini-2.5-flash*` also granted `gemini-2.5-flash-lite`),
 whereas `:*` only absorbs the `:generateContent` / `:streamGenerateContent` suffix.
 
-Only the bare `/auto` path is actually routable: `AutoRoutingFlow` matches
+Bare `/auto` is the only auto surface: `AutoRoutingFlow` matches
 `proxy.pathsuffix MatchesPath "/auto*"` or the regex `^/auto.*`, and that is what the UI calls.
-`/models/auto` is entitled by both products but returns **400** — no proxy flow routes it.
+`/models/auto` is no longer entitled by either product and is rejected with **400** at
+`OAS-ValidateRequest`, because the path is absent from the OpenAPI spec.
 
 > [!NOTE]
 > Standard AI Tier **does** include `claude-haiku-4-5@20251001`. It does **not** enumerate
@@ -423,8 +418,8 @@ The Vite dev server listens on **`http://localhost:3000`** — the port is pinne
 middleware that mirrors the production endpoints (`/api/me`, `/api/kvm/rates`,
 `/api/monetization/{balance,credit,rateplans,subscriptions,config,attributions}`,
 `/api/analytics/fleet-stats`) plus HTTP proxies for
-`/api/ai-dev`, `/api/ai-prod`, `/api/claude-dev`, `/api/claude-prod`, `/api/vertexai-dev`,
-`/api/vertexai-prod`, `/api/mcp-dev`, `/api/mcp-prod`, and `/v1`.
+`/api/ai-dev`, `/api/ai-prod`, `/api/vertexai-dev`,
+`/api/vertexai-prod`, `/api/mcp-dev`, and `/api/mcp-prod`.
 
 Build the production bundle (required before a container build — the Dockerfile copies `dist/`,
 it does not build it):

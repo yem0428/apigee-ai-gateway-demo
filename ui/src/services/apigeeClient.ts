@@ -8,12 +8,14 @@ export interface GenerateContentResult {
   error?: string;
 }
 
+// The gateway exposes a single surface for every model and provider:
+//   /ai/v1/auto                              -> intelligent auto-routing
+//   /ai/v1/models/{model}:generateContent    -> direct model execution
+// Anthropic models are reached through the same path; the gateway translates
+// the request and the response, so callers never speak the Anthropic wire format.
 export function getGatewayTargetUrl(settings: GatewaySettings, modelOverride?: string): string {
   const envInfo = getEnvironment(settings.environment);
   const targetModel = modelOverride || settings.model || 'auto';
-  if (targetModel.startsWith('claude')) {
-    return envInfo.claudeUpstreamUrl || 'https://api.maloosatyam.demo.altostrat.com/v1/messages';
-  }
   const base = envInfo.upstreamUrl || 'https://api.maloosatyam.demo.altostrat.com/ai/v1';
   if (targetModel === 'auto') {
     return `${base}/auto`;
@@ -37,70 +39,33 @@ export async function sendPromptToApigee(
     baseUrl = envInfo.proxyPath || '/api/ai-prod';
   }
 
-  // Handle model selection and auto-routing
-  let targetModel = settings.model || 'gemini-3.1-flash-lite';
+  // Model selection. Every model resolves to the same two-path surface, so there
+  // is no provider-specific endpoint or wire format to special-case here.
+  const targetModel = settings.model || 'gemini-3.1-flash-lite';
   const isAuto = settings.model === 'auto';
-  const isAgnosticAi = baseUrl.includes('/ai') || !baseUrl.includes('vertexai');
 
-  // If using legacy Vertex AI proxy and auto was selected, resolve client-side
-  if (isAuto && !isAgnosticAi) {
-    const isComplex =
-      userMessage.length > 150 ||
-      /compare|architect|deep|reasoning|evaluate|analysis|trade-off|complex|multi-step/i.test(
-        userMessage
-      );
-    targetModel = isComplex ? 'gemini-3.1-pro-preview' : 'gemini-3.1-flash-lite';
-  }
+  const endpointUrl = isAuto
+    ? `${baseUrl}/auto`
+    : `${baseUrl}/models/${targetModel}:generateContent`;
 
-  const isClaude = targetModel.startsWith('claude');
-  let endpointUrl = '';
-  let requestBody: any = null;
+  // Canonical request body: the Vertex AI generateContent `contents` shape.
+  // For Anthropic models the gateway converts this to the Claude messages
+  // format on the way out and converts the reply back on the way in.
+  const contentsPayload = history
+    .filter((msg) => !msg.isError && (msg.sender === 'user' || msg.sender === 'agent'))
+    .map((msg) => ({
+      role: msg.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.text }],
+    }));
 
-  if (isClaude) {
-    if (settings.environment === 'custom') {
-      endpointUrl = `${baseUrl}/v1/messages`;
-    } else {
-      const envInfo = getEnvironment(settings.environment);
-      endpointUrl = envInfo.claudeProxyPath || '/api/claude-prod';
-    }
-    requestBody = {
-      model: targetModel,
-      max_tokens: 1024,
-      messages: history
-        .filter((msg) => !msg.isError && (msg.sender === 'user' || msg.sender === 'agent'))
-        .map((msg) => ({
-          role: msg.sender === 'user' ? 'user' : 'assistant',
-          content: msg.text,
-        })),
-    };
-    requestBody.messages.push({
-      role: 'user',
-      content: userMessage,
-    });
-  } else {
-    endpointUrl = (isAuto && isAgnosticAi)
-      ? `${baseUrl}/auto`
-      : isAgnosticAi
-      ? `${baseUrl}/models/${targetModel}:generateContent`
-      : `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/${targetModel}:generateContent`;
+  contentsPayload.push({
+    role: 'user',
+    parts: [{ text: userMessage }],
+  });
 
-    // Build contents payload matching Vertex AI generateContent spec
-    const contentsPayload = history
-      .filter((msg) => !msg.isError && (msg.sender === 'user' || msg.sender === 'agent'))
-      .map((msg) => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }],
-      }));
-
-    contentsPayload.push({
-      role: 'user',
-      parts: [{ text: userMessage }],
-    });
-
-    requestBody = {
-      contents: contentsPayload,
-    };
-  }
+  const requestBody: any = {
+    contents: contentsPayload,
+  };
 
   // Resolve active user entitlement and dynamic SSO caller email
   const userInfo = getUserInfo(settings.activeUser);
@@ -401,8 +366,8 @@ export async function sendPromptToApigee(
 }
 
 /**
- * Generates sufficient output tokens on Standard tier to breach
- * the 200 token/min quota, demonstrating Apigee's LTQ-TokenEnforce (HTTP 429).
+ * Generates enough output tokens to breach the per-minute LLM token quota that
+ * the caller's API product defines, demonstrating LTQ-TokenEnforce (HTTP 429).
  */
 export async function exhaustLlmQuota(settings: GatewaySettings): Promise<void> {
   let baseUrl = '/api/ai-prod';
@@ -412,10 +377,7 @@ export async function exhaustLlmQuota(settings: GatewaySettings): Promise<void> 
     baseUrl = getEnvironment(settings.environment).proxyPath || '/api/ai-prod';
   }
 
-  const isAgnosticAi = baseUrl.includes('/ai') || !baseUrl.includes('vertexai');
-  const endpointUrl = isAgnosticAi
-    ? `${baseUrl}/models/gemini-3.1-flash-lite:generateContent`
-    : `${baseUrl}/v1/projects/${settings.projectId || 'bap-apac-demo2'}/locations/${settings.location || 'global'}/publishers/google/models/gemini-3.1-flash-lite:generateContent`;
+  const endpointUrl = `${baseUrl}/models/gemini-3.1-flash-lite:generateContent`;
   const userInfo = getUserInfo(settings.activeUser);
   const effectiveApiKey = settings.apiKey || userInfo.apiKey;
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;

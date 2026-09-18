@@ -68,11 +68,11 @@
       </Step>
       <Step>
         <Name>AM-PrepGeminiDirect</Name>
-        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/gemini*") or (proxy.pathsuffix JavaRegex "^/models/gemini.*") or (proxy.pathsuffix MatchesPath "/v1/projects/**"))</Condition>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/gemini*") or (proxy.pathsuffix JavaRegex "^/models/gemini.*"))</Condition>
       </Step>
       <Step>
         <Name>AM-PrepClaudeDirect</Name>
-        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages/**"))</Condition>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*"))</Condition>
       </Step>
       <Step>
         <Name>AM-SetCacheHitExpected</Name>
@@ -121,13 +121,7 @@
       <Description>Direct Anthropic Claude routing flow</Description>
       <Request/>
       <Response/>
-      <Condition>(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages/**")</Condition>
-    </Flow>
-    <Flow name="VertexPassthroughFlow">
-      <Description>Direct Vertex AI native passthrough</Description>
-      <Request/>
-      <Response/>
-      <Condition>(proxy.pathsuffix MatchesPath "/v1/projects/**")</Condition>
+      <Condition>(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*")</Condition>
     </Flow>
   </Flows>
   <PostFlow name="PostFlow">

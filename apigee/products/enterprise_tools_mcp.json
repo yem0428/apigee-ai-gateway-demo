@@ -6,14 +6,6 @@
     {
       "name": "access",
       "value": "private"
-    },
-    {
-      "name": "domain",
-      "value": "enterprise"
-    },
-    {
-      "name": "description",
-      "value": "Universal enterprise MCP tool suite granting access to all integrated business systems"
     }
   ],
   "environments": [

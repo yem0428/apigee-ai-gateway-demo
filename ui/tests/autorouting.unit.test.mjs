@@ -13,17 +13,21 @@ const autoRoutingCode = fs.readFileSync(autoRoutingPath, "utf8");
 /**
  * Helper to execute AutoRouting.js in an isolated Node vm sandbox simulating Apigee JSC context.
  */
-function runAutoRouting({ userPrompt = "", tier = "", productName = "" } = {}) {
+function runAutoRouting({ userPrompt = "", tier = "", productName } = {}) {
+  // The gateway carries NO custom attributes. The routing tier is derived from
+  // the API PRODUCT NAME alone, so `tier` here is a convenience that synthesises
+  // the matching product name. Pass `productName` explicitly to control it.
+  const resolvedProductName =
+    productName !== undefined ? productName : tier ? `${tier} AI Tier` : "";
+
   const variables = {
     "flow.userPrompt": userPrompt,
-    // The tier custom attribute lives on the API PRODUCT. This is the variable
-    // AutoRouting.js reads.
+    // Both custom-attribute forms are deliberately left populated. The policy
+    // must NOT read either of them; the "ignores custom attributes" test below
+    // fails loudly if a change starts depending on them again.
     "verifyapikey.VA-VerifyAPIKey.apiproduct.tier": tier,
-    // Legacy app-attribute form, deliberately left populated. The policy must
-    // NOT depend on it; if a change starts reading this again the fail-closed
-    // test below will still catch the regression.
     "verifyapikey.VA-VerifyAPIKey.tier": tier,
-    "verifyapikey.VA-VerifyAPIKey.apiproduct.name": productName,
+    "verifyapikey.VA-VerifyAPIKey.apiproduct.name": resolvedProductName,
   };
 
   const context = {
@@ -200,7 +204,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
   });
 
   describe("3. Tier Detection Flexibility & Edge Cases", () => {
-    it("detects standard tier from case-insensitive tier variable \"STANDARD\"", () => {
+    it("detects standard tier from a case-insensitive product name", () => {
       const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "STANDARD" });
       assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Should constrain to flash model");
     });
@@ -214,7 +218,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Should constrain to flash model");
     });
 
-    it("fails CLOSED to standard when tier and product name are blank", () => {
+    it("fails CLOSED to standard when the product name is blank", () => {
       // Security regression guard. An unresolved entitlement must never hand
       // out the premium multi-provider models. A coding prompt that would route
       // to Opus under enterprise must be constrained to flash here.
@@ -224,14 +228,14 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       assert.strictEqual(res.routingTier, "standard");
     });
 
-    it("routes enterprise multi-provider when tier is explicitly enterprise", () => {
+    it("routes enterprise multi-provider when the product is an enterprise product", () => {
       const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "enterprise" });
       assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
       assert.strictEqual(res.targetProvider, "anthropic");
       assert.strictEqual(res.routingTier, "enterprise");
     });
 
-    it("detects enterprise tier from product name when the attribute is blank", () => {
+    it("detects enterprise tier from the product name alone", () => {
       const res = runAutoRouting({
         userPrompt: "def test(): pass",
         tier: "",
@@ -241,17 +245,18 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       assert.strictEqual(res.routingTier, "enterprise");
     });
 
-    it("ignores an enterprise value supplied only via the legacy app attribute", () => {
-      // The policy must read apiproduct.tier. If it regressed to the app
-      // attribute form, a caller whose PRODUCT is standard could be routed as
-      // enterprise. Here the product says standard and only the legacy key says
-      // enterprise, so the result must stay constrained.
+    it("ignores custom attributes entirely and trusts only the product name", () => {
+      // The products carry no custom attributes any more. Both legacy `tier`
+      // variables are set to "enterprise" here while the PRODUCT is standard.
+      // If the policy regressed to reading either attribute, a standard caller
+      // would be escalated to the premium multi-provider models.
       const res = runAutoRouting({
         userPrompt: "def test(): pass",
-        tier: "standard",
+        tier: "enterprise",
         productName: "Standard AI Tier",
       });
       assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
+      assert.strictEqual(res.targetProvider, "google");
       assert.strictEqual(res.routingTier, "standard");
     });
 

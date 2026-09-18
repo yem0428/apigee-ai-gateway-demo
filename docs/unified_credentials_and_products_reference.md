@@ -32,7 +32,7 @@ Source: [default.xml#L183-L186](file:///Users/maloosatyam/Codebase/AI%20Code/api
 Two governed capabilities share a single credential per persona:
 
 1. **AI Gateway** (`ai-gateway-v1` at `/ai/v1`) — model-agnostic routing
-   (`/models/{model}:generateContent`, `/auto*`, `/v1/projects/**`, `/v1/messages/**`),
+   (`/models/{model}:generateContent` and `/auto`),
    identity attribution, Model Armor, semantic caching, LLM token quotas,
    prepaid-wallet monetization.
 2. **Tools Gateway** (`mcp` at `/mcp`) — native MCP JSON-RPC 2.0 server with
@@ -99,27 +99,22 @@ All five declare `approvalType: auto` and `environments: ["dev", "prod"]`.
 
 ### 2.1 Standard AI Tier — per-model token quotas
 
-**12 `operationConfigs` covering 5 models.** Every `operationConfig` carries exactly
+**6 `operationConfigs` covering 5 models.** Every `operationConfig` carries exactly
 **one** `llmOperation` and its own `llmTokenQuota`; the Management API rejects more with
-`Operations must contain exactly one entity`. Every operation is `apiSource:
-ai-gateway-v1`, method `POST`.
+`Operations must contain exactly one entity`, and rejects a config with none at all with
+`Operations must contain exactly one entity but found 0 entities`. Every operation is
+`apiSource: ai-gateway-v1`, method `POST`.
 
 | # | Resource | `model` | Token limit | Interval |
 | --- | --- | --- | --- | --- |
 | 1 | `/auto` | `auto` | 2000 | 1 minute |
 | 2 | `/auto:*` | `auto` | 2000 | 1 minute |
-| 3 | `/models/auto` | `auto` | 2000 | 1 minute |
-| 4 | `/models/auto:*` | `auto` | 2000 | 1 minute |
-| 5 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
-| 6 | **`/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
-| 7 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
-| 8 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
-| 9 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
-| 10 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
-| 11 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 | 1 minute |
-| 12 | `/v1/projects/*/locations/*/publishers/anthropic/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 | 1 minute |
+| 3 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 4 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
+| 5 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
+| 6 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 | 1 minute |
 
-Source: [standard_ai_tier.json#L23-L230](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L23-L230).
+Source: [standard_ai_tier.json#L15-L118](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L15-L118).
 
 > [!IMPORTANT]
 > `gemini-2.5-flash` is deliberately capped at **100 tokens / minute** so the quota
@@ -128,29 +123,21 @@ Source: [standard_ai_tier.json#L23-L230](file:///Users/maloosatyam/Codebase/AI%2
 
 ### 2.2 Enterprise AI Tier — per-model token quotas
 
-**16 `operationConfigs` covering 7 models.** Same shape as Standard: one
+**8 `operationConfigs` covering 7 models.** Same shape as Standard: one
 `llmOperation` per `operationConfig`, `apiSource: ai-gateway-v1`, method `POST`.
 
 | # | Resource | `model` | Token limit | Interval |
 | --- | --- | --- | --- | --- |
 | 1 | `/auto` | `auto` | 10000 | 1 minute |
 | 2 | `/auto:*` | `auto` | 10000 | 1 minute |
-| 3 | `/models/auto` | `auto` | 10000 | 1 minute |
-| 4 | `/models/auto:*` | `auto` | 10000 | 1 minute |
-| 5 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
-| 6 | **`/v1/projects/*/locations/*/publishers/google/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
-| 7 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
-| 8 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
-| 9 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
-| 10 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
-| 11 | `/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
-| 12 | `/v1/projects/*/locations/*/publishers/google/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
-| 13 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 10000 | 1 minute |
-| 14 | `/v1/projects/*/locations/*/publishers/anthropic/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 10000 | 1 minute |
-| 15 | `/models/claude-opus-4-5@20251101:*` | `claude-opus-4-5@20251101` | 10000 | 1 minute |
-| 16 | `/v1/projects/*/locations/*/publishers/anthropic/models/claude-opus-4-5@20251101:*` | `claude-opus-4-5@20251101` | 10000 | 1 minute |
+| 3 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 4 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
+| 5 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
+| 6 | `/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
+| 7 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 10000 | 1 minute |
+| 8 | `/models/claude-opus-4-5@20251101:*` | `claude-opus-4-5@20251101` | 10000 | 1 minute |
 
-Source: [enterprise_ai_tier.json#L23-L297](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L23-L297).
+Source: [enterprise_ai_tier.json#L15-L152](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L15-L152).
 
 Enterprise is a **superset of Standard by enumeration**, not by wildcard: it adds
 `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` and raises every non-capped
@@ -161,18 +148,16 @@ calling `gemini-3.1-pro-preview` is rejected by `VA-VerifyAPIKey`.
 
 ### 2.3 Resource patterns and glob semantics
 
-Each entitled model gets exactly two resources — the gateway-native path and the Vertex
-passthrough path:
+Each entitled model gets exactly one resource, the gateway-shaped path:
 
 ```text
 /models/<model>:*
-/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
 ```
 
-`auto` is the exception, with four exact resources and no `/v1/...` form:
+`auto` is the exception, with two exact resources:
 
 ```text
-/auto        /auto:*        /models/auto        /models/auto:*
+/auto        /auto:*
 ```
 
 Apigee glob rules that drive these shapes:
@@ -190,11 +175,11 @@ Apigee glob rules that drive these shapes:
 > the glob on the `:` separator (`/models/gemini-2.5-flash:*`) so the match stops at
 > the model name.
 
-The UI exercises both shapes: `auto` posts to bare `/auto`, everything else to
-`/models/{model}:generateContent`, and the legacy path to
-`/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent`
-([apigeeClient.ts#L13-L21](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L13-L21),
-[#L80-L85](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L80-L85)).
+The UI uses exactly one shape per call: `auto` posts to bare `/auto`, and every other
+model — Gemini and Claude alike — posts to `/models/{model}:generateContent`
+([apigeeClient.ts#L11-L24](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L11-L24),
+[#L42-L68](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L42-L68)).
+The native Vertex and Anthropic Messages shapes are no longer sent, entitled, or accepted.
 
 ### 2.4 Removed wildcard entitlements — do not reintroduce
 
@@ -656,10 +641,10 @@ with it; the browser never holds admin credentials.
 | `/api/analytics/fleet-stats` | GET | Fleet-wide analytics aggregation |
 | `/api/monetization/attributions` | GET | Per-developer attribution data |
 
-Gateway pass-throughs (prefix-matched, forwarded to
-`https://api.maloosatyam.demo.altostrat.com`): `/api/ai-dev`, `/api/ai-prod`,
-`/api/claude-dev`, `/api/claude-prod`, `/api/vertexai-dev`, `/api/vertexai-prod`,
-`/api/mcp-dev`, `/api/mcp-prod`, and bare `/v1`.
+Gateway pass-throughs (prefix-matched): `/api/ai-dev`, `/api/ai-prod`,
+`/api/vertexai-dev`, `/api/vertexai-prod`, `/api/mcp-dev`, `/api/mcp-prod`. The
+`-dev` prefixes forward to `https://bap.api.maloosatyam.demo.altostrat.com` and the
+`-prod` prefixes to `https://api.maloosatyam.demo.altostrat.com`.
 Unmatched paths fall through to static file serving from `dist/`.
 
 **Method enforcement is uneven.** Only seven routes check `req.method` and return
@@ -991,7 +976,7 @@ Admin, Sales and Loans personas alike.
 | --- | --- |
 | `ModelRateCardView.tsx` | Present in the tree but never imported or rendered — dead code |
 | `LTQ-TokenEnforce` coverage | Only wired to `gemini-2.5-flash` via `LLMTokenLimitFlow`; other models are metered but not request-blocked |
-| `/models/auto` entitlement | Granted by both AI tiers, but no proxy flow routes it — `AutoRoutingFlow` matches only `/auto*`. A call to `/models/auto` passes entitlement and then fails downstream. The UI always calls bare `/auto` |
-| Stale product `description` attributes | `enterprise_ai_tier.json` still describes access as "unrestricted … (Flash, Pro, Sonnet)". No Sonnet model is entitled and access is explicitly enumerated, not unrestricted. Cosmetic metadata only — it grants nothing |
+| `/models/auto` entitlement | **Resolved.** Dropped from both AI tiers. No product grants it and no flow routes it; `OAS-ValidateRequest` rejects it with 400. The UI always calls bare `/auto` |
+| Stale product `description` attributes | **Resolved.** All custom attributes (`description`, `tier`, `domain`) were removed from every product. The only attribute left is `access: private`, which Apigee itself interprets |
 | Leaked consumer key in git history | A literal consumer key was committed in `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer contains it, but git history does — treat that key as compromised and rotate it |
 | Budget quota variables | `QC-EnforceBudgetLimit` / `QC-DeductBudget` read `...apiproduct.developer.budget.*`, which no committed product JSON defines; both are `continueOnError="true"` and fall back to `100000000` micro-dollars / month |

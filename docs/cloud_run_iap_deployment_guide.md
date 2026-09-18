@@ -77,8 +77,8 @@ flowchart TB
         DevProxy["Dev: bap.api.maloosatyam.demo.altostrat.com"]
         ProdProxy["Prod: api.maloosatyam.demo.altostrat.com"]
 
-        NodeServer -->|/api/ai-dev, /api/claude-dev,\n/api/vertexai-dev, /api/mcp-dev| DevProxy
-        NodeServer -->|/api/ai-prod, /api/claude-prod,\n/api/vertexai-prod, /api/mcp-prod, /v1| ProdProxy
+        NodeServer -->|/api/ai-dev, /api/vertexai-dev,\n/api/mcp-dev| DevProxy
+        NodeServer -->|/api/ai-prod, /api/vertexai-prod,\n/api/mcp-prod| ProdProxy
     end
 
     User --> DNS
@@ -333,13 +333,10 @@ This is what prevents browser decompression mismatches.
 | :--- | :--- |
 | `/api/ai-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/ai/v1/*` |
 | `/api/ai-prod/*` | `https://api.maloosatyam.demo.altostrat.com/ai/v1/*` |
-| `/api/claude-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/v1/messages/*` |
-| `/api/claude-prod/*` | `https://api.maloosatyam.demo.altostrat.com/v1/messages/*` |
 | `/api/vertexai-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1/*` |
 | `/api/vertexai-prod/*` | `https://api.maloosatyam.demo.altostrat.com/vertexai/v1/*` |
 | `/api/mcp-dev/*` | `https://bap.api.maloosatyam.demo.altostrat.com/mcp/*` |
 | `/api/mcp-prod/*` | `https://api.maloosatyam.demo.altostrat.com/mcp/*` |
-| `/v1/*` | `https://api.maloosatyam.demo.altostrat.com/v1/*` (path preserved verbatim) |
 
 Query strings are preserved on every route.
 
@@ -351,7 +348,7 @@ so client-side routing works; content type comes from a small extension map
 `application/octet-stream`. A read failure returns `404 Not Found`.
 
 Two `Cache-Control` policies are applied on the way out
-([server.js#L1745-L1753](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1745-L1753)):
+([server.js#L1731-L1734](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L1731-L1734)):
 
 | Match | `Cache-Control` | Why |
 | :--- | :--- | :--- |

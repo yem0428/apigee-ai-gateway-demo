@@ -8,6 +8,8 @@ let LOANS_KEY = process.env.VITE_LOANS_API_KEY || process.env.LOANS_API_KEY || '
 const TEST_EMAIL = process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'maloosatyam@google.com';
 const LOCAL_HOST = process.env.TEST_HOST || 'http://localhost:3000';
 const DIRECT_APIGEE_HOST = 'https://api.maloosatyam.demo.altostrat.com';
+// Which deployed environment the local reverse proxy should target: 'dev' or 'prod'.
+const TEST_ENV = process.env.TEST_ENV || 'prod';
 
 let useLocalProxy = true;
 let vertexBaseUrl = '';
@@ -17,11 +19,14 @@ import { execSync } from 'node:child_process';
 
 before(async () => {
   try {
-    const meRes = await fetch(`${LOCAL_HOST}/api/me`, { signal: AbortSignal.timeout(3000) });
+    // /api/me mints a gcloud SSO token on a cold cache and can take well over 3s.
+    // Too short a timeout here silently flips the suite onto DIRECT_APIGEE_HOST,
+    // which quietly tests prod instead of the intended target.
+    const meRes = await fetch(`${LOCAL_HOST}/api/me`, { signal: AbortSignal.timeout(15000) });
     if (meRes.ok) {
       useLocalProxy = true;
-      vertexBaseUrl = `${LOCAL_HOST}/api/ai-prod`;
-      mcpBaseUrl = `${LOCAL_HOST}/api/mcp-prod`;
+      vertexBaseUrl = `${LOCAL_HOST}/api/ai-${TEST_ENV}`;
+      mcpBaseUrl = `${LOCAL_HOST}/api/mcp-${TEST_ENV}`;
       const data = await meRes.json();
       if (!ADMIN_KEY && data.apiKey) ADMIN_KEY = data.apiKey;
       if (!SALES_KEY && data.apiKeys?.sales_agent) SALES_KEY = data.apiKeys.sales_agent;
@@ -466,12 +471,15 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     }
   });
 
-  it('🌐 Scenario: Local Proxy (/api/claude-prod) rewrites Claude requests to Apigee gateway without 404', async (t) => {
+  it('🌐 Scenario: Claude reaches the gateway through the same /models path as Gemini', async (t) => {
     if (!useLocalProxy) {
       t.skip('Skipping local proxy route check when targeting direct Apigee endpoint');
       return;
     }
-    const localClaudeUrl = `${LOCAL_HOST}/api/claude-prod/models/claude-opus-4-5@20251101:generateContent`;
+    // There is no Claude-specific route any more. Anthropic models use the same
+    // surface and the same Gemini `contents` body as every other model; the
+    // gateway converts the request and the response.
+    const localClaudeUrl = `${vertexBaseUrl}/models/claude-opus-4-5@20251101:generateContent`;
     const res = await fetchWithRetry(localClaudeUrl, {
       method: 'POST',
       headers: {
@@ -480,12 +488,12 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
         'X-User-Email': TEST_EMAIL,
       },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Test local proxy routing for Claude models' }] }],
+        contents: [{ role: 'user', parts: [{ text: 'Test unified routing for Claude models' }] }],
       }),
     });
 
-    assert.notStrictEqual(res.status, 404, 'Local proxy route /api/claude-prod should NOT return 404 Not Found');
-    assert.strictEqual(res.status, 200, `Expected 200 OK from local proxy /api/claude-prod, got ${res.status}`);
+    assert.notStrictEqual(res.status, 404, 'Unified /models route should NOT return 404 Not Found');
+    assert.strictEqual(res.status, 200, `Expected 200 OK from /api/ai-prod/models/claude-…, got ${res.status}`);
   });
 });
 

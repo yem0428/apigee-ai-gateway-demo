@@ -1692,18 +1692,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname.startsWith('/api/claude-dev')) {
-    const targetPath = pathname.replace(/^\/api\/claude-dev/, '');
-    await proxyRequest(req, res, `https://bap.api.maloosatyam.demo.altostrat.com/v1/messages${targetPath}${parsedUrl.search}`);
-    return;
-  }
-
-  if (pathname.startsWith('/api/claude-prod')) {
-    const targetPath = pathname.replace(/^\/api\/claude-prod/, '');
-    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/v1/messages${targetPath}${parsedUrl.search}`);
-    return;
-  }
-
   if (pathname.startsWith('/api/vertexai-dev')) {
     const targetPath = pathname.replace(/^\/api\/vertexai-dev/, '');
     await proxyRequest(req, res, `https://bap.api.maloosatyam.demo.altostrat.com/vertexai/v1${targetPath}${parsedUrl.search}`);
@@ -1725,11 +1713,6 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/mcp-prod')) {
     const targetPath = pathname.replace(/^\/api\/mcp-prod/, '');
     await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com/mcp${targetPath}${parsedUrl.search}`);
-    return;
-  }
-
-  if (pathname.startsWith('/v1')) {
-    await proxyRequest(req, res, `https://api.maloosatyam.demo.altostrat.com${pathname}${parsedUrl.search}`);
     return;
   }
 

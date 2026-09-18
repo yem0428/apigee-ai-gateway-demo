@@ -3,17 +3,15 @@
 
 var userPrompt = context.getVariable("flow.userPrompt") || "";
 
-// Tier resolution. `tier` is a custom attribute on the API PRODUCT, so it must
-// be read from the apiproduct namespace. The bare "...VA-VerifyAPIKey.tier"
-// form addresses APP attributes and never resolves here.
-var tierAttr = (context.getVariable("verifyapikey.VA-VerifyAPIKey.apiproduct.tier") || "").toLowerCase();
+// Tier resolution. The tier is derived from the API PRODUCT NAME so the demo
+// carries no custom attributes: any product whose name contains "enterprise"
+// gets the premium routing branch.
 var productName = (context.getVariable("verifyapikey.VA-VerifyAPIKey.apiproduct.name") || "").toLowerCase();
 
 // Fail CLOSED. Premium routing (Pro / Opus) requires a positive enterprise
-// signal. If the tier cannot be determined we downgrade to the constrained
+// signal. If the product cannot be determined we downgrade to the constrained
 // Standard branch rather than handing out the expensive models by default.
-var isEnterprise = (tierAttr === "enterprise") ||
-                   (tierAttr === "" && productName.indexOf("enterprise") !== -1);
+var isEnterprise = productName.indexOf("enterprise") !== -1;
 var isStandard = !isEnterprise;
 
 // Exposed for tracing so a downgrade caused by unresolved entitlement is

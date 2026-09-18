@@ -62,12 +62,9 @@ which `OAS-ValidateRequest` enforces.
 | `POST /models/gemini-*` | `GeminiDirectFlow` | `AM-PrepGeminiDirect` pins `flow.target_provider = google` |
 | `POST /models/gemini-2.5-flash*` | `LLMTokenLimitFlow` (+ `GeminiDirectFlow`) | Additionally runs `LTQ-TokenEnforce` — the token-limit demo path |
 | `POST /models/claude-*` | `AnthropicDirectFlow` | `AM-PrepClaudeDirect` pins `flow.target_provider = anthropic` |
-| `POST /v1/messages` | `AnthropicDirectFlow` | Native Anthropic Messages payload. **Declared in the OAS and matched by the flow, but entitled by no API product** — returns 401 at `VA-VerifyAPIKey`. See §14 |
-| `POST /v1/projects/**` | `VertexPassthroughFlow` | Native Vertex AI path shape; `AM-PrepGeminiDirect` also applies. ⚠️ **This includes `publishers/anthropic/...` paths, which are therefore pinned to `google` and misrouted** — see §14 |
 
-The OpenAPI spec additionally declares `:streamGenerateContent` and
-`publishers/anthropic/.../:rawPredict` path shapes so that
-`OAS-ValidateRequest` does not reject them, but there is **no streaming
+The OpenAPI spec additionally declares the `:streamGenerateContent` path shape so
+that `OAS-ValidateRequest` does not reject it, but there is **no streaming
 handling in the bundle** — see [Section 11.1](#111-sse-streaming--not-in-ai-gateway-v1).
 
 > [!NOTE]
@@ -102,8 +99,8 @@ condition. The extra conditions listed below are the per-step remainder.
 | 14 | `AM-RemoveAuthorization` | — |
 | 15 | `AM-InitCacheStatus` | — |
 | 16 | `JS-AutoRouting` | `proxy.pathsuffix MatchesPath "/auto*"` or `JavaRegex "^/auto.*"` |
-| 17 | `AM-PrepGeminiDirect` | `/models/gemini*` or `JavaRegex "^/models/gemini.*"` or `/v1/projects/**` |
-| 18 | `AM-PrepClaudeDirect` | `/models/claude*` or `JavaRegex "^/models/claude.*"` or `/v1/messages/**` |
+| 17 | `AM-PrepGeminiDirect` | `/models/gemini*` or `JavaRegex "^/models/gemini.*"` |
+| 18 | `AM-PrepClaudeDirect` | `/models/claude*` or `JavaRegex "^/models/claude.*"` |
 | 19 | `AM-SetCacheHitExpected` | `use-cache` **or** `x-use-cache` header is `true` |
 | 20 | `SCL-Semantic-Cache-Lookup` | same cache-header condition as #19 |
 
@@ -160,7 +157,7 @@ or any upstream model.
 
 ## 4. Conditional Flows — Verified Conditions
 
-Source: [default.xml#L88-L132](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L88-L132).
+Source: [default.xml#L88-L126](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L88-L126).
 
 | Flow | Steps | Condition (verbatim) |
 | :--- | :--- | :--- |
@@ -168,12 +165,11 @@ Source: [default.xml#L88-L132](file:///Users/maloosatyam/Codebase/AI%20Code/apig
 | `LLMTokenLimitFlow` | `LTQ-TokenEnforce` | `(proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash:generateContent") or (flow.model == "gemini-2.5-flash") or (proxy.pathsuffix JavaRegex "^/models/gemini-2.5-flash.*")` |
 | `AutoRoutingFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")` |
 | `GeminiDirectFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/models/gemini*") or (proxy.pathsuffix JavaRegex "^/models/gemini.*")` |
-| `AnthropicDirectFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*") or (proxy.pathsuffix MatchesPath "/v1/messages/**")` |
-| `VertexPassthroughFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/v1/projects/**")` |
+| `AnthropicDirectFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*")` |
 
 > [!NOTE]
-> `AutoRoutingFlow`, `GeminiDirectFlow`, `AnthropicDirectFlow` and
-> `VertexPassthroughFlow` have **empty `<Request/>` and `<Response/>` bodies**.
+> `AutoRoutingFlow`, `GeminiDirectFlow` and `AnthropicDirectFlow` have **empty
+> `<Request/>` and `<Response/>` bodies**.
 > They exist purely as named routing buckets for Apigee analytics and trace
 > readability. The work those names suggest is actually done by the conditional
 > PreFlow steps 16–18 in [Section 3](#3-request-preflow--verified-execution-order).
@@ -242,38 +238,47 @@ precedence and resolve from the API Product's
 `llmOperationGroup.operationConfigs[].llmTokenQuota` block after
 `VA-VerifyAPIKey` runs.
 
-Every `operationConfig` carries **exactly one** `llmOperation` — the Management
-API rejects more than one with `Operations must contain exactly one entity`.
-Standard AI Tier therefore has **12 operationConfigs across 5 models**, and
-Enterprise AI Tier has **16 operationConfigs across 7 models**.
+No `operationConfig` may carry more than one `llmOperation` — the Management API
+rejects more than one with `Operations must contain exactly one entity`. Standard
+AI Tier declares **6 `llmOperations` across 5 models**, and Enterprise AI Tier
+**8 `llmOperations` across 7 models**.
 
-Each entitled model gets two resources: the gateway-shaped path and the native
-Vertex-shaped path.
+Each entitled model gets **one** resource, the gateway-shaped path:
 
 ```
 /models/<model>:*
-/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*
 ```
 
-`auto` is the exception — it gets four resources, because bare `/auto` has to be
+`auto` is the exception — it gets two resources, because bare `/auto` has to be
 granted as an exact string (see [Section 5.3](#53-apigee-resource-glob-semantics)):
 
 ```
-/auto          /auto:*          /models/auto          /models/auto:*
+/auto          /auto:*
 ```
+
+> [!NOTE]
+> The paired native Vertex-shaped grant
+> (`/v1/projects/*/locations/*/publishers/<google|anthropic>/models/<model>:*`)
+> that each model used to carry has been **removed**, along with `/models/auto`
+> and `/models/auto:*`, because the proxy no longer exposes those ingress paths.
+> The `operationConfig` wrappers that held them were removed too — Apigee rejects
+> an `operationConfig` with an empty `llmOperations` array with
+> `400 Operations must contain exactly one entity but found 0 entities`. Standard
+> therefore contains exactly 6 `operationConfigs` and Enterprise exactly 8, each
+> carrying exactly one operation.
 
 Verified in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
 and [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json):
 
 | Model | Resources | Standard | Enterprise |
 | :--- | :--- | :--- | :--- |
-| `auto` | `/auto`, `/auto:*`, `/models/auto`, `/models/auto:*` | 2000 / 1 min | 10000 / 1 min |
-| **`gemini-2.5-flash`** | `/models/gemini-2.5-flash:*` + google publisher path | **100 / 1 min** | **100 / 1 min** |
-| `gemini-3.1-flash-lite` | `/models/gemini-3.1-flash-lite:*` + google publisher path | 2000 / 1 min | 10000 / 1 min |
-| `gemini-3-flash-preview` | `/models/gemini-3-flash-preview:*` + google publisher path | 2000 / 1 min | 10000 / 1 min |
-| `claude-haiku-4-5@20251001` | `/models/claude-haiku-4-5@20251001:*` + anthropic publisher path | 2000 / 1 min | 10000 / 1 min |
-| `gemini-3.1-pro-preview` | `/models/gemini-3.1-pro-preview:*` + google publisher path | *not granted* | 10000 / 1 min |
-| `claude-opus-4-5@20251101` | `/models/claude-opus-4-5@20251101:*` + anthropic publisher path | *not granted* | 10000 / 1 min |
+| `auto` | `/auto`, `/auto:*` | 2000 / 1 min | 10000 / 1 min |
+| **`gemini-2.5-flash`** | `/models/gemini-2.5-flash:*` | **100 / 1 min** | **100 / 1 min** |
+| `gemini-3.1-flash-lite` | `/models/gemini-3.1-flash-lite:*` | 2000 / 1 min | 10000 / 1 min |
+| `gemini-3-flash-preview` | `/models/gemini-3-flash-preview:*` | 2000 / 1 min | 10000 / 1 min |
+| `claude-haiku-4-5@20251001` | `/models/claude-haiku-4-5@20251001:*` | 2000 / 1 min | 10000 / 1 min |
+| `gemini-3.1-pro-preview` | `/models/gemini-3.1-pro-preview:*` | *not granted* | 10000 / 1 min |
+| `claude-opus-4-5@20251101` | `/models/claude-opus-4-5@20251101:*` | *not granted* | 10000 / 1 min |
 
 Enterprise grants 10000 / 1 min everywhere **except** `gemini-2.5-flash`, which
 is pinned to **100 / 1 min** in both tiers.
@@ -288,10 +293,10 @@ returns nothing. That is deliberate: it powers the "Restricted Model" demo, wher
 even an Enterprise key is rejected at `VA-VerifyAPIKey` with 401 before any
 upstream call is made.
 
-`/models/auto` and `/models/auto:*` are entitled, but **no proxy flow routes
-them** — `AutoRoutingFlow` and the `JS-AutoRouting` PreFlow step both key off
-`/auto`, not `/models/auto`. Calling `/models/auto` returns 400. The entitlement
-exists for completeness only; the UI calls bare `/auto`.
+`/models/auto` is no longer entitled by either product and no proxy flow routes
+it. `AutoRoutingFlow` and the `JS-AutoRouting` PreFlow step both key off bare
+`/auto`, which is what the UI calls. A call to `/models/auto` is now rejected at
+`OAS-ValidateRequest` with 400, because the path is absent from the OpenAPI spec.
 
 > [!IMPORTANT]
 > `gemini-2.5-flash` is the deliberate **token-limit demo model** at
@@ -346,7 +351,7 @@ can only absorb the method suffix.
 
 ## 6. Target Endpoints & Routing
 
-Route rules ([default.xml#L187-L193](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L187-L193)):
+Route rules ([default.xml#L181-L187](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L181-L187)):
 
 ```xml
 <RouteRule name="claude-target">
@@ -390,7 +395,7 @@ Both targets declare `<FaultRules/>` — **empty**. There is no failover logic.
 
 ## 7. Response Flow — Verified Order
 
-Source: [default.xml#L133-L182](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L133-L182).
+Source: [default.xml#L127-L176](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L127-L176).
 
 The proxy `PostFlow` has a **request** side too: it runs `CORS-Headers`
 unconditionally before the target is invoked.
@@ -502,19 +507,19 @@ All five live in
 [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js) ·
 invoked by `JS-AutoRouting` (`continueOnError="false"`).
 
-Reads `flow.userPrompt`, plus `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` and
-`verifyapikey.VA-VerifyAPIKey.apiproduct.name`. `tier` is a custom attribute on
-the **API Product**, so it must be read from the `apiproduct` namespace; the bare
-`verifyapikey.VA-VerifyAPIKey.tier` form addresses *app* attributes and never
-resolves here.
+Reads `flow.userPrompt` and `verifyapikey.VA-VerifyAPIKey.apiproduct.name`. The
+routing tier is derived **solely from the API Product name**. The AI products
+carry **no custom attributes** — `tier`, `description` and `domain` were all
+removed, leaving only `access: private`, which Apigee itself interprets — so
+there is no `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` variable to read and
+the script does not attempt to.
 
 Tier resolution **fails closed**
-([AutoRouting.js#L9-L21](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L9-L21)):
-a request is treated as *enterprise* only on a positive signal — the tier
-attribute is exactly `enterprise`, or the attribute is absent **and** the product
-name contains `"enterprise"`. Everything else, including an unresolved tier,
-falls to the constrained Standard branch rather than handing out the expensive
-models by default.
+([AutoRouting.js#L6-L19](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L6-L19)):
+a request is treated as *enterprise* only on a positive signal — the lowercased
+product name contains `"enterprise"`. Everything else, including a product name
+that does not resolve at all, falls to the constrained Standard branch rather
+than handing out the expensive models by default.
 
 Three heuristics drive the decision:
 
@@ -525,7 +530,7 @@ Three heuristics drive the decision:
 | `isSimple` | prompt length < 200 **and** not coding **and** not deep reasoning |
 
 Routing table as implemented
-([AutoRouting.js#L32-L62](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L32-L62)):
+([AutoRouting.js#L30-L60](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L30-L60)):
 
 | Tier | Signal | `flow.target_model` | Provider | `flow.costTier` |
 | :--- | :--- | :--- | :--- | :--- |
@@ -944,14 +949,25 @@ not documentation.
 
 | Item | Detail |
 | :--- | :--- |
-| **Anthropic native Vertex paths misroute to the Gemini target** | `AM-PrepGeminiDirect`'s condition includes `proxy.pathsuffix MatchesPath "/v1/projects/**"`, which also matches `…/publishers/anthropic/models/claude-…`. `AM-PrepClaudeDirect` matches only `/models/claude*` or `/v1/messages/**`, so it never fires for these. Result: `flow.target_provider=google`, the `claude-target` RouteRule evaluates false, and the request is rebuilt against `publishers/google/models/claude-opus-4-5@20251101`. Both AI products **grant** these resources and the OAS declares them, so the call passes `VA-VerifyAPIKey` and `OAS-ValidateRequest`, then **404s upstream**. Fix: exclude `publishers/anthropic` from `AM-PrepGeminiDirect` and add it to `AM-PrepClaudeDirect` |
-| **`/v1/messages` is advertised but entitled by no product** | `AnthropicDirectFlow` matches it and the OAS declares it, but zero of the 28 product entitlements grant it, so it returns 401 at `VA-VerifyAPIKey`. It also lacks the paired `JavaRegex` alternative that `/auto` has, so a bare `/v1/messages` additionally hits the trailing-`*` glob trap described in §5 |
 | Semantic cache infrastructure IDs are hardcoded | Index endpoint, index ID, and project are literals in the SCL/SCP policy XML — not parameterised per environment |
-| `/models/auto` is entitled but unroutable | Both products grant `/models/auto` and `/models/auto:*`, yet no proxy flow matches them, so the call returns 400. Either add a flow condition or drop the entitlement |
 | `AM-PrepGeminiDirect` hardcodes a default model | Its `<Value>` fallback is `gemini-3-flash-preview`, which must be updated by hand whenever the default Gemini model changes |
 
 Previously listed here and now **resolved in code**, verified today:
 
+- **Anthropic native Vertex paths misrouting to the Gemini target** — resolved by
+  **deleting the surface**, not by patching the condition. `AM-PrepGeminiDirect`
+  no longer matches `/v1/projects/**` and `VertexPassthroughFlow` has been removed
+  from `default.xml` entirely, so there is no `/v1/projects/...` *ingress* path
+  left to misroute. (`/v1/projects/...` remains the **upstream** URL that both
+  target endpoints build — see [Section 6](#6-target-endpoints--routing).)
+- **`/v1/messages` advertised but entitled by no product** — resolved by
+  **deleting the surface**. `AM-PrepClaudeDirect` and `AnthropicDirectFlow` no
+  longer match `/v1/messages/**`, and the OpenAPI spec no longer declares the
+  path. Anthropic models are reached only through
+  `/models/claude-…:generateContent`, with a Gemini-shaped body.
+- **`/models/auto` entitled but unroutable** — resolved by **dropping the
+  entitlement**. Neither AI product grants `/models/auto` or `/models/auto:*` any
+  more, so there is no longer an entitlement without a matching flow.
 - [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh)
   targets `/models/gemini-2.5-flash:generateContent` — the model
   `LLMTokenLimitFlow` is conditioned on — no longer sends the meaningless
