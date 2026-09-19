@@ -137,10 +137,50 @@ condition. The extra conditions listed below are the per-step remainder.
 > policy was removed: the JWT is now the only accepted source of caller identity,
 > and a request bearing only `X-User-Email` is rejected with 401.
 
-> [!WARNING]
-> `DecodeJWT` does not validate signatures, so `flow.emailId` remains an
-> **attribution** value, not an authenticated principal. Authorization is
-> carried by `x-apikey` via `VA-VerifyAPIKey`.
+#### 3.1.1 Trust model — read this before relying on `flow.emailId`
+
+`DJWT-ExtractUserIdentity` is a **`DecodeJWT`**, not a `VerifyJWT`. It parses the token and
+exposes its claims; it does not check the signature, the issuer, the audience or the expiry.
+This is a deliberate, recorded decision, not an oversight.
+
+**What the JWT is trusted for:** *attribution only*. `flow.emailId` answers "who should this
+call be attributed to", and it feeds `dc_user_email`, the Cloud Logging audit trail, the wallet
+charge, and the per-user analytics view.
+
+**What the JWT is not trusted for:** *authorization*. Nothing is granted on the strength of the
+`email` claim. Entitlement is carried entirely by `x-apikey` through `VA-VerifyAPIKey`, which
+is a genuine cryptographic check against Apigee's key store, and the routing tier is derived
+from the resolved API **product name** — never from the token.
+
+**Concretely, what a forged token can do.** `DecodeJWT` accepts any well-formed three-segment
+token, so this is sufficient to assume an identity:
+
+```
+b64url({"alg":"RS256","typ":"JWT"}) . b64url({"email":"someone.else@example.com"}) . b64url("anything")
+```
+
+(Note that the degenerate `alg: none` form with an *empty* signature segment is rejected with
+401 — `DecodeJWT` requires three non-empty segments. The forgery has to look plausible.)
+
+A caller who does this can **misattribute their own traffic** to another email: skew that user's
+dashboard, write a misleading audit record, and charge the wrong wallet.
+
+**What it cannot do.** It cannot obtain access the caller did not already have. Without a valid
+`x-apikey` the request is rejected at `VA-VerifyAPIKey` regardless of the claimed email, and the
+key determines which models and quotas apply. So the forger must already be a legitimate,
+entitled client — this is an integrity-of-attribution problem, not a privilege-escalation one.
+
+> [!IMPORTANT]
+> Do not build an authorization decision on `flow.emailId`, and do not add a policy that reads
+> the `email` claim to grant or deny anything. If a future requirement needs a trustworthy
+> principal, the fix is `VerifyJWT` against IAP's **ES256** JWKS at
+> `https://www.gstatic.com/iap/verify/public_key-jwk` — *not* the RS256 `oauth2/v3/certs`
+> endpoint — with the audience set to the IAP backend-service path.
+
+> [!NOTE]
+> A prerequisite for ever enabling that: the UI currently forwards a locally-minted token, not
+> the IAP assertion it receives. `VerifyJWT` would reject it immediately. The UI token flow
+> has to be corrected first.
 
 ### 3.2 Model Armor at the perimeter
 

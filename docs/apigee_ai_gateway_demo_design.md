@@ -453,11 +453,14 @@ demo is triggered.
 
 > [!WARNING]
 > `DJWT-ExtractUserIdentity` is a **DecodeJWT**, not a VerifyJWT — the signature is never
-> checked. Preferring the JWT is therefore a tidiness win, **not yet a security win**: a
-> caller holding a valid API key can still mint an unsigned token with any `email` claim,
-> exactly as they could previously spoof `X-User-Email`. Since identity drives the
-> consumption ledger, wallets and quotas, this should become a `VerifyJWT` against
-> Google's IAP JWKS before the email fallback is removed.
+> checked. A caller holding a valid API key can mint a well-formed token with any `email`
+> claim, exactly as they could previously spoof `X-User-Email`.
+>
+> **This is an accepted risk, not an open action item.** The claim is used for attribution
+> only; authorization is carried by `x-apikey` via `VA-VerifyAPIKey` and the routing tier by
+> the API product name, so a forged token misattributes traffic but grants nothing. The full
+> trust model, the forgery mechanics and the conditions for revisiting the decision are in
+> [proxy_architecture_design_plan.md §3.1.1](file:///Users/maloosatyam/Codebase/AI%20Code/docs/proxy_architecture_design_plan.md).
 
 ---
 
