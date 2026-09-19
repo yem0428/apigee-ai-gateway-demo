@@ -1351,7 +1351,15 @@ const server = http.createServer(async (req, res) => {
     try {
       // sum(is_error) is selected per user/model too, not just fleet-wide: faults now emit
       // dc_user_email via the proxy's DefaultFaultRule, so blocked calls can be attributed.
-      const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(is_error),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
+      //
+      // The apiproxy filter is load-bearing. The dc_user_email dimension is environment-wide,
+      // so without it this query also returns `mcp` and other proxies' traffic. Those proxies
+      // never set dc_user_email, so every one of their calls landed in the `(not set)` bucket
+      // and was rendered in the AI Gateway ledger as an anonymous AI caller. Measured on prod:
+      // unfiltered 126 calls / 45 errors, filtered 76 / 39 — the latter matching the apiproxy
+      // dimension exactly. Without the filter, attributedErrorCount can exceed isErrorCount.
+      const proxyFilter = encodeURIComponent(`(apiproxy eq 'ai-gateway-v1')`);
+      const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(is_error),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
       const proxyStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/apiproxy?select=sum(message_count),sum(is_error),avg(total_response_time)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
       const kvmUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/ai-model-rates/entries/rate_card`;
 

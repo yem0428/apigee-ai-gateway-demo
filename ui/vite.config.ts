@@ -1292,7 +1292,12 @@ export default defineConfig(({ mode }) => {
               // 1. Fetch DataCapture stats (user email & model breakdown).
               // sum(is_error) is selected here as well as fleet-wide: the proxy's DefaultFaultRule
               // emits dc_user_email on faults, so blocked calls can be attributed to a caller.
-              const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(is_error),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
+              //
+              // The apiproxy filter is load-bearing - the dc_user_email dimension is
+              // environment-wide, so without it `mcp` traffic (which never sets dc_user_email)
+              // lands in the `(not set)` bucket and is rendered as anonymous AI Gateway callers.
+              const proxyFilter = encodeURIComponent(`(apiproxy eq 'ai-gateway-v1')`);
+              const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(is_error),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
 
               // 2. Fetch Proxy stats (for overall SLA, latency, error count)
               const proxyStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/apiproxy?select=sum(message_count),sum(is_error),avg(total_response_time)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
