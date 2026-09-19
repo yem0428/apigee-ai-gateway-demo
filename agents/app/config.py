@@ -27,7 +27,17 @@ class Settings(BaseSettings):
     # Default Model. Must be a model entitled by the caller's API product —
     # an unentitled ID is rejected at VA-VerifyAPIKey before it reaches Vertex.
     default_model: str = os.getenv("DEFAULT_MODEL", "gemini-3.1-flash-lite")
-    
+
+    # Comma-separated list of exact browser origins permitted to call this service.
+    # Required whenever ENVIRONMENT is not "development" — main.py refuses to start
+    # without it rather than falling back to a wildcard. Wildcards are not supported
+    # here at all: they are invalid alongside credentialed CORS requests.
+    allowed_origins: str = os.getenv("ALLOWED_ORIGINS", "")
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
     class Config:
         env_file = ".env"
 

@@ -12,13 +12,40 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for testing UI
+# CORS.
+#
+# allow_origins=["*"] together with allow_credentials=True is not just loose, it is
+# self-defeating: the CORS spec forbids the wildcard on credentialed requests, so browsers
+# reject the response outright. Every deployed environment therefore names its origins.
+#
+# Only `development` keeps the permissive localhost set, and even that is an explicit list
+# rather than a wildcard.
+_DEV_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
+
+if settings.environment == "development":
+    _allowed_origins = _DEV_ORIGINS
+else:
+    _allowed_origins = settings.allowed_origins_list
+    if not _allowed_origins:
+        # Fail loudly. Falling back to "*" here would silently reintroduce the very
+        # misconfiguration this block exists to prevent.
+        raise RuntimeError(
+            "ALLOWED_ORIGINS must be set when ENVIRONMENT is not 'development'. "
+            "Provide a comma-separated list of exact origins, e.g. "
+            "ALLOWED_ORIGINS=https://ai-ui.maloosatyam.demo.altostrat.com"
+        )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Identity-Token", "x-apikey"],
 )
 
 agent_instance = DualPatternAgent()
