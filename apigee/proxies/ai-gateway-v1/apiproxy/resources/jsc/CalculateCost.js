@@ -1,7 +1,24 @@
 // Real-time micro-dollar cost calculation per model rate card
 var promptTokens = parseInt(context.getVariable("flow.promptTokenCount") || context.getVariable("flow.claudePromptTokens") || "0", 10);
-var completionTokens = parseInt(context.getVariable("flow.candidatesTokenCount") || context.getVariable("flow.claudeCandidatesTokens") || "0", 10);
+var candidateTokens = parseInt(context.getVariable("flow.candidatesTokenCount") || context.getVariable("flow.claudeCandidatesTokens") || "0", 10);
+
+// Thinking ("thoughts") tokens are billed by Vertex at the OUTPUT rate but are reported
+// separately from candidatesTokenCount. Ignoring them badly understates cost on reasoning
+// models: a gemini-3.7-flash call measured 7 prompt / 1 candidate / 84 thoughts, so charging
+// only prompt+candidates billed 8 tokens out of 92 actually consumed.
+var thoughtTokens = parseInt(context.getVariable("flow.thoughtsTokenCount") || "0", 10);
+if (isNaN(thoughtTokens) || thoughtTokens < 0) { thoughtTokens = 0; }
+
+var completionTokens = candidateTokens + thoughtTokens;
+
+// Prefer the provider's own total when it is present and at least as large as our sum — it is
+// authoritative and covers any future token category we do not yet break out. Never let it
+// shrink the figure below what we can already account for.
+var reportedTotal = parseInt(context.getVariable("flow.totalTokenCount") || "0", 10);
 var totalTokens = promptTokens + completionTokens;
+if (!isNaN(reportedTotal) && reportedTotal > totalTokens) {
+  totalTokens = reportedTotal;
+}
 
 var model = context.getVariable("flow.target_model") || context.getVariable("flow.model") || "gemini-3-flash-preview";
 var modelNormalized = model.toLowerCase().trim();
@@ -34,6 +51,7 @@ if (kvmRatesJson) {
     if (inputRate === null) {
       var prefixes = [
         "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview",
+        "gemini-3.7-flash", "gemini-3.8-flash",
         "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash",
         "claude-opus-4-5", "claude-opus",
         "claude-haiku-4-5"
@@ -71,6 +89,7 @@ if (inputRate === null || isNaN(inputRate)) {
   if (!inputRateStr) {
     var prefixes2 = [
       "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview",
+      "gemini-3.7-flash", "gemini-3.8-flash",
       "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash",
       "claude-opus-4-5", "claude-opus",
       "claude-haiku-4-5"
@@ -109,8 +128,21 @@ var costMicros = Math.max(1, Math.round(totalCostUSD * 1000000));
 context.setVariable("flow.promptTokenCount", promptTokens.toString());
 context.setVariable("flow.candidatesTokenCount", completionTokens.toString());
 context.setVariable("flow.totalTokenCount", totalTokens.toString());
+context.setVariable("flow.thoughtsTokenCount", thoughtTokens.toString());
 context.setVariable("flow.tx_cost_usd", totalCostUSD.toFixed(6));
 context.setVariable("flow.tx_cost_micros", costMicros.toString());
+
+// Cost tier. AutoRouting.js sets flow.costTier, but only on the /auto path — a direct
+// /models/{model} call left it unresolved and x-gateway-cost-tier came back empty. Derive it
+// from the resolved OUTPUT RATE, never from the model name: gemini-3.7-flash and
+// gemini-3.8-flash bill at 7.50, above gemini-3.1-pro-preview's 5.00, so any name-based
+// guess would label them cheap.
+if (!context.getVariable("flow.costTier")) {
+  var derivedTier = "medium";
+  if (outputRate >= 5.0) { derivedTier = "high"; }
+  else if (outputRate <= 0.30) { derivedTier = "low"; }
+  context.setVariable("flow.costTier", derivedTier);
+}
 
 // Apigee Monetization Rating Engine variables
 // Rate plans have base fee = $0.001 USD (1,000,000 nanos).

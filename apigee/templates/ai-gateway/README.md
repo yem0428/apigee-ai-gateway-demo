@@ -132,6 +132,8 @@ Rates are USD per 1M tokens.
 | `gemini-3-flash-preview` | google | global | 0.150 | 0.600 |
 | `gemini-3.5-flash` | google | global | 0.150 | 0.600 |
 | `gemini-2.5-flash` | google | global | 0.300 | 2.500 |
+| `gemini-3.7-flash` | google | global | **1.500** | **7.500** |
+| `gemini-3.8-flash` | google | global | **1.500** | **7.500** |
 | `gemini-3.1-pro-preview` | google | global | 1.250 | 5.000 |
 | `gemini-2.5-pro` | google | global | 1.250 | 5.000 |
 | `claude-haiku-4-5` | anthropic | us-east5 | 1.000 | 5.000 |

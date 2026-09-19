@@ -149,6 +149,40 @@
           "interval": "1",
           "timeUnit": "minute"
         }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/gemini-3.7-flash:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "gemini-3.7-flash"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/gemini-3.8-flash:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "gemini-3.8-flash"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
       }
     ]
   }

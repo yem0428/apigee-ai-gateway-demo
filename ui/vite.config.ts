@@ -1384,14 +1384,23 @@ export default defineConfig(({ mode }) => {
                 const userEmail = isUnauthenticated ? 'anonymous.caller@external.client' : rawUser;
                 const model = isAbsent(rawModel) ? 'unknown-model' : rawModel;
 
-                const provider = model.includes('claude') ? 'Anthropic' : 'Google';
-                const tier = model.includes('pro') || model.includes('opus') ? 'high' : model.includes('flash-lite') ? 'low' : 'medium';
-
-                // Look up KVM rate card with prefix / normalization support
-                const rateKey = Object.keys(rates).find(k => k !== 'default' && (model === k || model.startsWith(k) || k.startsWith(model)));
+                // The rate card is the source of truth for BOTH price and cost tier. Longest
+                // key wins. Tier must NOT be inferred from the model name: gemini-3.7-flash
+                // and gemini-3.8-flash cost 1.50/7.50, above gemini-3.1-pro-preview's 1.25/5.00.
+                const rateKey = Object.keys(rates)
+                  .filter((k) => k !== 'default' && (model === k || model.startsWith(k)))
+                  .sort((a, b) => b.length - a.length)[0];
                 const matchedRate = (rateKey ? rates[rateKey] : null) || rates[model] || rates['default'] || {};
-                const inRate = matchedRate.input ?? (tier === 'high' ? 1.25 : 0.15);
-                const outRate = matchedRate.output ?? (tier === 'high' ? 5.0 : 0.60);
+
+                const tierFromRate = (out: number) => (out >= 5.0 ? 'high' : out <= 0.3 ? 'low' : 'medium');
+                const tier = matchedRate.tier
+                  || (matchedRate.output !== undefined ? tierFromRate(Number(matchedRate.output)) : 'medium');
+                const provider = matchedRate.provider
+                  ? (matchedRate.provider === 'anthropic' ? 'Anthropic' : 'Google')
+                  : (model.includes('claude') ? 'Anthropic' : 'Google');
+
+                const inRate = matchedRate.input ?? 0.15;
+                const outRate = matchedRate.output ?? 0.60;
                 const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
 
                 totalTraffic += mc;
@@ -1553,13 +1562,14 @@ export default defineConfig(({ mode }) => {
                     const pt = Number(d.metrics?.find((m: any) => m.name === 'sum(dc_prompt_token_count)')?.values?.[0] || 0);
                     const ct = Number(d.metrics?.find((m: any) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
 
-                    const rateKey = Object.keys(monRates).find(
-                      (k) => k !== 'default' && (model === k || model.startsWith(k) || k.startsWith(model))
-                    );
+                    // Longest matching key wins; fall back to the card's own 'default' rather
+                    // than guessing from the model name.
+                    const rateKey = Object.keys(monRates)
+                      .filter((k) => k !== 'default' && (model === k || model.startsWith(k)))
+                      .sort((a, b) => b.length - a.length)[0];
                     const matched = (rateKey ? monRates[rateKey] : null) || monRates[model] || monRates['default'] || {};
-                    const isHigh = model.includes('pro') || model.includes('opus');
-                    const inRate = matched.input ?? (isHigh ? 1.25 : 0.15);
-                    const outRate = matched.output ?? (isHigh ? 5.0 : 0.60);
+                    const inRate = matched.input ?? 0.15;
+                    const outRate = matched.output ?? 0.60;
                     const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
 
                     const acc = statsByUser[email] || { calls: 0, tokens: 0, costUsd: 0 };

@@ -386,6 +386,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       'gemini-3-flash-preview': { color: '#2563eb', badge: 'Gf' },   // Blue
       'gemini-2.5-flash': { color: '#0284c7', badge: 'F2' },         // Sky
       'gemini-3.1-flash-lite': { color: '#059669', badge: 'Fl' },    // Emerald
+      // Warm colours deliberately: these two are priced above the Pro models, so they should
+      // not sit in the cool green/blue range the cheap Flash models use.
+      'gemini-3.7-flash': { color: '#ea580c', badge: 'F7' },         // Orange-600
+      'gemini-3.8-flash': { color: '#c2410c', badge: 'F8' },         // Orange-700
       'gemini-3.1-pro-preview': { color: '#4f46e5', badge: 'Pr' },   // Indigo
       'gemini-2.5-pro': { color: '#6366f1', badge: 'P2' },          // Indigo-500
     };

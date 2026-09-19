@@ -247,6 +247,10 @@ export const AVAILABLE_MODELS = [
   { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Rate Limited (100 tok/min)' },
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
   { id: 'gemini-3-flash-preview', name: 'gemini-3-flash-preview', tag: 'Flash' },
+  // Premium despite the "flash" name: $1.50/$7.50 per 1M tokens, above gemini-3.1-pro-preview
+  // at $1.25/$5.00. Enterprise tier only. The tag says so because the name does not.
+  { id: 'gemini-3.7-flash', name: 'gemini-3.7-flash', tag: 'Flash Premium (Enterprise)' },
+  { id: 'gemini-3.8-flash', name: 'gemini-3.8-flash', tag: 'Flash Premium (Enterprise)' },
   { id: 'gemini-3.1-pro-preview', name: 'gemini-3.1-pro-preview', tag: 'Pro Preview' },
   // Deliberately entitled by no API Product. Used by the
   // "Restricted Model" scenario to demonstrate an entitlement block: even an

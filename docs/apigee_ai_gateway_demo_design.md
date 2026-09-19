@@ -354,8 +354,8 @@ The AI products carry `llmOperationGroup.llmTokenQuota`; the MCP products carry
 
 | Product | File | Scope |
 | :--- | :--- | :--- |
-| Standard AI Tier | [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | `tier: standard` — **12 operationConfigs / 5 models**: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` |
-| Enterprise AI Tier | [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | `tier: enterprise` — **16 operationConfigs / 7 models**: the Standard five plus `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` |
+| Standard AI Tier | [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | **6 operationConfigs / 5 models**: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` |
+| Enterprise AI Tier | [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | **10 operationConfigs / 9 models**: the Standard five plus `gemini-3.1-pro-preview`, `claude-opus-4-5@20251101`, `gemini-3.7-flash`, `gemini-3.8-flash` |
 | Enterprise Tools MCP | `enterprise_tools_mcp.json` | `domain: enterprise` — all five MCP tools |
 | Sales Tools MCP | `sales_tools_mcp.json` | `domain: sales` — discount tools |
 | Loans Tools MCP | `loans_tools_mcp.json` | `domain: loans` — loan tools |
@@ -536,7 +536,7 @@ clicking **Refresh Tools** replaces it with the live catalog.
 ### 6.1 Model dropdown
 
 Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L252-L265).
-Eight entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L389)
+Ten entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L389)
 in the compact selector and again in the mobile panel under the label
 **"Vertex AI Model"** ([Navbar.tsx#L675](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L675)).
 
@@ -546,6 +546,8 @@ in the compact selector and again in the mobile panel under the label
 | `gemini-2.5-flash` | gemini-2.5-flash | Rate Limited (100 tok/min) | ✅ |
 | `gemini-3.1-flash-lite` | gemini-3.1-flash-lite | Flash Lite | ✅ |
 | `gemini-3-flash-preview` | gemini-3-flash-preview | Flash | ✅ |
+| `gemini-3.7-flash` | gemini-3.7-flash | Flash Premium (Enterprise) | ✅ Enterprise only |
+| `gemini-3.8-flash` | gemini-3.8-flash | Flash Premium (Enterprise) | ✅ Enterprise only |
 | `gemini-3.1-pro-preview` | gemini-3.1-pro-preview | Pro Preview | ✅ Enterprise only |
 | `gemini-3.1-ultra` | gemini-3.1-ultra | Restricted (Not Entitled) | ❌ **by design** — 401 |
 | `claude-haiku-4-5@20251001` | claude-haiku-4-5@20251001 | Claude Haiku | ✅ |
@@ -625,6 +627,8 @@ The property-set fallback values, USD per 1M tokens:
 | `gemini-2.5-flash` | 0.30 | 2.50 | Token-limit demo model |
 | `gemini-3.1-flash-lite` | 0.075 | 0.30 | Low cost tier |
 | `gemini-3-flash-preview` | 0.15 | 0.60 | Medium cost tier |
+| `gemini-3.7-flash` | **1.50** | **7.50** | **High cost tier — see warning below** |
+| `gemini-3.8-flash` | **1.50** | **7.50** | **High cost tier — see warning below** |
 | `gemini-3.1-pro-preview` | 1.25 | 5.00 | High cost tier |
 | `claude-haiku-4-5` | 1.00 | 5.00 | Matches `claude-haiku-4-5@20251001` |
 | `claude-opus-4-5` | 15.00 | 75.00 | Matches `claude-opus-4-5@20251101` |
@@ -633,6 +637,42 @@ The property-set fallback values, USD per 1M tokens:
 | `gemini-3.5-flash` | 0.15 | 0.60 | Not in the UI dropdown |
 | `gemini-2.5-pro` | 1.25 | 5.00 | Not in the UI dropdown |
 | `default` | 0.15 | 0.60 | Fallback |
+
+> [!WARNING]
+> **A "flash" name does not imply a cheap model.** `gemini-3.7-flash` and `gemini-3.8-flash`
+> list at 1.50 / 7.50, which is *more* than `gemini-3.1-pro-preview` at 1.25 / 5.00. Any code
+> that classifies cost tier by substring-matching the model name will mis-tier them. Tier is
+> therefore read from the rate card's own `tier` field, never inferred from the name. Both
+> models are granted in the **Enterprise tier only**.
+
+#### The KVM is now version-controlled
+
+The `ai-model-rates` KVM used to be hand-edited and had drifted badly from reality:
+
+| Problem | Detail |
+| :--- | :--- |
+| Three models that do not exist | `claude-3-5-haiku`, `claude-3-5-sonnet`, `claude-3-7-sonnet` — all 404 in this project (Rule 12) |
+| Two entitled models missing | `claude-haiku-4-5` and `gemini-2.5-flash` |
+| One key misnamed | `gemini-3-flash` instead of `gemini-3-flash-preview` |
+
+Because a model absent from the card silently resolves to `default`, **Claude Haiku was billed
+at 0.15 / 0.60 instead of 1.00 / 5.00, and Gemini 2.5 Flash at 0.15 / 0.60 instead of
+0.30 / 2.50.**
+
+The card now lives at
+[model_rate_card.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/config/model_rate_card.json)
+and is pushed with
+[sync_rate_card.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/sync_rate_card.sh),
+which refuses to publish a card whose entries lack a price, provider or valid tier band.
+
+```bash
+apigee/scripts/sync_rate_card.sh --org bap-apac-demo2 --env prod --dry-run   # inspect
+apigee/scripts/sync_rate_card.sh --org bap-apac-demo2 --env prod             # publish
+```
+
+> [!IMPORTANT]
+> Adding a model to an API product without adding it to the rate card will under-bill it
+> silently. Do both in the same change.
 
 > [!NOTE]
 > `gemini-2.5-flash` was previously **missing** from the rate card, so the headline demo

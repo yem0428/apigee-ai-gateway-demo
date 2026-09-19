@@ -15,6 +15,12 @@
     <Variable name="totalTokenCount">
       <JSONPath>$.usageMetadata.totalTokenCount</JSONPath>
     </Variable>
+    <!-- Reasoning models report thinking tokens separately from candidatesTokenCount, but
+         Vertex bills them at the output rate. Without this, a gemini-3.7-flash call that
+         consumed 92 tokens was costed as 8. -->
+    <Variable name="thoughtsTokenCount">
+      <JSONPath>$.usageMetadata.thoughtsTokenCount</JSONPath>
+    </Variable>
     <Variable name="claudePromptTokens">
       <JSONPath>$.usage.input_tokens</JSONPath>
     </Variable>

@@ -8,9 +8,16 @@ This repository is an enterprise demonstration and development platform for:
 5. **Interactive Demo UI**: React + Vite + Tailwind playground with real-time gateway trace inspection, token/latency/cost metrics, and live policy toggles.
 
 > [!WARNING]
-> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Migrate `gemini-2.5-flash` references in API products, proxy flows (`LLMTokenLimitFlow`), and UI presets before retirement. The only **safe** target today is **`gemini-3.1-flash-lite`** — entitled by name in both AI products, priced, and present in `AVAILABLE_MODELS`.
+> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Migrate `gemini-2.5-flash` references in API products, proxy flows (`LLMTokenLimitFlow`), and UI presets before retirement. `gemini-2.5-flash` is currently the **token-quota demo model** (100 tok/min in both AI tiers), so that demo must move first. `claude-haiku-4-5@20251001` is the leading candidate — it is already entitled in both tiers, and token counting works on the Claude path because `JS-FormatClaudeResponse` synthesises `usageMetadata.totalTokenCount` in the *target* response flow, before `LTQ-TokenCount` reads it in PostFlow.
 >
-> **`gemini-3.5-flash` — partially validated as of 2026-09-19.** It **does** exist: `GET https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.5-flash` returns `launchStage: GA` (control: a fabricated ID and the known-bad `gemini-3-flash` both return 404 on the same endpoint). That resolves the Rule 12 catalog question. **It is still not usable**: it appears only as a price key in `model_rates.properties`, a cost-tier entry in `CalculateCost.js`, and a catalog entry in the `apigee-go-gen` `values.yaml` — it is in **no API product**, no proxy flow, and not in `AVAILABLE_MODELS`. It must be granted by name in both AI products before use. Note the publisher catalog is global; project/region callability through `bap-apac-demo2` was **not** proven, because the project-scoped read URL 404s even for known-good models, so confirming it costs a real `generateContent` call.
+> **Verified callable targets** (probed against the live publisher catalog 2026-09-19; a fabricated ID and both `gemini-3.{7,8}-flash-lite` returned 404 on the same endpoint, so the probe discriminates): `gemini-3.1-flash-lite` (both tiers), `gemini-3.7-flash` and `gemini-3.8-flash` (Enterprise only — priced, in `AVAILABLE_MODELS`, and **proven with a real `generateContent` call through prod**).
+>
+> **`gemini-3.5-flash` is still not usable.** GA in the catalog, and it now has a rate-card entry, a `CalculateCost.js` prefix and a `values.yaml` catalog entry — but it is in **no API product** and not in `AVAILABLE_MODELS`. Grant it by name in both AI products, or delete the dangling references.
+
+> [!CAUTION]
+> **A "flash" name does not imply a cheap model.** `gemini-3.7-flash` and `gemini-3.8-flash` list at **$1.50 / $7.50** per 1M tokens — *more* than `gemini-3.1-pro-preview` at $1.25 / $5.00. Never classify cost tier by substring-matching a model name; read `tier` from the rate card ([model_rate_card.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/config/model_rate_card.json)), which is the version-controlled source of truth for the `ai-model-rates` KVM and is published with [sync_rate_card.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/sync_rate_card.sh). A model entitled in a product but absent from the card is silently billed at the `default` rate.
+>
+> These are also **thinking models**: `usageMetadata.thoughtsTokenCount` is billed at the output rate but is *not* part of `candidatesTokenCount`. Billable completion is `candidates + thoughts`.
 
 ---
 

@@ -706,6 +706,40 @@ Token inputs fall back across providers:
 `flow.promptTokenCount || flow.claudePromptTokens`, and
 `flow.candidatesTokenCount || flow.claudeCandidatesTokens`.
 
+#### Thinking tokens count as output
+
+Reasoning models report a third bucket, `usageMetadata.thoughtsTokenCount`, which is **billed at
+the output rate** but is *not* included in `candidatesTokenCount`. The billable completion count
+is therefore `candidatesTokenCount + thoughtsTokenCount`.
+
+Measured on `gemini-3.7-flash` for the prompt *"Reply with exactly the word: ok"*:
+
+| | prompt | candidates | thoughts | total |
+| :--- | ---: | ---: | ---: | ---: |
+| Provider reported | 7 | 1 | **102** | 110 |
+| Billed before the fix | 7 | 1 | — | **8** |
+| Billed after the fix | 7 | **103** | *(folded in)* | **110** |
+
+Cost moved from `$0.000018` to `$0.000783` — the earlier figure accounted for 8 of the 110
+tokens actually consumed. The under-count propagated into `x-gateway-cost-usd`, the
+`QC-DeductBudget` wallet deduction, and the `dc_candidates_token_count` /
+`dc_total_token_count` analytics dimensions.
+
+`flow.totalTokenCount` prefers the provider's own reported total whenever it exceeds
+`prompt + completion`, so any future token category is captured even before it is broken out
+explicitly here.
+
+> [!NOTE]
+> This is not specific to the 3.7/3.8 models — it applies to every reasoning model. The fix is
+> generic; nothing keys off a model name.
+
+#### Cost tier
+
+`flow.costTier` is set by `AutoRouting.js`, but **only on the `/auto` path**. A direct
+`/models/{model}` call left it unresolved and `x-gateway-cost-tier` came back empty.
+`CalculateCost.js` now fills it when unset, deriving it from the resolved **output rate**
+(`>= 5.00` high, `<= 0.30` low, otherwise medium) rather than from the model name.
+
 Rate resolution is a cascade against the KVM rate card, then the same cascade
 again against the bundled property set:
 
@@ -714,6 +748,7 @@ again against the bundled property set:
 3. **KVM, prefix match** — against a fixed list
    ([CalculateCost.js#L35-L40](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L35-L40)):
    `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3-flash-preview`,
+   `gemini-3.7-flash`, `gemini-3.8-flash`,
    `gemini-3.1-pro-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`,
    `claude-opus-4-5`, `claude-opus`, `claude-haiku-4-5`.
 4. **KVM `default` key.**

@@ -1439,13 +1439,27 @@ const server = http.createServer(async (req, res) => {
         const userEmail = isUnauthenticated ? 'anonymous.caller@external.client' : rawUser;
         const model = isAbsent(rawModel) ? 'unknown-model' : rawModel;
 
-        const provider = model.includes('claude') ? 'Anthropic' : 'Google';
-        const tier = model.includes('pro') || model.includes('opus') ? 'high' : model.includes('flash-lite') ? 'low' : 'medium';
-
-        const rateKey = Object.keys(rates).find((k) => k !== 'default' && (model === k || model.startsWith(k) || k.startsWith(model)));
+        // Resolve the rate card entry first — it is the source of truth for BOTH price and
+        // cost tier. Longest key wins so 'claude-opus-4-5' beats a shorter prefix.
+        const rateKey = Object.keys(rates)
+          .filter((k) => k !== 'default' && (model === k || model.startsWith(k)))
+          .sort((a, b) => b.length - a.length)[0];
         const matchedRate = (rateKey ? rates[rateKey] : null) || rates[model] || rates['default'] || {};
-        const inRate = matchedRate.input ?? (tier === 'high' ? 1.25 : 0.15);
-        const outRate = matchedRate.output ?? (tier === 'high' ? 5.0 : 0.60);
+
+        // Tier comes from the rate card, NOT from the model name. Name-matching on
+        // 'pro'/'opus'/'flash-lite' silently mis-tiers models whose price does not match their
+        // name: gemini-3.7-flash and gemini-3.8-flash cost 1.50/7.50, more than
+        // gemini-3.1-pro-preview at 1.25/5.00, yet the old heuristic called them 'medium' and
+        // counted them as low-cost routing wins. Fall back to the band only for an unpriced model.
+        const tierFromRate = (out) => (out >= 5.0 ? 'high' : out <= 0.3 ? 'low' : 'medium');
+        const tier = matchedRate.tier
+          || (matchedRate.output !== undefined ? tierFromRate(Number(matchedRate.output)) : 'medium');
+        const provider = matchedRate.provider
+          ? (matchedRate.provider === 'anthropic' ? 'Anthropic' : 'Google')
+          : (model.includes('claude') ? 'Anthropic' : 'Google');
+
+        const inRate = matchedRate.input ?? 0.15;
+        const outRate = matchedRate.output ?? 0.60;
         const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
 
         totalTraffic += mc;
@@ -1633,13 +1647,14 @@ const server = http.createServer(async (req, res) => {
             const pt = Number(d.metrics?.find((m) => m.name === 'sum(dc_prompt_token_count)')?.values?.[0] || 0);
             const ct = Number(d.metrics?.find((m) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
 
-            const rateKey = Object.keys(monRates).find(
-              (k) => k !== 'default' && (model === k || model.startsWith(k) || k.startsWith(model))
-            );
+            // Longest matching key wins, and the fallback is the card's own 'default' rather
+            // than a guess keyed off the model name — 'flash' does not imply cheap here.
+            const rateKey = Object.keys(monRates)
+              .filter((k) => k !== 'default' && (model === k || model.startsWith(k)))
+              .sort((a, b) => b.length - a.length)[0];
             const matched = (rateKey ? monRates[rateKey] : null) || monRates[model] || monRates['default'] || {};
-            const isHigh = model.includes('pro') || model.includes('opus');
-            const inRate = matched.input ?? (isHigh ? 1.25 : 0.15);
-            const outRate = matched.output ?? (isHigh ? 5.0 : 0.60);
+            const inRate = matched.input ?? 0.15;
+            const outRate = matched.output ?? 0.60;
             const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
 
             const acc = statsByUser[email] || { calls: 0, tokens: 0, costUsd: 0 };
