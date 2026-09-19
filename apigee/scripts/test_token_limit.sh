@@ -30,7 +30,7 @@ if [ -z "$API_KEY" ]; then
 fi
 
 echo "=============================================================================="
-echo "⚡ APIGEE AI GATEWAY: LLM TOKEN RATE LIMIT TEST SUITE (100 TOKENS/MIN)"
+echo "⚡ AI GATEWAY: LLM TOKEN RATE LIMIT TEST SUITE (claude-haiku-4-5, 100 tokens/min)"
 echo "Target Endpoint: ${BASE_URL}"
 echo "User Email: ${USER_EMAIL}"
 echo "=============================================================================="
@@ -38,13 +38,20 @@ echo "==========================================================================
 # Test Case 1: Success Within Quota (<100 Tokens)
 echo ""
 echo "------------------------------------------------------------------------------"
-echo "TEST 1: Request Within Quota Limit (Model: gemini-2.5-flash, <100 Tokens)"
+echo "TEST 1: First call of the minute (Model: claude-haiku-4-5@20251001)"
 echo "------------------------------------------------------------------------------"
-RESPONSE1=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.5-flash:generateContent" \
+# The quota is EnforceOnly on the request path, so an empty counter always admits call 1 --
+# the block can only land on call 2, and only if call 1 alone overfills the 100-token window.
+# "What is an API gateway? Answer in 1 sentence." draws only ~58 tokens, which left the counter
+# under the limit and let call 2 through with a 200. Use the same prompt as TOKEN_LIMIT_EXAMPLES
+# step 1 in the UI, measured at 117 tokens.
+TEST1_PROMPT="Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words."
+
+RESPONSE1=$(curl -s -i -X POST "${BASE_URL}/models/claude-haiku-4-5@20251001:generateContent" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${USER_JWT}" \
   -H "x-apikey: ${API_KEY}" \
-  -d '{"contents":[{"role":"user","parts":[{"text":"What is an API gateway? Answer in 1 sentence."}]}]}')
+  -d "{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"${TEST1_PROMPT}\"}]}]}")
 
 HTTP_STATUS1=$(echo "$RESPONSE1" | head -n 1 | awk '{print $2}')
 echo "HTTP Status Code: ${HTTP_STATUS1}"
@@ -59,11 +66,11 @@ fi
 # Test Case 2: Exceeding Quota Limit (>100 Tokens -> HTTP 429)
 echo ""
 echo "------------------------------------------------------------------------------"
-echo "TEST 2: Exceeding Quota Limit (>100 Tokens/Min Rate Limit Interception)"
+echo "TEST 2: Second call in the same minute (window already consumed -> expect 429)"
 echo "------------------------------------------------------------------------------"
 LONG_PROMPT="Generate an exhaustive 2,500 word architectural breakdown and step-by-step implementation guide covering zero-trust API management, OAuth2 JWT token claim validation, mutual TLS client certificates, Apigee AI Gateway model routing heuristics, Model Armor perimeter guardrails, semantic caching with Vertex Vector Search, and prepaid monetization wallets across multi-region Kubernetes clusters."
 
-RESPONSE2=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.5-flash:generateContent" \
+RESPONSE2=$(curl -s -i -X POST "${BASE_URL}/models/claude-haiku-4-5@20251001:generateContent" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${USER_JWT}" \
   -H "x-apikey: ${API_KEY}" \
@@ -72,10 +79,14 @@ RESPONSE2=$(curl -s -i -X POST "${BASE_URL}/models/gemini-2.5-flash:generateCont
 HTTP_STATUS2=$(echo "$RESPONSE2" | head -n 1 | awk '{print $2}')
 echo "HTTP Status Code: ${HTTP_STATUS2}"
 
-if [ "$HTTP_STATUS2" == "429" ] || [ "$HTTP_STATUS2" == "500" ] || [[ "$RESPONSE2" == *"Quota"* ]] || [[ "$RESPONSE2" == *"Rate"* ]] || [[ "$RESPONSE2" == *"429"* ]]; then
-  echo "✅ TEST 2 PASSED: Intercepted rate limit violation correctly with HTTP ${HTTP_STATUS2} (429 Rate Limit Exceeded)."
+# Assert on the status line only. The previous condition also accepted HTTP 500, and
+# substring-matched "Rate"/"429"/"Quota" anywhere in the payload -- but the prompt itself is
+# about rate limiting, so a perfectly successful 200 whose generated text said "rate limiting"
+# would have been reported as a passing quota block.
+if [ "$HTTP_STATUS2" == "429" ]; then
+  echo "✅ TEST 2 PASSED: Quota enforced (HTTP 429)."
 else
-  echo "ℹ️ TEST 2 STATUS: Got HTTP ${HTTP_STATUS2}. Response summary:"
+  echo "❌ TEST 2 FAILED: Expected HTTP 429, got HTTP ${HTTP_STATUS2}."
   echo "$RESPONSE2" | head -n 20
 fi
 

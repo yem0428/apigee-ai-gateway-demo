@@ -386,7 +386,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       keyTier: 'admin',
       apiKey: USERS.admin.apiKey,
       useCache: false,
-      model: 'gemini-2.5-flash',
+      model: 'claude-haiku-4-5@20251001',
       omitEmailHeader: false,
     };
     setSettings((prev) => ({
@@ -395,7 +395,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       keyTier: 'admin',
       apiKey: USERS.admin.apiKey,
       useCache: false,
-      model: 'gemini-2.5-flash',
+      model: 'claude-haiku-4-5@20251001',
       omitEmailHeader: false,
     }));
     handleExecute(example.prompt, effectiveSettings);

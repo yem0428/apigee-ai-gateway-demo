@@ -108,21 +108,21 @@ dynamically from the API Product attached to the verified key:
 The inline `count="1000"` / `1` / `minute` values are fallback defaults only — the `*Ref` attributes win.
 `LTQ-TokenEnforce` enforces, `LTQ-TokenCount` counts, and both share the `common-counter` shared name.
 
-> [!WARNING]
-> **TODO**: Google Cloud is retiring Gemini 2.5 models across two phases beginning October 20, 2026. Prior to retirement, update all `gemini-2.5-flash` demo model references across API products, proxy flows (`LLMTokenLimitFlow`), and UI presets.
+> [!NOTE]
+> **Token-quota demo model: `claude-haiku-4-5@20251001`, 100 tokens/min on both AI tiers.**
+> It moved off `gemini-2.5-flash` ahead of that model's 2026-10-20 retirement. Claude hosts the
+> demo correctly because `JS-FormatClaudeResponse` synthesises `usageMetadata.totalTokenCount`
+> in the *target* response flow, before `LTQ-TokenCount` reads it in PostFlow — so the demo now
+> also proves token governance works across providers, not just on Google's response shape.
 >
-> The only **safe** target today is **`gemini-3.1-flash-lite`** — it is entitled by name in both
-> Standard and Enterprise AI Tier, priced in `model_rates.properties`, and present in the UI
-> `AVAILABLE_MODELS` dropdown.
+> `gemini-2.5-flash` remains entitled at each tier's normal ceiling until it retires. Remaining
+> references to it are documentation and analytics history, not the quota demo.
 >
-> `gemini-3.5-flash` is **unvalidated and must not be used as a drop-in**. It exists only as a price
-> key in [model_rates.properties](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties),
-> a cost-tier entry in `CalculateCost.js`, and a catalog entry in the `apigee-go-gen`
-> [values.yaml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/templates/ai-gateway/values.yaml).
-> It appears in **no API product**, **no proxy flow**, and **not** in `AVAILABLE_MODELS`. Before it
-> can be recommended it must be confirmed against the live `bap-apac-demo2` publisher catalog and
-> added by name to both AI products — four previously-referenced model IDs turned out not to exist
-> in this project at all.
+> `gemini-3.5-flash` was **removed** from the `ai-gateway-v1` bundle and the rate card: it was in
+> no API product, so it was unreachable and its price key could never be used. It is still a live
+> default inside the separate `apigee-go-gen` template set
+> ([_helpers.tmpl](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/templates/ai-gateway/_helpers.tmpl)
+> routing tiers and several JS resources), which was deliberately left alone.
 
 **`gemini-2.5-flash` is the deliberate token-limit demo model at 100 tokens / 1 minute.**
 Every other operation in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)

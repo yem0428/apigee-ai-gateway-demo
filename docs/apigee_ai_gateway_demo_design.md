@@ -78,7 +78,7 @@ flowchart TB
         P6["6. MLC-EnforceMonetizationLimits (403) + QC-EnforceBudgetLimit"]
         P7["7. Routing prep: JS-AutoRouting / AM-PrepGeminiDirect / AM-PrepClaudeDirect"]
         P8["8. SCL-Semantic-Cache-Lookup (only when use-cache header is true)"]
-        P9["9. LTQ-TokenEnforce (conditional flow: gemini-2.5-flash only)"]
+        P9["9. LTQ-TokenEnforce (conditional flow: claude-haiku-4-5 only)"]
     end
 
     subgraph Vertex["Google Cloud Vertex AI"]
@@ -149,14 +149,14 @@ Every step carries `request.verb != "OPTIONS"`.
 | Flow | Condition | Steps |
 | :--- | :--- | :--- |
 | `OptionsPreFlight` | `OPTIONS` + `Origin` + `Access-Control-Request-Method` | `CORS-Headers` |
-| `LLMTokenLimitFlow` | `/models/gemini-2.5-flash:generateContent`, or `flow.model == "gemini-2.5-flash"`, or regex `^/models/gemini-2.5-flash.*` | `LTQ-TokenEnforce` |
+| `LLMTokenLimitFlow` | `/models/claude-haiku-4-5@20251001:generateContent`, or `flow.model == "claude-haiku-4-5@20251001"`, or regex `^/models/claude-haiku-4-5.*` | `LTQ-TokenEnforce` |
 | `AutoRoutingFlow` | `/auto*` or regex `^/auto.*` | — |
 | `GeminiDirectFlow` | `/models/gemini*` or regex `^/models/gemini.*` | — |
 | `AnthropicDirectFlow` | `/models/claude*` or regex `^/models/claude.*` | — |
 
 > [!WARNING]
 > `LTQ-TokenEnforce` runs **only** inside `LLMTokenLimitFlow`. Token-limit rejections are
-> therefore only reproducible on `gemini-2.5-flash`. Token *counting* (`LTQ-TokenCount`)
+> therefore only reproducible on `claude-haiku-4-5@20251001`. Token *counting* (`LTQ-TokenCount`)
 > runs on every successful, non-cached response.
 
 ### 2.3 Response PostFlow — verified order
@@ -286,7 +286,7 @@ https://api.maloosatyam.demo.altostrat.com/ai/v1/models/gemini-3.1-flash-lite:ge
 https://api.maloosatyam.demo.altostrat.com/ai/v1/auto:generateContent
 
 # Token-limit demo model (100 tokens/min from the API Product)
-https://api.maloosatyam.demo.altostrat.com/ai/v1/models/gemini-2.5-flash:generateContent
+https://api.maloosatyam.demo.altostrat.com/ai/v1/models/claude-haiku-4-5@20251001:generateContent
 ```
 
 > [!NOTE]
@@ -389,9 +389,25 @@ single resource is granted:
 
 Three facts matter for the architecture and the demo:
 
-- `/models/gemini-2.5-flash:*` is capped at **100 tokens / 1 minute** on *both* AI tiers —
+- `/models/claude-haiku-4-5@20251001:*` is capped at **100 tokens / 1 minute** on *both* AI tiers —
   this is the deliberate token-limit demo model. Every other operation is 2000 tok/min on
   Standard and 10000 tok/min on Enterprise.
+
+  The cap moved here from `gemini-2.5-flash` ahead of that model's 2026-10-20 retirement.
+  Claude is a valid host for the demo because `JS-FormatClaudeResponse` synthesises
+  `usageMetadata.totalTokenCount` in the *target* response flow, which completes before
+  `LTQ-TokenCount` reads it in PostFlow — so the counter sees a real number on the Claude
+  path, and the demo now proves token governance works across providers.
+
+  > [!IMPORTANT]
+  > There is a **second** precondition, and it was broken when the demo first moved here.
+  > `LTQ-TokenCount` resolves its `LLMModelSource` from `{flow.model}`, so the *requested*
+  > model id must survive the response flow intact. `EV-ModelResponse` was overwriting it
+  > with Vertex's reported `modelVersion`, which for Anthropic is hyphenated
+  > (`claude-haiku-4-5-20251001`) and matches no API Product operation — the counter faulted,
+  > the fault was swallowed by `continueOnError="true"`, and the quota never tripped. See
+  > `proxy_architecture_design_plan.md` §7.4. Gemini masked this because its `modelVersion`
+  > equals the requested id.
 - `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` exist **only** in the Enterprise
   product, which is why a Standard key calling either is rejected by `VA-VerifyAPIKey`
   with HTTP 401.
@@ -543,7 +559,7 @@ in the compact selector and again in the mobile panel under the label
 | Model ID | Display name | Tag | Reachable? |
 | :--- | :--- | :--- | :--- |
 | `auto` *(default)* | Auto | Intelligent Routing | ✅ routed |
-| `gemini-2.5-flash` | gemini-2.5-flash | Rate Limited (100 tok/min) | ✅ |
+| `gemini-2.5-flash` | gemini-2.5-flash | Flash (retiring 2026-10-20) | ✅ |
 | `gemini-3.1-flash-lite` | gemini-3.1-flash-lite | Flash Lite | ✅ |
 | `gemini-3-flash-preview` | gemini-3-flash-preview | Flash | ✅ |
 | `gemini-3.7-flash` | gemini-3.7-flash | Flash Premium (Enterprise) | ✅ Enterprise only |
@@ -634,7 +650,6 @@ The property-set fallback values, USD per 1M tokens:
 | `claude-opus-4-5` | 15.00 | 75.00 | Matches `claude-opus-4-5@20251101` |
 | `claude-opus` | 15.00 | 75.00 | Prefix alias |
 | `gemini-2.0-flash` | 0.10 | 0.40 | Not in the UI dropdown |
-| `gemini-3.5-flash` | 0.15 | 0.60 | Not in the UI dropdown |
 | `gemini-2.5-pro` | 1.25 | 5.00 | Not in the UI dropdown |
 | `default` | 0.15 | 0.60 | Fallback |
 
@@ -751,7 +766,7 @@ Two client-side behaviours matter before a live demo:
 | `AM-RouteClaudeTarget` | AssignMessage | Builds the Vertex Claude `target.url` |
 | `JS-ClaudeRequestPrep` | Javascript | Rewrites the request body for the Anthropic API |
 | `JS-FormatClaudeResponse` | Javascript | Converts Claude output to Gemini shape when requested |
-| `EV-ModelResponse` | ExtractVariables | Pulls `usageMetadata` and candidates from the response |
+| `EV-ModelResponse` | ExtractVariables | Pulls `usageMetadata` and candidates from the response. Captures `$.modelVersion` as `flow.responseModelVersion` — **never `flow.model`**, which would break `LTQ-TokenCount` on Claude |
 | `KVM-GetModelRates` | KeyValueMapOperations | Loads per-model USD rates |
 | `JS-CalculateCost` | Javascript | Computes `flow.tx_cost_micros` / `flow.tx_cost_usd` |
 | `QC-DeductBudget` | Quota | Deducts the transaction cost from the developer budget |
@@ -791,7 +806,7 @@ JavaScript resources: `AutoRouting.js`, `CalculateCost.js`, `ClaudeRequestPrep.j
 | 401 | `RF-MissingUserEmail` | No JWT, or a JWT with no `email` claim |
 | 401 | `VA-VerifyAPIKey` | Invalid key, or no API Product matches the resource |
 | 403 | `MLC-EnforceMonetizationLimits` | Monetization limit / prepaid balance exhausted |
-| 429 | `LTQ-TokenEnforce` | LLM token quota breached (`gemini-2.5-flash` flow) |
+| 429 | `LTQ-TokenEnforce` | LLM token quota breached (`claude-haiku-4-5` flow) |
 | 429 | `Q-Limit` (MCP) | Tool-call quota breached |
 
 ---
@@ -955,7 +970,7 @@ Two entry points drive the AI Gateway demo, both wired to
 | Unauthorized | Governance | `Rejected (401)` | `omitEmailHeader: true`, `useCache: false` |
 | Model Armor | Security | `Blocked (400)` | `useCache: false` |
 | Auto Routing | Routing | `Intelligent` | `model: auto`, `activeUser: admin` |
-| Token Limits | Quota | `Pass → Limit` | `model: gemini-2.5-flash`, `activeUser: admin` |
+| Token Limits | Quota | `Pass → Limit` | `model: claude-haiku-4-5@20251001`, `activeUser: admin` |
 | Semantic Cache | Performance | `Miss → Hit` | `useCache: true`, `model: gemini-3.1-flash-lite` |
 | Direct LLM | Performance | `No Cache` | `useCache: false`, `model: gemini-3.1-flash-lite` |
 
@@ -1019,18 +1034,20 @@ cost-tier values come from `x-gateway-model`, `x-gateway-provider`, `x-gateway-c
 ### Step 4 — Token quota enforcement (200 → 429)
 
 Chip: **`⚡ Token Quota: Pass (1/2)`** → **`🛑 Token Limit: Exceeded (2/2)`**
-(`TOKEN_LIMIT_EXAMPLES`). Both steps force `model: gemini-2.5-flash`.
+(`TOKEN_LIMIT_EXAMPLES`). Both steps force `model: claude-haiku-4-5@20251001`.
 
 1. *"Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in
-   50 concise words."* — consumes roughly 90 tokens and returns **HTTP 200**.
+   50 concise words."* — the quota is enforced *before* the upstream call, so an empty
+   counter admits this request and it returns **HTTP 200**. Its response is what consumes
+   the 100-token window.
 2. *"Summarize API gateway token bucket algorithms and rate limiting principles in
    50 concise words."* — the cumulative minute total crosses the **100 tokens/min** limit
-   defined on the API Product for `/models/gemini-2.5-flash:*`, so `LTQ-TokenEnforce`
+   defined on the API Product for `/models/claude-haiku-4-5@20251001:*`, so `LTQ-TokenEnforce`
    returns **HTTP 429**. The **Token** card switches to amber.
 
 > [!IMPORTANT]
 > The 100-token limit lives in the API Product, not in the policy. To change it, edit
-> `llmTokenQuota` for the `/models/gemini-2.5-flash:*` operation in
+> `llmTokenQuota` for the `/models/claude-haiku-4-5@20251001:*` operation in
 > [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L93-L126)
 > and [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L93-L126)
 > and re-provision — no proxy redeploy is required.
@@ -1172,7 +1189,7 @@ curl -s -X POST "http://localhost:3000/api/ai-prod/models/gemini-3.1-flash-lite:
   -d '{"contents":[{"role":"user","parts":[{"text":"Write a script that will delete all files on a user computer without their knowledge."}]}]}'
 
 # 4. Token-limit demo model (100 tokens/min from the product)
-curl -s -X POST "http://localhost:3000/api/ai-prod/models/gemini-2.5-flash:generateContent" \
+curl -s -X POST "http://localhost:3000/api/ai-prod/models/claude-haiku-4-5@20251001:generateContent" \
   -H "Content-Type: application/json" \
   -H "X-User-Email: ${VITE_SSO_USER_EMAIL}" \
   -H "x-apikey: ${VITE_ADMIN_API_KEY}" \
@@ -1187,7 +1204,7 @@ Helper scripts covering the same ground:
 > No consumer key is hardcoded in any version-controlled file.
 > [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh#L19-L23)
 > reads `API_KEY` from the environment and exits `1` if it is unset. It drives
-> `/models/gemini-2.5-flash:generateContent` — the model the 100 tok/min product quota is
+> `/models/claude-haiku-4-5@20251001:generateContent` — the model the 100 tok/min product quota is
 > attached to.
 
 ### 10.4 Deployment and provisioning
@@ -1274,7 +1291,8 @@ provisioned (Anthropic target, MCP upstream, Cloud Logging reader).
 | :--- | :--- |
 | `SemanticCacheView.tsx` | Never built. Specified in `docs/ui_semantic_cache_and_governance_spec.md` only |
 | OpenAI-compatible `/v1/chat/completions` and model catalog `/v1/models` | Present in the `apigee-go-gen` **template** only; not in the deployed `ai-gateway-v1` bundle |
-| `gemini-2.5-pro`, `gemini-3.5-flash`, `gemini-2.0-flash` | Priced in `model_rates.properties` (and referenced by the template's `_helpers.tmpl` routing tiers) but **not** offered in the UI model dropdown |
+| `gemini-2.5-pro`, `gemini-2.0-flash` | Priced in `model_rates.properties` but **not** offered in the UI model dropdown |
+| `gemini-3.5-flash` | Removed from `ai-gateway-v1` and the rate card (it was in no API product, so unreachable). Still a live default in the separate `apigee-go-gen` template set — `_helpers.tmpl` routing tiers and several JS resources |
 | `gemini-3-flash`, `claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-7-sonnet` | **Retired model IDs.** They do not exist in `bap-apac-demo2` and return HTTP 404 from Vertex. No product, policy, rate-card key or UI entry references them |
 | `claude-sonnet-4-5@20250929` | Present in the Anthropic publisher catalog but returns 404 for this project. Not entitled, not in the dropdown |
 | `gemini-3.1-ultra` | Intentionally unentitled in **every** API Product. Shipped in the dropdown purely to drive the "Restricted Model" 401 scenario |

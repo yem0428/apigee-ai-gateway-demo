@@ -60,7 +60,7 @@ which `OAS-ValidateRequest` enforces.
 | :--- | :--- | :--- |
 | `POST /auto`, `POST /auto:generateContent` | `AutoRoutingFlow` | `JS-AutoRouting` picks model + provider from prompt heuristics and product tier |
 | `POST /models/gemini-*` | `GeminiDirectFlow` | `AM-PrepGeminiDirect` pins `flow.target_provider = google` |
-| `POST /models/gemini-2.5-flash*` | `LLMTokenLimitFlow` (+ `GeminiDirectFlow`) | Additionally runs `LTQ-TokenEnforce` — the token-limit demo path |
+| `POST /models/claude-haiku-4-5*` | `LLMTokenLimitFlow` (shadows the empty `AnthropicDirectFlow`) | Additionally runs `LTQ-TokenEnforce` — the token-limit demo path |
 | `POST /models/claude-*` | `AnthropicDirectFlow` | `AM-PrepClaudeDirect` pins `flow.target_provider = anthropic` |
 
 The OpenAPI spec additionally declares the `:streamGenerateContent` path shape so
@@ -498,11 +498,28 @@ flowchart LR
   C --> D["QC-DeductBudget (Weight = flow.tx_cost_micros)"]
 ```
 
-- `EV-ModelResponse` extracts `flow.model` (from `$.modelVersion`),
-  `flow.promptTokenCount`,
-  `flow.candidatesTokenCount`, `flow.totalTokenCount` (Gemini shape) **and**
-  `flow.claudePromptTokens` / `flow.claudeCandidatesTokens`
-  (`$.usage.input_tokens` / `$.usage.output_tokens`, Anthropic shape).
+- `EV-ModelResponse` extracts `flow.promptTokenCount`,
+  `flow.candidatesTokenCount`, `flow.totalTokenCount`, `flow.thoughtsTokenCount`
+  (Gemini shape) **and** `flow.claudePromptTokens` / `flow.claudeCandidatesTokens`
+  (`$.usage.input_tokens` / `$.usage.output_tokens`, Anthropic shape). It also
+  captures `$.modelVersion` — but into **`flow.responseModelVersion`, never
+  `flow.model`**.
+
+  > [!WARNING]
+  > This variable was originally named `model`, and with
+  > `<VariablePrefix>flow</VariablePrefix>` that silently overwrote `flow.model`
+  > (the *requested* model) with the provider's reported `modelVersion` part-way
+  > through the response flow. Vertex reports Anthropic models with a hyphen
+  > instead of the `@` revision separator, so a request for
+  > `claude-haiku-4-5@20251001` returned `claude-haiku-4-5-20251001`.
+  > `LTQ-TokenCount` resolves `LLMModelSource` from `{flow.model}`, so it looked
+  > up a model present in no API Product `operationConfig` and failed with
+  > `keymanagement.service.InvalidAPICallAsNoApiProductMatchFound`. Because that
+  > policy is `continueOnError="true"` the fault was swallowed: the counter never
+  > incremented and the 100 tok/min quota **never tripped**, no matter how many
+  > calls were made. Gemini masked the bug entirely, since its `modelVersion`
+  > equals the requested id. Do not reintroduce a response-flow variable named
+  > `model` under the `flow` prefix.
 - `KVM-GetModelRates` is a `KeyValueMapOperations` against the
   **environment-scoped** KVM `ai-model-rates`, reading key `rate_card` into
   `flow.model_rates_json`.
@@ -747,7 +764,7 @@ again against the bundled property set:
 2. **KVM, version-stripped** — `claude-opus-4-5@20251101` → `claude-opus-4-5`.
 3. **KVM, prefix match** — against a fixed list
    ([CalculateCost.js#L35-L40](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js#L35-L40)):
-   `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3-flash-preview`,
+   `gemini-3.1-flash-lite`, `gemini-3-flash-preview`,
    `gemini-3.7-flash`, `gemini-3.8-flash`,
    `gemini-3.1-pro-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`,
    `claude-opus-4-5`, `claude-opus`, `claude-haiku-4-5`.
@@ -781,7 +798,6 @@ From `model_rates.properties` (USD per 1M tokens):
 | `gemini-2.5-flash` | 0.30 | 2.50 |
 | `gemini-3.1-flash-lite` | 0.075 | 0.30 |
 | `gemini-3-flash-preview` | 0.15 | 0.60 |
-| `gemini-3.5-flash` | 0.15 | 0.60 |
 | `gemini-3.1-pro-preview` | 1.25 | 5.00 |
 | `gemini-2.5-pro` | 1.25 | 5.00 |
 | `claude-haiku-4-5` | 1.00 | 5.00 |

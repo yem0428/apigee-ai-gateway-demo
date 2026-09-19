@@ -50,7 +50,7 @@ if (kvmRatesJson) {
     // Fallback matching for known model prefixes
     if (inputRate === null) {
       var prefixes = [
-        "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite", "gemini-3-flash-preview",
         "gemini-3.7-flash", "gemini-3.8-flash",
         "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash",
         "claude-opus-4-5", "claude-opus",
@@ -88,7 +88,7 @@ if (inputRate === null || isNaN(inputRate)) {
 
   if (!inputRateStr) {
     var prefixes2 = [
-      "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview",
+      "gemini-3.1-flash-lite", "gemini-3-flash-preview",
       "gemini-3.7-flash", "gemini-3.8-flash",
       "gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash",
       "claude-opus-4-5", "claude-opus",

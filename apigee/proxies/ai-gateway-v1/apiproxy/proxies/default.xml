@@ -99,7 +99,12 @@
         </Step>
       </Request>
       <Response/>
-      <Condition>(proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash:generateContent") or (flow.model == "gemini-2.5-flash") or (proxy.pathsuffix JavaRegex "^/models/gemini-2.5-flash.*")</Condition>
+      <!-- Token-quota demo model. Moved off gemini-2.5-flash ahead of its 2026-10-20
+           retirement. Claude works here because JS-FormatClaudeResponse synthesises
+           usageMetadata.totalTokenCount in the TARGET response flow, which completes before
+           LTQ-TokenCount reads it in PostFlow. The third clause deliberately omits the
+           @date suffix so a future revision of the same model still matches. -->
+      <Condition>(proxy.pathsuffix MatchesPath "/models/claude-haiku-4-5@20251001:generateContent") or (flow.model == "claude-haiku-4-5@20251001") or (proxy.pathsuffix JavaRegex "^/models/claude-haiku-4-5.*")</Condition>
     </Flow>
     <Flow name="AutoRoutingFlow">
       <Description>Dedicated intelligent auto-routing flow</Description>

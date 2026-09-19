@@ -3,7 +3,26 @@
   <DisplayName>EV-ModelResponse</DisplayName>
   <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
   <JSONPayload>
-    <Variable name="model">
+    <!--
+      MUST NOT be named "model". With <VariablePrefix>flow</VariablePrefix> that wrote to
+      flow.model and overwrote the REQUESTED model with the provider's reported modelVersion
+      part-way through the response flow.
+
+      That silently broke the LLM token quota on the Claude path. Vertex reports Anthropic
+      models with a hyphen instead of the "@" revision separator, so a request for
+      "claude-haiku-4-5@20251001" comes back as modelVersion "claude-haiku-4-5-20251001".
+      LTQ-TokenCount resolves its LLMModelSource from {flow.model}, so it looked up a model
+      that appears in no API product operationConfig and failed with
+      keymanagement.service.InvalidAPICallAsNoApiProductMatchFound. Because that policy is
+      continueOnError="true" the fault was swallowed, the counter never incremented, and the
+      100 tok/min quota never tripped no matter how many calls were made.
+
+      Gemini masked the bug: its modelVersion equals the requested id, so the overwrite was a
+      no-op there. Nothing reads this value (x-gateway-model and dc_model_name both use
+      flow.target_model, and CalculateCost.js prefers it too), so it is kept only as a
+      diagnostic under a non-colliding name.
+    -->
+    <Variable name="responseModelVersion">
       <JSONPath>$.modelVersion</JSONPath>
     </Variable>
     <Variable name="promptTokenCount">
