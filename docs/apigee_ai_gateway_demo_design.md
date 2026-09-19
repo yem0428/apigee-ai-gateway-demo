@@ -551,7 +551,7 @@ clicking **Refresh Tools** replaces it with the live catalog.
 
 ### 6.1 Model dropdown
 
-Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L252-L265).
+Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L244-L262).
 Ten entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L389)
 in the compact selector and again in the mobile panel under the label
 **"Vertex AI Model"** ([Navbar.tsx#L675](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L675)).
@@ -566,7 +566,7 @@ in the compact selector and again in the mobile panel under the label
 | `gemini-3.8-flash` | gemini-3.8-flash | Flash Premium (Enterprise) | ✅ Enterprise only |
 | `gemini-3.1-pro-preview` | gemini-3.1-pro-preview | Pro Preview | ✅ Enterprise only |
 | `gemini-3.1-ultra` | gemini-3.1-ultra | Restricted (Not Entitled) | ❌ **by design** — 401 |
-| `claude-haiku-4-5@20251001` | claude-haiku-4-5@20251001 | Claude Haiku | ✅ |
+| `claude-haiku-4-5@20251001` | claude-haiku-4-5@20251001 | Rate Limited (100 tok/min) | ✅ **quota-demo model** |
 | `claude-opus-4-5@20251101` | claude-opus-4-5@20251101 | Claude Opus | ✅ Enterprise only |
 
 > [!NOTE]
