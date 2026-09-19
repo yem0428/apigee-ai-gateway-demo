@@ -178,6 +178,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       existing.inputTokens += row.inputTokens;
       existing.outputTokens += row.outputTokens;
       existing.costUsd += row.costUsd;
+      // undefined means "not recorded", so only produce a number when at least one side has one.
+      if (row.errorCount !== undefined || existing.errorCount !== undefined) {
+        existing.errorCount = (existing.errorCount ?? 0) + (row.errorCount ?? 0);
+      }
+      // A merged row is only synthetic if every contributing row was.
+      existing.isSynthetic = Boolean(existing.isSynthetic) && Boolean(row.isSynthetic);
       existing.isUnauthenticated = Boolean(existing.isUnauthenticated) && Boolean(row.isUnauthenticated);
     });
 
@@ -263,7 +269,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     };
   }, [viewMode, userFilter, currentUserEmail, attributions, userList]);
 
-  // Overall KPI card summary stats directly from Management API or computed for filtered View
+  // Overall KPI card summary stats directly from Management API or computed for filtered View.
+  //
+  // slaHealth / faultCount are `null` when the window genuinely has nothing to report, and the
+  // cards render an em dash. They must never fall back to a flattering literal: this panel
+  // previously hardcoded `slaHealth: 100, faultCount: 0` for every scoped view, so an individual
+  // user showed a perfect 100% while the fleet showed 54%, even while that same user was being
+  // blocked by Model Armor and token quotas.
   const aggregatedStats = useMemo(() => {
     if (viewMode === 'admin' && userFilter === 'all' && fleetData?.kpis) {
       return {
@@ -271,19 +283,34 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         totalTokens: formatTokens(fleetData.kpis.totalTokens),
         totalSpend: fleetData.kpis.totalSpendUsd.toFixed(2),
         cacheSavings: (fleetData.kpis.cacheCostSavingsUsd ?? 0).toFixed(2),
-        cacheHitRate: Math.round(fleetData.kpis.cacheHitRate || 29),
-        slaHealth: Math.round(fleetData.kpis.slaHealth ?? 99),
-        faultCount: fleetData.kpis.isErrorCount ?? 0,
+        cacheHitRate: fleetData.kpis.cacheHitRate == null ? null : Math.round(fleetData.kpis.cacheHitRate),
+        slaHealth: fleetData.kpis.slaHealth == null ? null : Math.round(fleetData.kpis.slaHealth),
+        faultCount: fleetData.kpis.isErrorCount ?? null,
       };
     }
     let calls = 0;
     let tokens = 0;
     let spend = 0;
+    // Counted separately from `calls`: synthetic wallet-reconciliation rows have no error signal,
+    // so including them in the denominator would dilute the rate towards a false 100%.
+    let measuredCalls = 0;
+    let errors = 0;
+    let hasErrorData = false;
+
     activeConsumptionRecords.forEach((r) => {
       calls += r.totalTraffic;
       tokens += r.inputTokens + r.outputTokens;
       spend += r.costUsd;
+
+      if (r.isSynthetic) return;
+      measuredCalls += r.totalTraffic;
+      if (r.errorCount !== undefined) {
+        hasErrorData = true;
+        errors += r.errorCount;
+      }
     });
+
+    const canReportSla = hasErrorData && measuredCalls > 0;
 
     return {
       totalCalls: calls.toLocaleString(),
@@ -291,8 +318,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       totalSpend: spend.toFixed(2),
       cacheSavings: (spend * 0.35).toFixed(2),
       cacheHitRate: calls > 0 ? 33 : 0,
-      slaHealth: 100,
-      faultCount: 0,
+      slaHealth: canReportSla ? Math.round((1 - errors / measuredCalls) * 100) : null,
+      faultCount: hasErrorData ? errors : null,
     };
   }, [viewMode, userFilter, fleetData, activeConsumptionRecords]);
 
@@ -603,20 +630,28 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <div className="p-3 sm:px-4 space-y-1">
               <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
                 <span>Request Success Rate</span>
-                <span title="Percentage of successful client requests (100% minus error rate) processed by the gateway">
+                <span title="Percentage of successful client requests (100% minus error rate) processed by the gateway. Shows an em dash when no error data was recorded for this scope and window.">
                   <Info className="w-3 h-3 text-slate-400 hover:text-purple-500 cursor-pointer" />
                 </span>
               </div>
               <div className="flex items-center gap-3 pt-1">
                 <div className="w-11 h-11 rounded-full bg-teal-50 dark:bg-teal-950/60 border-2 border-teal-500 flex items-center justify-center font-mono font-bold text-sm text-teal-600 dark:text-teal-400 shadow-xs">
-                  {Math.round(aggregatedStats.slaHealth)}%
+                  {aggregatedStats.slaHealth === null ? '—' : `${Math.round(aggregatedStats.slaHealth)}%`}
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {aggregatedStats.faultCount === 0 ? 'Optimal' : 'Errors Logged'}
+                    {aggregatedStats.faultCount === null
+                      ? 'No Error Data'
+                      : aggregatedStats.faultCount === 0
+                        ? 'Optimal'
+                        : 'Errors Logged'}
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {aggregatedStats.faultCount === 0 ? 'Zero Errors' : `${aggregatedStats.faultCount} Request Errors`}
+                    {aggregatedStats.faultCount === null
+                      ? 'Not recorded for this window'
+                      : aggregatedStats.faultCount === 0
+                        ? 'Zero Errors'
+                        : `${aggregatedStats.faultCount} Request Errors`}
                   </div>
                 </div>
               </div>
@@ -720,8 +755,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <span className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">
                   ${aggregatedStats.cacheSavings}
                 </span>
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
-                  {aggregatedStats.cacheHitRate}% Hits
+                {/* Marked "est." deliberately: this ratio is a fixed assumption, not a measured
+                    hit rate. There is no per-request cache-hit data collector yet. */}
+                <span
+                  className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0"
+                  title="Estimated from an assumed cache hit ratio, not measured per request."
+                >
+                  {aggregatedStats.cacheHitRate === null ? '—' : `~${aggregatedStats.cacheHitRate}%`} Hits (est.)
                 </span>
               </div>
               {/* Mini Area Sparkline */}

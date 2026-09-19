@@ -44,13 +44,33 @@ def list_tools():
     return {"tools": AVAILABLE_TOOLS}
 
 @app.post("/chat")
-async def chat_endpoint(req: ChatRequest, x_apikey: Optional[str] = Header(None)):
-    """Primary chat endpoint fronted by Apigee APIM."""
+async def chat_endpoint(
+    req: ChatRequest,
+    x_apikey: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None),
+    x_identity_token: Optional[str] = Header(None),
+):
+    """Primary chat endpoint fronted by Apigee APIM.
+
+    The caller's identity JWT is forwarded downstream to the AI Gateway, which resolves
+    `flow.emailId` from its `email` claim. Forwarding the real user's token — rather than
+    always using the service account's — is what makes the gateway's per-user ledger,
+    wallet and token quota attribute spend to the person who actually made the request.
+    """
+    # Accept either the standard Authorization header or the X-Identity-Token alias that
+    # EV-ExtractBearerToken also understands.
+    identity_token = None
+    if authorization:
+        identity_token = authorization[7:].strip() if authorization[:7].lower() == "bearer " else authorization.strip()
+    elif x_identity_token:
+        identity_token = x_identity_token.strip()
+
     try:
         result = await agent_instance.generate_response(
             user_message=req.message,
             history=req.history,
-            target_model=req.target_model
+            target_model=req.target_model,
+            identity_token=identity_token,
         )
         return result
     except Exception as e:

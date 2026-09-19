@@ -1289,8 +1289,10 @@ export default defineConfig(({ mode }) => {
             const apigeeTimeRange = getApigeeTimeRange(rangeParam);
 
             try {
-              // 1. Fetch DataCapture stats (user email & model breakdown)
-              const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
+              // 1. Fetch DataCapture stats (user email & model breakdown).
+              // sum(is_error) is selected here as well as fleet-wide: the proxy's DefaultFaultRule
+              // emits dc_user_email on faults, so blocked calls can be attributed to a caller.
+              const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(is_error),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
 
               // 2. Fetch Proxy stats (for overall SLA, latency, error count)
               const proxyStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/apiproxy?select=sum(message_count),sum(is_error),avg(total_response_time)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
@@ -1343,19 +1345,22 @@ export default defineConfig(({ mode }) => {
               let proCalls = 0;
 
               const consumptionRows: any[] = [];
+              let totalAttributedErrors = 0;
 
               for (const dim of rawDimensions) {
                 const rawUser = dim.individualNames?.[0] || dim.name?.split(',')[0] || '(not set)';
                 const rawModel = dim.individualNames?.[1] || dim.name?.split(',')[1] || '(not set)';
 
                 const mc = Number(dim.metrics?.find((m: any) => m.name === 'sum(message_count)')?.values?.[0] || 0);
+                const ec = Number(dim.metrics?.find((m: any) => m.name === 'sum(is_error)')?.values?.[0] || 0);
                 const pt = Number(dim.metrics?.find((m: any) => m.name === 'sum(dc_prompt_token_count)')?.values?.[0] || 0);
                 const ct = Number(dim.metrics?.find((m: any) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
 
                 if (mc <= 0) continue;
 
-                // Exclude probe/unauthorized proxy traffic (e.g. 401s, health checks) where no model was invoked and no tokens were captured
-                if ((rawModel === '(not set)' || !rawModel) && pt === 0 && ct === 0) {
+                // Exclude probe/health-check traffic where no model was invoked and no tokens were
+                // captured. A blocked call looks the same but has errors, so keep those.
+                if ((rawModel === '(not set)' || !rawModel) && pt === 0 && ct === 0 && ec === 0) {
                   continue;
                 }
 
@@ -1377,6 +1382,7 @@ export default defineConfig(({ mode }) => {
                 totalPromptTokens += pt;
                 totalCandidateTokens += ct;
                 totalCostUsd += cost;
+                totalAttributedErrors += ec;
 
                 if (tier === 'high') proCalls += mc;
                 else flashCalls += mc;
@@ -1387,17 +1393,20 @@ export default defineConfig(({ mode }) => {
                   provider,
                   tier,
                   totalTraffic: mc,
+                  errorCount: ec,
                   inputTokens: pt,
                   outputTokens: ct,
                   costUsd: Number(cost.toFixed(4)),
                   isUnauthenticated,
+                  isSynthetic: false,
                 });
               }
 
               consumptionRows.sort((a, b) => b.costUsd - a.costUsd || b.totalTraffic - a.totalTraffic);
 
               const totalCalls = totalTraffic;
-              const slaHealth = totalProxyCalls > 0 ? Math.round((1 - totalProxyErrors / totalProxyCalls) * 100) : 99;
+              // null, not 99: a "99% success rate" over zero traffic is a fabrication. The UI renders an em dash.
+              const slaHealth = totalProxyCalls > 0 ? Math.round((1 - totalProxyErrors / totalProxyCalls) * 100) : null;
               const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : 78.5;
 
               res.end(JSON.stringify({
@@ -1421,6 +1430,9 @@ export default defineConfig(({ mode }) => {
                   slaHealth,
                   avgLatencyMs,
                   isErrorCount: totalProxyErrors,
+                  // Errors carrying a dc_user_email, so they can be shown per user. Windows that
+                  // predate the DefaultFaultRule report 0 here while isErrorCount is non-zero.
+                  attributedErrorCount: totalAttributedErrors,
                 },
                 routing: {
                   flashCalls,

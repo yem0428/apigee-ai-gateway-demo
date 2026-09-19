@@ -11,6 +11,27 @@ const DIRECT_APIGEE_HOST = 'https://api.maloosatyam.demo.altostrat.com';
 // Which deployed environment the local reverse proxy should target: 'dev' or 'prod'.
 const TEST_ENV = process.env.TEST_ENV || 'prod';
 
+// The AI Gateway is JWT-only: `AM-SetUserEmailFromHeader` was removed, so `X-User-Email` is no
+// longer honoured there and a request carrying only that header gets a 401. These tests therefore
+// mint a local JWT for TEST_EMAIL. (The `mcp` proxy still accepts the email header - see P2.)
+//
+// The shape matters. Apigee's `DecodeJWT` never verifies the signature, but it does insist one is
+// syntactically present: `alg: none` with an empty third segment is rejected outright with 401.
+const b64url = (input) => Buffer.from(typeof input === 'string' ? input : JSON.stringify(input))
+  .toString('base64')
+  .replace(/\+/g, '-')
+  .replace(/\//g, '_')
+  .replace(/=+$/, '');
+
+function mintIdentityJwt(email) {
+  const header = b64url({ alg: 'RS256', typ: 'JWT' });
+  const payload = b64url({ email, sub: email, iat: Math.floor(Date.now() / 1000) });
+  const signature = b64url('dummysignature12345678901234567890');
+  return `${header}.${payload}.${signature}`;
+}
+
+const IDENTITY_JWT = mintIdentityJwt(TEST_EMAIL);
+
 let useLocalProxy = true;
 let vertexBaseUrl = '';
 let mcpBaseUrl = '';
@@ -136,12 +157,14 @@ describe('1. Local Auth & Identity Endpoint (/api/me)', () => {
     }
   });
 
-  it('🔒 Scenario: Apigee AI Gateway accepts gcloud SSO Bearer token without X-User-Email header', async (t) => {
+  it('🔒 Scenario: Apigee AI Gateway authenticates the caller from the gcloud SSO Bearer token', async (t) => {
     if (!ssoToken) {
       t.skip('No gcloud SSO token available in local environment');
       return;
     }
-    const targetUrl = `${vertexBaseUrl}/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent`;
+    // Rule 14: `/v1/projects/**` was removed from the proxy. `/models/{model}:generateContent`
+    // is one of only two remaining ingress paths.
+    const targetUrl = `${vertexBaseUrl}/models/gemini-3.1-flash-lite:generateContent`;
     const res = await fetchWithRetry(targetUrl, {
       method: 'POST',
       headers: {
@@ -170,7 +193,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [
@@ -205,7 +228,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [
@@ -231,7 +254,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [
@@ -252,7 +275,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [
@@ -267,13 +290,13 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     assert.strictEqual(res.status, 400, `Expected 400 Bad Request from Model Armor, got ${res.status}`);
   });
 
-  it('🔒 Scenario: Test Identity Check rejects request missing X-User-Email (HTTP 401 RF-MissingUserEmail)', async () => {
+  it('🔒 Scenario: Test Identity Check rejects request with no identity JWT (HTTP 401 RF-MissingUserEmail)', async () => {
     const res = await fetch(buildUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        // OMITTING X-User-Email to test Apigee zero-trust policy
+        // OMITTING Authorization entirely to test the zero-trust identity gate
       },
       body: JSON.stringify({
         contents: [
@@ -289,7 +312,10 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     const data = await res.json();
     assert.ok(data.error, 'Expected error object in 401 response');
     assert.strictEqual(data.error.code, 401);
-    assert.match(data.error.message, /Missing required.*(caller identity|X-User-Email)/i);
+    assert.match(data.error.message, /Missing required caller identity/i);
+    assert.match(data.error.message, /Bearer token in the Authorization header/i);
+    assert.doesNotMatch(data.error.message, /X-User-Email/i,
+      'The 401 must not advertise a header fallback that no longer exists');
   });
 
   it('🚫 Scenario: API Key Governance rejects unauthorized or invalid API key (HTTP 401 InvalidApiKey)', async () => {
@@ -298,7 +324,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': 'invalid-unauthorized-test-key-999',
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Hello Vertex AI' }] }],
@@ -316,7 +342,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         unsupported_field: 'missing_contents_schema',
@@ -334,7 +360,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
         'use-cache': 'true',
       },
       body: JSON.stringify({
@@ -362,7 +388,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
         'use-cache': 'true',
       },
       body: JSON.stringify({
@@ -391,7 +417,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
         'x-use-cache': 'true',
       },
       body: JSON.stringify({
@@ -411,7 +437,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
         'x-use-cache': 'true',
       },
       body: JSON.stringify({
@@ -433,7 +459,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Explain API gateway rate limiting in 20 concise words.' }] }],
@@ -457,7 +483,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Summarize API gateway token bucket algorithms and rate limiting principles in 50 concise words.' }] }],
@@ -485,7 +511,7 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Test unified routing for Claude models' }] }],
@@ -504,7 +530,7 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'X-User-Email': TEST_EMAIL,  // MCP gateway still accepts the email header - see P2
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -532,7 +558,7 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'X-User-Email': TEST_EMAIL,  // MCP gateway still accepts the email header - see P2
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -562,7 +588,7 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'X-User-Email': TEST_EMAIL,  // MCP gateway still accepts the email header - see P2
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -593,7 +619,7 @@ describe('4. Apigee AI Gateway - Intelligent Auto-Routing (/auto)', { concurrenc
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'What is 2 + 2?' }] }],
@@ -616,7 +642,7 @@ describe('4. Apigee AI Gateway - Intelligent Auto-Routing (/auto)', { concurrenc
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [
@@ -644,7 +670,7 @@ describe('4. Apigee AI Gateway - Intelligent Auto-Routing (/auto)', { concurrenc
       headers: {
         'Content-Type': 'application/json',
         'x-apikey': ADMIN_KEY,
-        'X-User-Email': TEST_EMAIL,
+        'Authorization': `Bearer ${IDENTITY_JWT}`,
       },
       body: JSON.stringify({
         contents: [

@@ -29,7 +29,13 @@ class DualPatternAgent:
         self.tools_gateway_url = settings.apigee_tools_gateway_url
         self.api_key = settings.apigee_api_key
 
-    async def generate_response(self, user_message: str, history: List[Dict[str, Any]] = None, target_model: str = settings.default_model) -> Dict[str, Any]:
+    async def generate_response(
+        self,
+        user_message: str,
+        history: List[Dict[str, Any]] = None,
+        target_model: str = settings.default_model,
+        identity_token: str = None,
+    ) -> Dict[str, Any]:
         start_time = time.time()
         tool_traces = []
         
@@ -46,16 +52,38 @@ class DualPatternAgent:
             "tools": [{"functionDeclarations": AVAILABLE_TOOLS}]
         }
 
+        # The AI Gateway resolves caller identity from a JWT only. `x-apikey` carries
+        # authorization (which API product, which models, which quota); the JWT carries
+        # *who* the caller is, and DJWT-ExtractUserIdentity -> AM-SetUserIdentity reads the
+        # `email` claim from it. Send only the key and RF-MissingUserEmail returns 401
+        # before the request ever reaches a model.
+        #
+        # Prefer the end user's own token, forwarded from the inbound request, so spend and
+        # quota are attributed to the real person rather than to the service account.
+        token = identity_token or settings.apigee_identity_token
+        ai_headers = {
+            "x-apikey": self.api_key,
+            "x-target-model": target_model,
+            "Content-Type": "application/json",
+        }
+        if token:
+            ai_headers["Authorization"] = f"Bearer {token}"
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             ai_res = await client.post(
                 f"{self.ai_gateway_url}/v1/models/{target_model}:generateContent",
-                headers={
-                    "x-apikey": self.api_key,
-                    "x-target-model": target_model,
-                    "Content-Type": "application/json"
-                },
+                headers=ai_headers,
                 json=ai_payload
             )
+
+            if ai_res.status_code == 401 and not token:
+                # Surface the actual cause instead of letting this fall through as an
+                # opaque 500 from the JSON decode below.
+                raise RuntimeError(
+                    "AI Gateway returned 401: no caller identity was supplied. Forward the "
+                    "user's Authorization/X-Identity-Token header to /chat, or set "
+                    "APIGEE_IDENTITY_TOKEN for headless runs."
+                )
             
             gateway_headers = {
                 "x-gateway-model": ai_res.headers.get("x-gateway-model", target_model),

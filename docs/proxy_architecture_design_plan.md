@@ -89,26 +89,25 @@ condition. The extra conditions listed below are the per-step remainder.
 | 4 | `EV-ExtractBearerToken` | — |
 | 5 | `DJWT-ExtractUserIdentity` | `flow.rawToken != null` |
 | 6 | `AM-SetUserIdentity` | `jwt.DJWT-ExtractUserIdentity.decoded.claim.email != null` **or** `jwt.DJWT-ExtractUserIdentity.claim.email != null` |
-| 7 | `AM-SetUserEmailFromHeader` | `flow.emailId = null and request.header.x-user-email != null` |
-| 8 | `RF-MissingUserEmail` | `flow.emailId = null` → raises **HTTP 401** |
-| 9 | `JS-ExtractPromptAndModel` | — |
-| 10 | `VA-VerifyAPIKey` | — |
-| 11 | `SUP-UserPrompt` | `flow.userPrompt != null and flow.userPrompt != ""` |
-| 12 | `MLC-EnforceMonetizationLimits` | — |
-| 13 | `QC-EnforceBudgetLimit` | — |
-| 14 | `AM-RemoveAuthorization` | — |
-| 15 | `AM-InitCacheStatus` | — |
-| 16 | `JS-AutoRouting` | `proxy.pathsuffix MatchesPath "/auto*"` or `JavaRegex "^/auto.*"` |
-| 17 | `AM-PrepGeminiDirect` | `/models/gemini*` or `JavaRegex "^/models/gemini.*"` |
-| 18 | `AM-PrepClaudeDirect` | `/models/claude*` or `JavaRegex "^/models/claude.*"` |
-| 19 | `AM-SetCacheHitExpected` | `use-cache` **or** `x-use-cache` header is `true` |
-| 20 | `SCL-Semantic-Cache-Lookup` | same cache-header condition as #19 |
+| 7 | `RF-MissingUserEmail` | `flow.emailId = null` → raises **HTTP 401** |
+| 8 | `JS-ExtractPromptAndModel` | — |
+| 9 | `VA-VerifyAPIKey` | — |
+| 10 | `SUP-UserPrompt` | `flow.userPrompt != null and flow.userPrompt != ""` |
+| 11 | `MLC-EnforceMonetizationLimits` | — |
+| 12 | `QC-EnforceBudgetLimit` | — |
+| 13 | `AM-RemoveAuthorization` | — |
+| 14 | `AM-InitCacheStatus` | — |
+| 15 | `JS-AutoRouting` | `proxy.pathsuffix MatchesPath "/auto*"` or `JavaRegex "^/auto.*"` |
+| 16 | `AM-PrepGeminiDirect` | `/models/gemini*` or `JavaRegex "^/models/gemini.*"` |
+| 17 | `AM-PrepClaudeDirect` | `/models/claude*` or `JavaRegex "^/models/claude.*"` |
+| 18 | `AM-SetCacheHitExpected` | `use-cache` **or** `x-use-cache` header is `true` |
+| 19 | `SCL-Semantic-Cache-Lookup` | same cache-header condition as #18 |
 
 > [!IMPORTANT]
 > Two ordering facts are load-bearing:
-> **identity resolution (steps 4–8) completes before `VA-VerifyAPIKey` (step 10)**,
-> and **`VA-VerifyAPIKey` (step 10) runs before Model Armor `SUP-UserPrompt`
-> (step 11)**. A caller is therefore identified and authorised *before* any
+> **identity resolution (steps 4–7) completes before `VA-VerifyAPIKey` (step 9)**,
+> and **`VA-VerifyAPIKey` (step 9) runs before Model Armor `SUP-UserPrompt`
+> (step 10)**. A caller is therefore identified and authorised *before* any
 > content inspection happens, and a rejected caller is turned away before any
 > monetization, budget, or token counter is touched.
 
@@ -118,7 +117,7 @@ condition. The extra conditions listed below are the per-step remainder.
 > means an unauthenticated or unentitled caller can no longer drive a billable
 > external Model Armor evaluation — the request is rejected at the key check.
 > The practical consequence for demos: a call to a model the product does not
-> entitle now returns **401 at step 10** regardless of prompt content, whereas
+> entitle now returns **401 at step 9** regardless of prompt content, whereas
 > previously a malicious prompt on an unentitled model would surface **400**
 > from Model Armor instead.
 
@@ -131,13 +130,15 @@ condition. The extra conditions listed below are the per-step remainder.
    It **decodes only — it does not verify the signature**.
 3. `AM-SetUserIdentity` assigns `flow.emailId` and `flow.userEmail` from the
    `email` claim, trying both the `decoded.claim.email` and `claim.email` forms.
-4. `AM-SetUserEmailFromHeader` is the fallback: it copies the
-   `X-User-Email` request header into `flow.emailId` / `flow.userEmail`.
-5. `RF-MissingUserEmail` returns 401 `UNAUTHENTICATED` if identity is still unset.
+4. `RF-MissingUserEmail` returns 401 `UNAUTHENTICATED` if identity is still unset.
+
+> [!NOTE]
+> There is **no `X-User-Email` header fallback**. The `AM-SetUserEmailFromHeader`
+> policy was removed: the JWT is now the only accepted source of caller identity,
+> and a request bearing only `X-User-Email` is rejected with 401.
 
 > [!WARNING]
-> Because `DecodeJWT` does not validate signatures and the `X-User-Email`
-> header fallback is accepted unconditionally, `flow.emailId` is an
+> `DecodeJWT` does not validate signatures, so `flow.emailId` remains an
 > **attribution** value, not an authenticated principal. Authorization is
 > carried by `x-apikey` via `VA-VerifyAPIKey`.
 
@@ -504,7 +505,23 @@ flowchart LR
 - `DC-ModelAnalytics` (`DataCapture`) writes data collectors `dc_user_email`,
   `dc_model_name`, `dc_candidates_token_count`, `dc_prompt_token_count`,
   `dc_total_token_count`, plus monetization-scoped `perUnitPriceMultiplier`,
-  `currency`, `transactionSuccess`.
+  `currency`, `transactionSuccess`. It runs in the **response flow**, so it only
+  fires for requests that actually reached a model.
+- `DC-FaultAnalytics` (`DataCapture`) is its fault-path twin, invoked from the
+  proxy's `DefaultFaultRule`. It writes only `dc_user_email` and `dc_model_name`.
+  Faults bypass the response flow entirely, so without it a blocked request was
+  counted in the fleet-wide `sum(is_error)` but attributed to no caller — which
+  made every per-user success rate report a false 100%.
+
+  > [!IMPORTANT]
+  > It deliberately omits the three `scope="monetization"` collectors.
+  > `transactionSuccess` defaults to `true`, so reusing `DC-ModelAnalytics` here
+  > would have recorded a successful billable transaction for a request that was
+  > never served. It also omits token counts, which do not exist on a fault.
+
+  `flow.emailId` is assigned in PreFlow ahead of Model Armor, the LLM token quota
+  and the budget check, so it is populated for every fault except the
+  missing-identity 401 itself — that one correctly stays unattributed.
 - `ML-CloudLogging` writes a structured JSON record to
   `projects/{organization.name}/logs/apigee` in `PostClientFlow`, including
   `userEmail`, `model`, `targetProvider`, `autoRouted`, `cached`, `costUsd`,
@@ -766,42 +783,42 @@ Complete and exhaustive. Verified against both the policy directory and the
 
 | # | Policy | Type | Where it runs | Purpose |
 | ---: | :--- | :--- | :--- | :--- |
-| 1 | `AM-InitCacheStatus` | AssignMessage | PreFlow 15 | `flow.cached=false`, `flow.cacheStatus=DISABLED`, `flow.autoRouted=false` |
-| 2 | `AM-PrepClaudeDirect` | AssignMessage | PreFlow 18 | `target_provider=anthropic`, model from `flow.model`, adds `anthropic_version` |
-| 3 | `AM-PrepGeminiDirect` | AssignMessage | PreFlow 17 | `target_provider=google`, model from `flow.model` |
-| 4 | `AM-RemoveAuthorization` | AssignMessage | PreFlow 14 | Strips `x-apikey`, `Authorization`, `X-Identity-Token`, `X-User-Email` |
+| 1 | `AM-InitCacheStatus` | AssignMessage | PreFlow 14 | `flow.cached=false`, `flow.cacheStatus=DISABLED`, `flow.autoRouted=false` |
+| 2 | `AM-PrepClaudeDirect` | AssignMessage | PreFlow 17 | `target_provider=anthropic`, model from `flow.model`, adds `anthropic_version` |
+| 3 | `AM-PrepGeminiDirect` | AssignMessage | PreFlow 16 | `target_provider=google`, model from `flow.model` |
+| 4 | `AM-RemoveAuthorization` | AssignMessage | PreFlow 13 | Strips `x-apikey`, `Authorization`, `X-Identity-Token`, `X-User-Email` |
 | 5 | `AM-RouteClaudeTarget` | AssignMessage | Claude target PreFlow | Builds `:rawPredict` URL, sets `anthropic_version` |
 | 6 | `AM-RouteGeminiTarget` | AssignMessage | Gemini target PreFlow | Builds `:generateContent` URL |
-| 7 | `AM-SetCacheHitExpected` | AssignMessage | PreFlow 19 | `flow.cached=true`, `cacheStatus=HIT`, `tx_cost_usd=0.000000` |
+| 7 | `AM-SetCacheHitExpected` | AssignMessage | PreFlow 18 | `flow.cached=true`, `cacheStatus=HIT`, `tx_cost_usd=0.000000` |
 | 8 | `AM-SetCacheMiss` | AssignMessage | Both target PreFlows | `flow.cached=false`, `cacheStatus=MISS` |
 | 9 | `AM-SetResponseHeaders` | AssignMessage | PostFlow resp 9 | 15 `x-gateway-*` / `x-auto-routed` headers |
-| 10 | `AM-SetUserEmailFromHeader` | AssignMessage | PreFlow 7 | `X-User-Email` → `flow.emailId` fallback |
-| 11 | `AM-SetUserIdentity` | AssignMessage | PreFlow 6 | JWT `email` claim → `flow.emailId` |
-| 12 | `CORS-Headers` | CORS | PreFlow 1, PostFlow req, `OptionsPreFlight` | CORS + preflight generation |
-| 13 | `DC-ModelAnalytics` | DataCapture | PostFlow resp 6 | Analytics + monetization data collectors |
+| 10 | `AM-SetUserIdentity` | AssignMessage | PreFlow 6 | JWT `email` claim → `flow.emailId` |
+| 11 | `CORS-Headers` | CORS | PreFlow 1, PostFlow req, `OptionsPreFlight` | CORS + preflight generation |
+| 12 | `DC-FaultAnalytics` | DataCapture | `DefaultFaultRule` | `dc_user_email` + `dc_model_name` on blocked calls; no monetization scope |
+| 13 | `DC-ModelAnalytics` | DataCapture | PostFlow resp 6 | Analytics + monetization data collectors (success path only) |
 | 14 | `DJWT-ExtractUserIdentity` | DecodeJWT | PreFlow 5 | Decodes `flow.rawToken` (no signature check) |
 | 15 | `EV-ExtractBearerToken` | ExtractVariables | PreFlow 4 | `flow.rawToken` from `Authorization` / `X-Identity-Token` |
 | 16 | `EV-ModelResponse` | ExtractVariables | PostFlow resp 1 | Gemini + Anthropic token counts, `modelVersion` |
 | 17 | `EV-RequestDetails` | ExtractVariables | PreFlow 3 | `flow.model` from URI patterns, `flow.payloadModel` from `$.model` |
-| 18 | `JS-AutoRouting` | Javascript | PreFlow 16 | `AutoRouting.js` |
+| 18 | `JS-AutoRouting` | Javascript | PreFlow 15 | `AutoRouting.js` |
 | 19 | `JS-CalculateCost` | Javascript | PostFlow resp 3 | `CalculateCost.js` |
 | 20 | `JS-ClaudeRequestPrep` | Javascript | Claude target PreFlow | `ClaudeRequestPrep.js` |
-| 21 | `JS-ExtractPromptAndModel` | Javascript | PreFlow 9 | `ExtractPromptAndModel.js` |
+| 21 | `JS-ExtractPromptAndModel` | Javascript | PreFlow 8 | `ExtractPromptAndModel.js` |
 | 22 | `JS-FormatClaudeResponse` | Javascript | Claude target PreFlow resp | `FormatClaudeResponse.js` |
 | 23 | `KVM-GetModelRates` | KeyValueMapOperations | PostFlow resp 2 | KVM `ai-model-rates` key `rate_card` |
 | 24 | `LTQ-TokenCount` | LLMTokenQuota | PostFlow resp 5 | `CountOnly`, shares `common-counter` |
 | 25 | `LTQ-TokenEnforce` | LLMTokenQuota | `LLMTokenLimitFlow` | `EnforceOnly`, shares `common-counter` |
 | 26 | `ML-CloudLogging` | MessageLogging | PostClientFlow | Structured Cloud Logging record, incl. `prompt` / `response` / `cached`; fires on faults too |
-| 27 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | PreFlow 12 | 403 on rate-plan / prepaid-wallet exhaustion |
+| 27 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | PreFlow 11 | 403 on rate-plan / prepaid-wallet exhaustion |
 | 28 | `OAS-ValidateRequest` | OASValidation | PreFlow 2 | Validates against `oas://openapi.yaml` |
 | 29 | `QC-DeductBudget` | Quota | PostFlow resp 4 | Deducts `flow.tx_cost_micros` |
-| 30 | `QC-EnforceBudgetLimit` | Quota | PreFlow 13 | Pre-call dollar budget check |
-| 31 | `RF-MissingUserEmail` | RaiseFault | PreFlow 8 | 401 `UNAUTHENTICATED` |
-| 32 | `SCL-Semantic-Cache-Lookup` | SemanticCacheLookup | PreFlow 20 | Vector Search lookup, threshold 0.95 |
+| 30 | `QC-EnforceBudgetLimit` | Quota | PreFlow 12 | Pre-call dollar budget check |
+| 31 | `RF-MissingUserEmail` | RaiseFault | PreFlow 7 | 401 `UNAUTHENTICATED` |
+| 32 | `SCL-Semantic-Cache-Lookup` | SemanticCacheLookup | PreFlow 19 | Vector Search lookup, threshold 0.95 |
 | 33 | `SCP-Semantic-Cache-Populate` | SemanticCachePopulate | PostFlow resp 7 | Upsert datapoints, TTL 600 s |
 | 34 | `SMR-SanitizeModelResponse` | SanitizeModelResponse | PostFlow resp 8 | Model Armor response inspection |
-| 35 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 11 | Model Armor prompt guardrails |
-| 36 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 10 | Validates `request.header.x-apikey` |
+| 35 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 10 | Model Armor prompt guardrails |
+| 36 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 9 | Validates `request.header.x-apikey` |
 
 > [!WARNING]
 > The following policies were described in earlier revisions of this document

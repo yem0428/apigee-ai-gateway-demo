@@ -399,6 +399,37 @@ query string preserved. Anything else falls through to static file serving.
 > filter updating the ledger title, model dropdown and KPI cards while leaving other users' rows
 > visibly stranded in the table.
 
+### Request Success Rate — how it is derived per scope
+
+| Scope | Numerator source | Denominator |
+| :--- | :--- | :--- |
+| Admin · All Users | `kpis.isErrorCount` — `sum(is_error)` on the `apiproxy` dimension | `kpis.totalCalls` (server computes `kpis.slaHealth`) |
+| Admin · single user | `errorCount` summed over that user's `consumptionRows` | `totalTraffic` of the same rows, **excluding `isSynthetic`** |
+| User view | same, scoped to the signed-in email | same |
+
+Per-user error data only exists because the proxy's `DefaultFaultRule` runs `DC-FaultAnalytics`,
+which emits `dc_user_email` on the fault path. The server selects `sum(is_error)` on the
+`dc_user_email,dc_model_name` dimension and returns it as `errorCount` on each row, plus
+`kpis.attributedErrorCount` as the total.
+
+> [!WARNING]
+> Two failure modes this design exists to prevent:
+>
+> 1. **Never substitute a flattering default.** `slaHealth` and `faultCount` are `null` when the
+>    scope has no error data, and the card renders an em dash with "Not recorded for this window".
+>    The panel previously hardcoded `slaHealth: 100, faultCount: 0` for every non-fleet view, so an
+>    individual user displayed a perfect 100% while the fleet displayed 54% — and deliberately
+>    triggering Model Armor or a token-limit block changed nothing.
+> 2. **Synthetic rows must stay out of the denominator.** Wallet-reconciliation rows
+>    (`isSynthetic: true`) are reconstructed from balance drift and carry no error signal. Counting
+>    their `totalTraffic` would drag any computed rate back toward a false 100%.
+
+> [!NOTE]
+> `cacheHitRate` and `cacheCostSavingsUsd` are **still assumptions**, not measurements — a fixed
+> ratio applied to spend. They are labelled `~N% Hits (est.)` in the UI with an explanatory
+> tooltip. Deriving them for real needs a per-request cache-hit data collector, which does not
+> exist yet.
+
 > [!NOTE]
 > The **Model Split Across Catalog** card shows every model with `cost > 0` in the Spend ($) view,
 > formatting sub-cent values with four decimals. It previously required `cost >= 0.01`, which

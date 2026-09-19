@@ -64,9 +64,19 @@ Claude Vertex target at route time.
   `projects/bap-apac-demo2/locations/asia-southeast1/templates/apigee-sanitize-user-prompt`.
 - **Response sanitization** — `SMR-SanitizeModelResponse` runs on successful non-passthrough responses.
 - **Identity first** — the request PreFlow resolves identity from a Bearer JWT
-  (`DJWT-ExtractUserIdentity` → `AM-SetUserIdentity`), falls back to the `X-User-Email` header
-  (`AM-SetUserEmailFromHeader`), and raises `RF-MissingUserEmail` → **HTTP 401** if neither resolves.
+  (`DJWT-ExtractUserIdentity` → `AM-SetUserIdentity`) and raises `RF-MissingUserEmail` →
+  **HTTP 401** if no `email` claim resolves. The JWT is the **only** accepted source: there is no
+  `X-User-Email` header fallback, and a request bearing only that header is rejected.
 - **API key verification** — `VA-VerifyAPIKey` runs *after* identity resolution and *before* Model Armor.
+- **Blocked calls stay attributable** — the proxy's `DefaultFaultRule` runs `DC-FaultAnalytics`,
+  re-emitting `dc_user_email` and `dc_model_name` on the fault path. Without it, faults skip the
+  response flow and a blocked request would be counted fleet-wide but belong to no caller.
+
+Anything calling the AI Gateway must send **both** an `x-apikey` *and* an identity JWT. The key
+authorises (product, models, quota); the JWT identifies (`email` claim). The
+[`agents/`](file:///Users/maloosatyam/Codebase/AI%20Code/agents/) ADK service forwards the end
+user's own token from the inbound `/chat` request so ledger, wallet and token-quota spend are
+attributed to the real person, and falls back to `APIGEE_IDENTITY_TOKEN` for headless runs.
 
 > [!IMPORTANT]
 > API key verification executes **before** Model Armor in the PreFlow. A request that fails key

@@ -1349,7 +1349,9 @@ const server = http.createServer(async (req, res) => {
     const apigeeTimeRange = getApigeeTimeRange(rangeParam);
 
     try {
-      const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
+      // sum(is_error) is selected per user/model too, not just fleet-wide: faults now emit
+      // dc_user_email via the proxy's DefaultFaultRule, so blocked calls can be attributed.
+      const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(is_error),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
       const proxyStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/apiproxy?select=sum(message_count),sum(is_error),avg(total_response_time)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
       const kvmUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/ai-model-rates/entries/rate_card`;
 
@@ -1395,17 +1397,21 @@ const server = http.createServer(async (req, res) => {
       let proCalls = 0;
 
       const consumptionRows = [];
+      let totalAttributedErrors = 0;
 
       for (const dim of rawDimensions) {
         const rawUser = dim.individualNames?.[0] || dim.name?.split(',')[0] || '(not set)';
         const rawModel = dim.individualNames?.[1] || dim.name?.split(',')[1] || '(not set)';
 
         const mc = Number(dim.metrics?.find((m) => m.name === 'sum(message_count)')?.values?.[0] || 0);
+        const ec = Number(dim.metrics?.find((m) => m.name === 'sum(is_error)')?.values?.[0] || 0);
         const pt = Number(dim.metrics?.find((m) => m.name === 'sum(dc_prompt_token_count)')?.values?.[0] || 0);
         const ct = Number(dim.metrics?.find((m) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
 
         if (mc <= 0) continue;
-        if ((rawModel === '(not set)' || !rawModel) && pt === 0 && ct === 0) continue;
+        // A blocked call legitimately has no model and no tokens. Only drop the row when it also
+        // has no errors, otherwise this guard would silently discard the very data we just added.
+        if ((rawModel === '(not set)' || !rawModel) && pt === 0 && ct === 0 && ec === 0) continue;
 
         const isUnauthenticated = rawUser === '(not set)' || !rawUser;
         const userEmail = isUnauthenticated ? 'anonymous.caller@external.client' : rawUser;
@@ -1424,6 +1430,7 @@ const server = http.createServer(async (req, res) => {
         totalPromptTokens += pt;
         totalCandidateTokens += ct;
         totalCostUsd += cost;
+        totalAttributedErrors += ec;
 
         if (tier === 'high') proCalls += mc;
         else flashCalls += mc;
@@ -1434,10 +1441,12 @@ const server = http.createServer(async (req, res) => {
           provider,
           tier,
           totalTraffic: mc,
+          errorCount: ec,
           inputTokens: pt,
           outputTokens: ct,
           costUsd: Number(cost.toFixed(4)),
           isUnauthenticated,
+          isSynthetic: false,
         });
       }
 
@@ -1482,16 +1491,21 @@ const server = http.createServer(async (req, res) => {
                       totalCostUsd += unindexedSpend;
                       flashCalls += Math.ceil(synthCalls * 0.6);
                       proCalls += Math.floor(synthCalls * 0.4);
+                      // These two rows are reconstructed from wallet-balance drift, not from
+                      // analytics. They carry no error signal, so isSynthetic lets the UI keep
+                      // them out of any success-rate denominator.
                       consumptionRows.push({
                         userEmail: email,
                         model: 'gemini-2.5-flash',
                         provider: 'Google',
                         tier: 'medium',
                         totalTraffic: Math.ceil(synthCalls * 0.6),
+                        errorCount: 0,
                         inputTokens: Math.round(inTok * 0.6),
                         outputTokens: Math.round(outTok * 0.6),
                         costUsd: Number((unindexedSpend * 0.45).toFixed(4)),
                         isUnauthenticated: false,
+                        isSynthetic: true,
                       });
                       consumptionRows.push({
                         userEmail: email,
@@ -1499,10 +1513,12 @@ const server = http.createServer(async (req, res) => {
                         provider: 'Google',
                         tier: 'high',
                         totalTraffic: Math.max(1, Math.floor(synthCalls * 0.4)),
+                        errorCount: 0,
                         inputTokens: Math.round(inTok * 0.4),
                         outputTokens: Math.round(outTok * 0.4),
                         costUsd: Number((unindexedSpend * 0.55).toFixed(4)),
                         isUnauthenticated: false,
+                        isSynthetic: true,
                       });
                     }
                   }
@@ -1516,7 +1532,8 @@ const server = http.createServer(async (req, res) => {
       consumptionRows.sort((a, b) => b.costUsd - a.costUsd || b.totalTraffic - a.totalTraffic);
 
       const totalCalls = totalTraffic;
-      const slaHealth = totalProxyCalls > 0 ? Math.round((1 - totalProxyErrors / totalProxyCalls) * 100) : 99;
+      // null, not 99: a "99% success rate" over zero traffic is a fabrication. The UI renders an em dash.
+      const slaHealth = totalProxyCalls > 0 ? Math.round((1 - totalProxyErrors / totalProxyCalls) * 100) : null;
       const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : 78.5;
 
       res.end(JSON.stringify({
@@ -1540,6 +1557,9 @@ const server = http.createServer(async (req, res) => {
           slaHealth,
           avgLatencyMs,
           isErrorCount: totalProxyErrors,
+          // Errors that carry a dc_user_email and can therefore be shown per user. Windows that
+          // predate the DefaultFaultRule will report 0 here while isErrorCount is non-zero.
+          attributedErrorCount: totalAttributedErrors,
         },
         routing: {
           flashCalls,

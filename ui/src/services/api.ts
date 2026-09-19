@@ -176,9 +176,16 @@ export interface FleetAnalyticsResponse {
     totalSpendUsd: number;
     cacheCostSavingsUsd: number;
     cacheHitRate: number;
-    slaHealth: number;
+    /** `null` when the window had no traffic at all — do not substitute a default. */
+    slaHealth: number | null;
     avgLatencyMs: number;
     isErrorCount: number;
+    /**
+     * Subset of `isErrorCount` that carries a `dc_user_email` and can therefore be broken down
+     * per user. Reports 0 for time windows recorded before the proxy's `DefaultFaultRule` was
+     * added, even when `isErrorCount` is non-zero.
+     */
+    attributedErrorCount?: number;
   };
   routing: {
     flashCalls: number;

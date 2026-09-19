@@ -15,6 +15,7 @@
     <Policy>AM-SetResponseHeaders</Policy>
     <Policy>AM-SetUserIdentity</Policy>
     <Policy>CORS-Headers</Policy>
+    <Policy>DC-FaultAnalytics</Policy>
     <Policy>DC-ModelAnalytics</Policy>
     <Policy>DJWT-ExtractUserIdentity</Policy>
     <Policy>EV-ExtractBearerToken</Policy>

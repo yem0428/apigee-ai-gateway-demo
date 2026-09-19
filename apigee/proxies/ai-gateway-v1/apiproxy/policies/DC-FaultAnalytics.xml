@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<DataCapture name="DC-FaultAnalytics" continueOnError="true" enabled="true">
+  <DisplayName>DC-FaultAnalytics</DisplayName>
+  <!--
+    Fault-path twin of DC-ModelAnalytics.
+
+    The response flow never runs when Apigee raises a fault, so blocked calls
+    (Model Armor, token quota, budget, unentitled model) used to emit no
+    dc_user_email at all. They were counted in the fleet-wide sum(is_error) but
+    attributed to nobody, which made every per-user success rate read 100%.
+
+    This policy runs from the DefaultFaultRule so the failing request still
+    carries its caller identity and requested model into analytics.
+
+    Deliberately omits the monetization-scope collectors that DC-ModelAnalytics
+    writes: recording transactionSuccess on a fault would bill the wallet for a
+    request that was never served.
+  -->
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+  <Capture>
+    <Collect ref="flow.emailId" default=""/>
+    <DataCollector>dc_user_email</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.target_model" default="{flow.model}"/>
+    <DataCollector>dc_model_name</DataCollector>
+  </Capture>
+</DataCapture>

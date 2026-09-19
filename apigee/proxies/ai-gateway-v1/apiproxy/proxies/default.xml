@@ -170,6 +170,19 @@
       </Step>
     </Response>
   </PostClientFlow>
+  <!--
+    Faults skip the PostFlow entirely, so DC-ModelAnalytics never runs for a
+    blocked request. Without this rule the fleet-wide sum(is_error) counted the
+    failure but no dc_user_email row existed to attribute it to, so every
+    per-user success rate read a false 100%.
+    alwaysEnforce keeps it running even once explicit FaultRules are added.
+  -->
+  <DefaultFaultRule name="attribute-fault-to-user">
+    <AlwaysEnforce>true</AlwaysEnforce>
+    <Step>
+      <Name>DC-FaultAnalytics</Name>
+    </Step>
+  </DefaultFaultRule>
   <HTTPProxyConnection>
     <BasePath>/ai/v1</BasePath>
     <Properties/>

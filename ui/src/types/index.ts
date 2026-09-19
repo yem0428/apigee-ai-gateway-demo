@@ -209,10 +209,21 @@ export interface UserConsumptionRecord {
   provider: string;
   tier: string;
   totalTraffic: number;
+  /**
+   * Failed calls attributed to this caller/model pair, from `sum(is_error)`. Absent on rows
+   * recorded before the proxy began emitting `dc_user_email` on the fault path — treat `undefined`
+   * as "unknown", not as zero.
+   */
+  errorCount?: number;
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
   isUnauthenticated?: boolean;
+  /**
+   * True when the row was reconstructed from wallet-balance drift rather than read from
+   * analytics. Synthetic rows carry no error signal and must stay out of success-rate maths.
+   */
+  isSynthetic?: boolean;
 }
 
 export interface UserMonetizationAttribution {

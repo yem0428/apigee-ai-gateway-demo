@@ -569,7 +569,18 @@ sets all of the following (unresolved variables are dropped):
 `DC-ModelAnalytics` writes five standard data collectors (`dc_user_email`,
 `dc_model_name`, `dc_candidates_token_count`, `dc_prompt_token_count`,
 `dc_total_token_count`) plus three with `scope="monetization"`:
-`perUnitPriceMultiplier`, `currency`, `transactionSuccess`.
+`perUnitPriceMultiplier`, `currency`, `transactionSuccess`. It sits in the
+response flow and therefore only runs for requests that reached a model.
+
+`DC-FaultAnalytics` covers the fault path from the proxy's `DefaultFaultRule`,
+writing `dc_user_email` and `dc_model_name` only. This is what lets a blocked
+call (Model Armor, LLM token quota, budget, unentitled model) be attributed to
+the caller who made it.
+
+> [!IMPORTANT]
+> `DC-FaultAnalytics` writes **no** monetization-scoped collectors. A fault must
+> not produce a `transactionSuccess` record, or the wallet would be rated for a
+> request that was never served.
 
 ---
 

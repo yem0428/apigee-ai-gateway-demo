@@ -71,7 +71,7 @@ flowchart TB
 
     subgraph Gateway["Apigee proxy: ai-gateway-v1 (basepath /ai/v1)"]
         P1["1. CORS-Headers + OAS-ValidateRequest"]
-        P2["2. Identity: EV-ExtractBearerToken, DJWT-ExtractUserIdentity,<br/>AM-SetUserEmailFromHeader, RF-MissingUserEmail (401)"]
+        P2["2. Identity: EV-ExtractBearerToken, DJWT-ExtractUserIdentity,<br/>AM-SetUserIdentity, RF-MissingUserEmail (401)"]
         P3["3. JS-ExtractPromptAndModel"]
         P4["4. VA-VerifyAPIKey (401 on product mismatch)"]
         P5["5. SUP-UserPrompt (Model Armor, 400 on match)"]
@@ -130,19 +130,19 @@ Every step carries `request.verb != "OPTIONS"`.
 | 4 | `EV-ExtractBearerToken` | — |
 | 5 | `DJWT-ExtractUserIdentity` | `flow.rawToken != null` |
 | 6 | `AM-SetUserIdentity` | a JWT `email` claim resolved |
-| 8 | `RF-MissingUserEmail` | `flow.emailId = null` → **raises HTTP 401** |
-| 9 | `JS-ExtractPromptAndModel` | — |
-| 10 | `VA-VerifyAPIKey` | — |
-| 11 | `SUP-UserPrompt` | `flow.userPrompt` non-empty |
-| 12 | `MLC-EnforceMonetizationLimits` | — |
-| 13 | `QC-EnforceBudgetLimit` | — |
-| 14 | `AM-RemoveAuthorization` | — |
-| 15 | `AM-InitCacheStatus` | — |
-| 16 | `JS-AutoRouting` | `/auto*` **or** regex `^/auto.*` (so bare `/auto` matches) |
-| 17 | `AM-PrepGeminiDirect` | `/models/gemini*` or regex `^/models/gemini.*` |
-| 18 | `AM-PrepClaudeDirect` | `/models/claude*` or regex `^/models/claude.*` |
-| 19 | `AM-SetCacheHitExpected` | `use-cache` or `x-use-cache` header is `true` |
-| 20 | `SCL-Semantic-Cache-Lookup` | same cache-header condition |
+| 7 | `RF-MissingUserEmail` | `flow.emailId = null` → **raises HTTP 401** |
+| 8 | `JS-ExtractPromptAndModel` | — |
+| 9 | `VA-VerifyAPIKey` | — |
+| 10 | `SUP-UserPrompt` | `flow.userPrompt` non-empty |
+| 11 | `MLC-EnforceMonetizationLimits` | — |
+| 12 | `QC-EnforceBudgetLimit` | — |
+| 13 | `AM-RemoveAuthorization` | — |
+| 14 | `AM-InitCacheStatus` | — |
+| 15 | `JS-AutoRouting` | `/auto*` **or** regex `^/auto.*` (so bare `/auto` matches) |
+| 16 | `AM-PrepGeminiDirect` | `/models/gemini*` or regex `^/models/gemini.*` |
+| 17 | `AM-PrepClaudeDirect` | `/models/claude*` or regex `^/models/claude.*` |
+| 18 | `AM-SetCacheHitExpected` | `use-cache` or `x-use-cache` header is `true` |
+| 19 | `SCL-Semantic-Cache-Lookup` | same cache-header condition |
 
 ### 2.2 Conditional flows
 
@@ -177,6 +177,27 @@ Every step carries `request.verb != "OPTIONS"`.
 faults** — successful, blocked and failed calls are all audited. Its record includes the full
 `prompt` and `response` text plus `cached`, which back the **Full Audit Logs** drill-down in the
 consumption ledger.
+
+### 2.4 Fault path — `DefaultFaultRule`
+
+| Rule | `AlwaysEnforce` | Steps |
+| :--- | :--- | :--- |
+| `attribute-fault-to-user` | `true` | `DC-FaultAnalytics` |
+
+A fault short-circuits the response PostFlow, so `DC-ModelAnalytics` never runs for a blocked
+request. This rule re-emits just the two identifying collectors — `dc_user_email` and
+`dc_model_name` — so a Model Armor block, an LLM token-quota rejection, a budget denial or an
+unentitled-model 401 is attributed to the caller who made it.
+
+> [!IMPORTANT]
+> Without this, blocked calls were counted in the fleet-wide `sum(is_error)` but belonged to
+> nobody, so the Analytics & Cost **Request Success Rate** showed a real figure for *All Users*
+> and a false **100%** for every individual user.
+
+> [!CAUTION]
+> `DC-FaultAnalytics` must never write the `scope="monetization"` collectors that
+> `DC-ModelAnalytics` writes. `transactionSuccess` defaults to `true`, so reusing the success-path
+> policy here would rate the developer's wallet for a request that was never served.
 
 Target selection: `RouteRule claude-target` fires when `flow.target_provider == "anthropic"`;
 otherwise `gemini-target`. Both targets point at `https://aiplatform.googleapis.com` with
@@ -664,7 +685,6 @@ Two client-side behaviours matter before a live demo:
 | `EV-ExtractBearerToken` | ExtractVariables | Extracts the raw JWT into `flow.rawToken` |
 | `DJWT-ExtractUserIdentity` | DecodeJWT | Decodes the JWT to read the `email` claim |
 | `AM-SetUserIdentity` | AssignMessage | Sets `flow.emailId` from the JWT claim |
-| `AM-SetUserEmailFromHeader` | AssignMessage | Fallback: `flow.emailId` from `X-User-Email` |
 | `RF-MissingUserEmail` | RaiseFault | **HTTP 401 UNAUTHENTICATED** when no identity resolves |
 | `JS-ExtractPromptAndModel` | Javascript | Populates `flow.userPrompt` and `flow.model` |
 | `SUP-UserPrompt` | **SanitizeUserPrompt** (Model Armor) | Screens the prompt via template `apigee-sanitize-user-prompt` (`asia-southeast1`); blocks with HTTP 400 |
@@ -689,7 +709,8 @@ Two client-side behaviours matter before a live demo:
 | `JS-CalculateCost` | Javascript | Computes `flow.tx_cost_micros` / `flow.tx_cost_usd` |
 | `QC-DeductBudget` | Quota | Deducts the transaction cost from the developer budget |
 | `LTQ-TokenCount` | **LLMTokenQuota** (`CountOnly`) | Counts consumed tokens into `common-counter` |
-| `DC-ModelAnalytics` | DataCapture | Emits analytics dimensions for Cloud Logging / dashboards |
+| `DC-ModelAnalytics` | DataCapture | Emits analytics dimensions on the **success path** (response flow) |
+| `DC-FaultAnalytics` | DataCapture | `DefaultFaultRule` twin — emits `dc_user_email` + `dc_model_name` so **blocked** calls are attributed |
 | `SCP-Semantic-Cache-Populate` | **SemanticCachePopulate** | Writes prompt embedding + response into the vector index |
 | `SMR-SanitizeModelResponse` | **SanitizeModelResponse** (Model Armor) | Screens the model response |
 | `AM-SetResponseHeaders` | AssignMessage | Emits the `x-gateway-*` telemetry headers |
