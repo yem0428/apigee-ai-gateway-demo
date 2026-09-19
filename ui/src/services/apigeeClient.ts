@@ -380,16 +380,26 @@ export async function exhaustLlmQuota(settings: GatewaySettings): Promise<void> 
   const endpointUrl = `${baseUrl}/models/gemini-3.1-flash-lite:generateContent`;
   const userInfo = getUserInfo(settings.activeUser);
   const effectiveApiKey = settings.apiKey || userInfo.apiKey;
-  const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
+  const effectiveIdToken = settings.ssoUser?.idToken || settings.idToken;
+
+  // Identity must be the JWT, same as sendPromptToApigee.
+  //
+  // This previously sent only `X-User-Email`. Once the proxy's header fallback was removed,
+  // every call from here was rejected by RF-MissingUserEmail with a 401 — so the "exhaust the
+  // LLM token quota" demo quietly stopped consuming any quota at all while still appearing to
+  // fire requests.
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-apikey': effectiveApiKey,
+  };
+  if (effectiveIdToken) {
+    headers['Authorization'] = `Bearer ${effectiveIdToken}`;
+  }
 
   try {
     await fetch(endpointUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-apikey': effectiveApiKey,
-        'X-User-Email': effectiveEmail,
-      },
+      headers,
       body: JSON.stringify({
         contents: [
           {

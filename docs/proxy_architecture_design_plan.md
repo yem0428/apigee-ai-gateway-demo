@@ -504,9 +504,18 @@ flowchart LR
 
 - `DC-ModelAnalytics` (`DataCapture`) writes data collectors `dc_user_email`,
   `dc_model_name`, `dc_candidates_token_count`, `dc_prompt_token_count`,
-  `dc_total_token_count`, plus monetization-scoped `perUnitPriceMultiplier`,
-  `currency`, `transactionSuccess`. It runs in the **response flow**, so it only
-  fires for requests that actually reached a model.
+  `dc_total_token_count`, `dc_cache_status`, plus monetization-scoped
+  `perUnitPriceMultiplier`, `currency`, `transactionSuccess`. It runs in the
+  **response flow**, so it only fires for requests that actually reached a model.
+
+  `dc_cache_status` records `flow.cacheStatus` — `HIT`, `MISS` or `DISABLED` — and is
+  what makes the dashboard's cache hit rate a measurement. Before it existed the UI
+  displayed a hardcoded `29.4%` and claimed savings of exactly 35% of total spend,
+  regardless of whether anything had been cached. The rate is computed as
+  `HIT / (HIT + MISS)`; `DISABLED` and `(not set)` are excluded from the denominator
+  rather than counted as misses, because neither is a cache miss. Data collectors are
+  **org-level** resources, so `dc_cache_status` had to be registered via
+  `POST /v1/organizations/{org}/datacollectors` before the policy could write to it.
 - `DC-FaultAnalytics` (`DataCapture`) is its fault-path twin, invoked from the
   proxy's `DefaultFaultRule`. It writes only `dc_user_email` and `dc_model_name`.
   Faults bypass the response flow entirely, so without it a blocked request was

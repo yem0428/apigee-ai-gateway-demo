@@ -371,9 +371,10 @@ a recorded live run. It states what the committed configuration authorises.
 Sales and Loans hold the same product (`Standard AI Tier`) on the AI side, so their AI
 rows are identical by construction; they differ only in their MCP tools product.
 
-Identity resolution order in the PreFlow is JWT `email` claim → `X-User-Email` header
-→ `RF-MissingUserEmail` fault. `SUP-UserPrompt` (Model Armor) executes **before**
-`VA-VerifyAPIKey`
+Identity resolution in the PreFlow is the JWT `email` claim, or `RF-MissingUserEmail`. There
+is **no `X-User-Email` fallback** on the AI Gateway — `AM-SetUserEmailFromHeader` was deleted,
+and a request bearing only that header is rejected with 401. `SUP-UserPrompt` (Model Armor)
+executes **before** `VA-VerifyAPIKey`
 ([default.xml#L21-L48](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L21-L48)).
 
 ### Auto-routing decisions

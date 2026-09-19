@@ -174,8 +174,17 @@ export interface FleetAnalyticsResponse {
     inputTokens: number;
     outputTokens: number;
     totalSpendUsd: number;
-    cacheCostSavingsUsd: number;
-    cacheHitRate: number;
+    /**
+     * Both `null` when the window contains no measurable cache activity. Derived from the
+     * `dc_cache_status` dimension (HIT / MISS / DISABLED); `DISABLED` and `(not set)` are
+     * excluded from the denominator rather than counted as misses. Never substitute a
+     * default — these were previously a hardcoded 29.4% and 35%-of-spend.
+     */
+    cacheCostSavingsUsd: number | null;
+    cacheHitRate: number | null;
+    /** Cache calls that hit, and the HIT+MISS denominator. `null` when nothing was measured. */
+    cacheHitCount?: number | null;
+    cacheMeasuredCalls?: number | null;
     /** `null` when the window had no traffic at all — do not substitute a default. */
     slaHealth: number | null;
     avgLatencyMs: number;
@@ -189,9 +198,10 @@ export interface FleetAnalyticsResponse {
   };
   routing: {
     flashCalls: number;
-    flashPercent: number;
+    /** `null` when there was no traffic — there is no routing split to report. */
+    flashPercent: number | null;
     proOpusCalls: number;
-    proOpusPercent: number;
+    proOpusPercent: number | null;
   };
   consumptionRows: import('../types').UserConsumptionRecord[];
 }

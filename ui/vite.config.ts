@@ -1305,10 +1305,14 @@ export default defineConfig(({ mode }) => {
               // 3. Fetch KVM Rates
               const kvmUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/ai-model-rates/entries/rate_card`;
 
-              const [statsRes, proxyRes, kvmRes] = await Promise.all([
+              // 4. Real semantic-cache signal: HIT / MISS / DISABLED per request.
+              const cacheStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_cache_status?select=sum(message_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
+
+              const [statsRes, proxyRes, kvmRes, cacheRes] = await Promise.all([
                 fetch(statsUrl, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(proxyStatsUrl, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(kvmUrl, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+                fetch(cacheStatsUrl, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
               ]);
 
               // Parse KVM rates
@@ -1396,8 +1400,13 @@ export default defineConfig(({ mode }) => {
                 totalCostUsd += cost;
                 totalAttributedErrors += ec;
 
-                if (tier === 'high') proCalls += mc;
-                else flashCalls += mc;
+                // Only calls that reached a model participate in the routing split; a blocked
+                // call has no model and would otherwise be counted as a cheap-model win.
+                const modelResolved = model !== 'unknown-model' && model !== '{flow.model}';
+                if (modelResolved) {
+                  if (tier === 'high') proCalls += mc;
+                  else flashCalls += mc;
+                }
 
                 consumptionRows.push({
                   userEmail,
@@ -1416,10 +1425,30 @@ export default defineConfig(({ mode }) => {
 
               consumptionRows.sort((a, b) => b.costUsd - a.costUsd || b.totalTraffic - a.totalTraffic);
 
+              // Real cache hit rate from the dc_cache_status dimension. Only HIT and MISS
+              // count; DISABLED and "(not set)" are not cache misses. Null when nothing
+              // measurable exists — the UI renders an em dash instead of a constant.
+              let cacheHits = 0;
+              let cacheMisses = 0;
+              if (cacheRes && cacheRes.ok) {
+                try {
+                  const cacheJson = await cacheRes.json();
+                  for (const dim of cacheJson?.environments?.[0]?.dimensions || []) {
+                    const label = String(dim.individualNames?.[0] || dim.name || '').toUpperCase();
+                    const n = Number(dim.metrics?.find((m: any) => m.name === 'sum(message_count)')?.values?.[0] || 0);
+                    if (label === 'HIT') cacheHits += n;
+                    else if (label === 'MISS') cacheMisses += n;
+                  }
+                } catch { }
+              }
+              const cacheMeasured = cacheHits + cacheMisses;
+              const cacheHitRate = cacheMeasured > 0 ? Number(((cacheHits / cacheMeasured) * 100).toFixed(1)) : null;
+
               const totalCalls = totalTraffic;
               // null, not 99: a "99% success rate" over zero traffic is a fabrication. The UI renders an em dash.
               const slaHealth = totalProxyCalls > 0 ? Math.round((1 - totalProxyErrors / totalProxyCalls) * 100) : null;
-              const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : 78.5;
+              // null, not 78.5: with no traffic there is no routing split to report.
+              const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : null;
 
               res.end(JSON.stringify({
                 status: 'ok',
@@ -1437,8 +1466,16 @@ export default defineConfig(({ mode }) => {
                   inputTokens: totalPromptTokens,
                   outputTokens: totalCandidateTokens,
                   totalSpendUsd: Number(totalCostUsd.toFixed(2)),
-                  cacheCostSavingsUsd: Number((totalCostUsd * 0.35).toFixed(2)),
-                  cacheHitRate: 29.4,
+                  // Denominator is the calls that actually reached a model; cache hits cost
+                  // nothing. Dividing by cacheMisses alone would charge the whole window's
+                  // spend to the handful of measured misses and overstate the saving.
+                  cacheCostSavingsUsd:
+                    cacheHitRate === null || cacheHits === 0
+                      ? null
+                      : Number(((totalCostUsd / Math.max(1, totalCalls - cacheHits)) * cacheHits).toFixed(2)),
+                  cacheHitRate,
+                  cacheHitCount: cacheMeasured > 0 ? cacheHits : null,
+                  cacheMeasuredCalls: cacheMeasured > 0 ? cacheMeasured : null,
                   slaHealth,
                   avgLatencyMs,
                   isErrorCount: totalProxyErrors,
@@ -1450,7 +1487,7 @@ export default defineConfig(({ mode }) => {
                   flashCalls,
                   flashPercent: flashRatio,
                   proOpusCalls: proCalls,
-                  proOpusPercent: Number((100 - flashRatio).toFixed(1)),
+                  proOpusPercent: flashRatio === null ? null : Number((100 - flashRatio).toFixed(1)),
                 },
                 consumptionRows,
               }));
@@ -1480,20 +1517,56 @@ export default defineConfig(({ mode }) => {
               const devData = await devListRes.json();
               const developers: Array<{ email: string }> = devData.developer || [];
 
-              // 2. Fetch DataCapture stats by user email to compute real consumption
-              let statsByUser: Record<string, { calls: number; tokens: number }> = {};
+              // 2. Per-developer usage, priced from the live KVM rate card.
+              // Previously a flat $0.75/M against total tokens — a rate matching no real model.
+              // The apiproxy filter keeps `mcp` traffic out of AI Gateway spend.
+              let statsByUser: Record<string, { calls: number; tokens: number; costUsd: number }> = {};
               try {
                 const dynamicRange = getApigeeTimeRange('30d');
-                const sUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/prod/stats/dc_user_email?select=sum(message_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(dynamicRange)}`;
-                const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
+                const monFilter = encodeURIComponent(`(apiproxy eq 'ai-gateway-v1')`);
+                const sUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/prod/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(dc_total_token_count),sum(dc_prompt_token_count),sum(dc_candidates_token_count)&timeRange=${encodeURIComponent(dynamicRange)}&filter=${monFilter}`;
+                const rcUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/prod/keyvaluemaps/ai-model-rates/entries/rate_card`;
+                const [sRes, rcRes] = await Promise.all([
+                  fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } }),
+                  fetch(rcUrl, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+                ]);
+
+                let monRates: Record<string, any> = {};
+                if (rcRes && rcRes.ok) {
+                  try {
+                    const rcJson = await rcRes.json();
+                    monRates = typeof rcJson.value === 'string' ? JSON.parse(rcJson.value) : rcJson.value || {};
+                  } catch {}
+                }
+
                 if (sRes.ok) {
                   const sData = await sRes.json();
                   const dims = sData.environments?.[0]?.dimensions || [];
                   for (const d of dims) {
-                    const email = d.name;
+                    const names = d.individualNames || String(d.name || '').split(',');
+                    const email = names[0];
+                    const model = names[1] || '';
+                    if (!email || email === '(not set)' || email === 'null') continue;
+
                     const calls = Number(d.metrics?.find((m: any) => m.name === 'sum(message_count)')?.values?.[0] || 0);
                     const tokens = Number(d.metrics?.find((m: any) => m.name === 'sum(dc_total_token_count)')?.values?.[0] || 0);
-                    statsByUser[email] = { calls, tokens };
+                    const pt = Number(d.metrics?.find((m: any) => m.name === 'sum(dc_prompt_token_count)')?.values?.[0] || 0);
+                    const ct = Number(d.metrics?.find((m: any) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
+
+                    const rateKey = Object.keys(monRates).find(
+                      (k) => k !== 'default' && (model === k || model.startsWith(k) || k.startsWith(model))
+                    );
+                    const matched = (rateKey ? monRates[rateKey] : null) || monRates[model] || monRates['default'] || {};
+                    const isHigh = model.includes('pro') || model.includes('opus');
+                    const inRate = matched.input ?? (isHigh ? 1.25 : 0.15);
+                    const outRate = matched.output ?? (isHigh ? 5.0 : 0.60);
+                    const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
+
+                    const acc = statsByUser[email] || { calls: 0, tokens: 0, costUsd: 0 };
+                    acc.calls += calls;
+                    acc.tokens += tokens;
+                    acc.costUsd += cost;
+                    statsByUser[email] = acc;
                   }
                 }
               } catch {}
@@ -1576,15 +1649,17 @@ export default defineConfig(({ mode }) => {
                       ? `${firstName} ${cleanLast}`
                       : firstName || email.split('@')[0];
                   const isEnterprise = apps.some((a) => a.toLowerCase().includes('enterprise') || a.toLowerCase().includes('admin'));
-                  const userStats = statsByUser[email] || { calls: 0, tokens: 0 };
+                  const userStats = statsByUser[email] || { calls: 0, tokens: 0, costUsd: 0 };
                   const sessionDebit = sessionLedgerByDev.get(email.toLowerCase())?.debitedUsd || 0;
-                  const tokenConsumedUsd = (userStats.tokens / 1_000_000) * 0.75 + sessionDebit;
-                  const walletConsumedUsd = hasWallet && balanceUsd < 20.0 ? Number(Math.max(0, 20.0 - balanceUsd).toFixed(6)) : 0;
-                  const consumedUsd = Number(Math.max(tokenConsumedUsd, walletConsumedUsd).toFixed(6));
-                  const minExpectedCalls = walletConsumedUsd > 0 ? Math.max(4, Math.round(walletConsumedUsd * 16)) : 0;
-                  const minExpectedTokens = walletConsumedUsd > 0 ? Math.max(2400, Math.round(walletConsumedUsd * 48500)) : 0;
-                  const totalCalls = Math.max(userStats.calls, minExpectedCalls);
-                  const totalTokens = Math.max(userStats.tokens, minExpectedTokens);
+
+                  // Measured usage only — the previous Math.max(...) floors invented a call
+                  // and token count from wallet-balance drift for any developer whose prepaid
+                  // balance had moved. See server.js for the full rationale.
+                  const totalCalls = userStats.calls;
+                  const totalTokens = userStats.tokens;
+
+                  // Spend priced from the KVM rate card per model, plus live session debits.
+                  const consumedUsd = Number((userStats.costUsd + sessionDebit).toFixed(6));
 
                   return {
                     userEmail: email,

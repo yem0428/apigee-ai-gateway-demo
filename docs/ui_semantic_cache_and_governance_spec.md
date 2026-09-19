@@ -195,9 +195,9 @@ const headersSent: Record<string, string> = {
   'Content-Type': 'application/json',
   'x-apikey': effectiveApiKey,
 };
-if (!settings.omitEmailHeader) {
-  if (effectiveIdToken) headersSent['Authorization'] = `Bearer ${effectiveIdToken}`;
-  if (effectiveEmail) headersSent['X-User-Email'] = effectiveEmail;
+// Identity is the JWT only. The X-User-Email fallback was removed from the proxy.
+if (!settings.omitEmailHeader && effectiveIdToken) {
+  headersSent['Authorization'] = `Bearer ${effectiveIdToken}`;
 }
 if (settings.useCache) headersSent['use-cache'] = 'true';
 ```
@@ -206,8 +206,7 @@ if (settings.useCache) headersSent['use-cache'] = 'true';
 | --- | --- | --- |
 | `Content-Type: application/json` | Always | — |
 | `x-apikey` | Always | Resolved from `settings.apiKey`, the active persona, or `/api/me` |
-| `Authorization: Bearer <id_token>` | SSO token present **and** `omitEmailHeader` false | Used by the 401 identity demo when omitted |
-| `X-User-Email` | Email present **and** `omitEmailHeader` false | Fallback identity for the proxy |
+| `Authorization: Bearer <id_token>` | SSO token present **and** `omitEmailHeader` false | The **only** identity the AI Gateway accepts |
 | `use-cache: true` | `settings.useCache === true` | Only emitted when true; never sent as `false` |
 
 > [!NOTE]
@@ -215,15 +214,34 @@ if (settings.useCache) headersSent['use-cache'] = 'true';
 > ([default.xml#L79-L83](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L79-L83)),
 > but the UI never sends it. Do not document `x-use-cache` as a UI behaviour.
 
-[`exhaustLlmQuota()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L407-L443)
-is a helper that fires a large `gemini-3.1-flash-lite` prompt with only
-`Content-Type`, `x-apikey`, `X-User-Email`.
+[`exhaustLlmQuota()`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L380-L400)
+fires a large `gemini-3.1-flash-lite` prompt with `Content-Type`, `x-apikey` and
+`Authorization: Bearer …`. It previously sent `X-User-Email` instead of the token, which meant
+every one of its calls was 401'd by `RF-MissingUserEmail` and the quota was never actually
+consumed — the demo appeared to fire requests while doing nothing.
 
 ### 4.2 MCP Gateway — [`mcpClient.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/mcpClient.ts#L27-L48)
 
-Identical identity contract, minus the cache header:
-`Content-Type`, `x-apikey`, optional `Authorization: Bearer …`, optional `X-User-Email`.
-Both `tools/list` and `tools/call` POST JSON-RPC 2.0 envelopes to the resolved MCP endpoint.
+`Content-Type`, `x-apikey`, optional `Authorization: Bearer …`, **and** optional
+`X-User-Email`. Both `tools/list` and `tools/call` POST JSON-RPC 2.0 envelopes to the resolved
+MCP endpoint.
+
+> [!IMPORTANT]
+> **The MCP identity contract deliberately differs from the AI Gateway's, and this is not
+> drift.** The MCP demo is built around three personas — Admin, Sales Agent and Loans Agent —
+> which exist to show *tool-level* authorization: the same `tools/list` call returns a
+> different tool set per persona. Those personas are not real signed-in humans, so there is no
+> SSO-derived JWT to carry them; the persona travels in `X-User-Email` and the corresponding
+> product entitlement travels in `x-apikey`.
+>
+> The AI Gateway has the opposite requirement. It demonstrates *per-user* attribution, cost and
+> quota against the real signed-in identity, so it takes identity from the JWT only and rejects
+> the header. Migrating MCP to JWT-only would mean minting a JWT per synthetic persona, which
+> buys symmetry and nothing else.
+
+Consequence to keep in mind: an `X-User-Email` value sent to MCP is caller-asserted and
+unverified. It selects which tools are offered, so the real access control there is the API
+key and its product, not the header.
 
 ---
 
@@ -444,15 +462,35 @@ ledger.
 >    The panel previously hardcoded `slaHealth: 100, faultCount: 0` for every non-fleet view, so an
 >    individual user displayed a perfect 100% while the fleet displayed 54% — and deliberately
 >    triggering Model Armor or a token-limit block changed nothing.
-> 2. **Synthetic rows must stay out of the denominator.** Wallet-reconciliation rows
->    (`isSynthetic: true`) are reconstructed from balance drift and carry no error signal. Counting
->    their `totalTraffic` would drag any computed rate back toward a false 100%.
+> 2. **Report only what was measured.** Where no measurement exists, the API returns `null` and
+>    the UI renders an em dash. It does not interpolate, extrapolate or assume.
 
-> [!NOTE]
-> `cacheHitRate` and `cacheCostSavingsUsd` are **still assumptions**, not measurements — a fixed
-> ratio applied to spend. They are labelled `~N% Hits (est.)` in the UI with an explanatory
-> tooltip. Deriving them for real needs a per-request cache-hit data collector, which does not
-> exist yet.
+### No fabricated analytics
+
+Every invented value has been removed. For the record, because each was load-bearing in a
+customer-facing screen:
+
+| Value | What it used to be | Now |
+| :--- | :--- | :--- |
+| `cacheHitRate` (fleet) | hardcoded `29.4` | `HIT / (HIT + MISS)` from `dc_cache_status` |
+| `cacheHitRate` (per user) | hardcoded `33` whenever calls > 0 | `null` — the dimension is not broken down per user |
+| `cacheCostSavingsUsd` | `totalSpend * 0.35` | priced from measured hits, `null` when none |
+| Cache sparkline | literal `[8,11,14…38]`, always rising | removed |
+| Routing "savings" badge | `flashPercent * 0.55` | the measured share routed to the low-cost tier |
+| `flashPercent` with no traffic | `78.5` | `null` |
+| Consumption rows | two rows per developer synthesised from wallet drift — call count `spend x 16`, tokens `spend x 48500`, a 65/35 token split and a 60/40 model mix | removed; the ledger shows only recorded traffic |
+| Monetization `totalCalls` / `totalTokens` | `Math.max(measured, walletDrift x 16 / x 48500)` | measured only |
+| Monetization spend | flat `$0.75` per million tokens | per-model input/output rates from the `ai-model-rates` KVM |
+
+> [!CAUTION]
+> Removing the synthetic consumption rows changes what **dev** looks like. Because the dev
+> environment has no Analytics add-on, those rows were its *only* source of data — the dashboard
+> reported 110 entirely imaginary calls. Dev now correctly shows an empty ledger. Use **prod**
+> to demonstrate analytics.
+
+A consequence worth stating plainly: a developer whose prepaid wallet was debited by traffic
+Apigee never indexed will now show fewer calls than their wallet spend implies. That gap is
+real. The previous code hid it by inventing calls to match the money.
 
 > [!NOTE]
 > The **Model Split Across Catalog** card shows every model with `cost > 0` in the Spend ($) view,

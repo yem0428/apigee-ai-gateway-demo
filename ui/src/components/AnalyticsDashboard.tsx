@@ -282,7 +282,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         totalCalls: fleetData.kpis.totalCalls.toLocaleString(),
         totalTokens: formatTokens(fleetData.kpis.totalTokens),
         totalSpend: fleetData.kpis.totalSpendUsd.toFixed(2),
-        cacheSavings: (fleetData.kpis.cacheCostSavingsUsd ?? 0).toFixed(2),
+        cacheSavings:
+          fleetData.kpis.cacheCostSavingsUsd == null
+            ? null
+            : fleetData.kpis.cacheCostSavingsUsd.toFixed(2),
         cacheHitRate: fleetData.kpis.cacheHitRate == null ? null : Math.round(fleetData.kpis.cacheHitRate),
         slaHealth: fleetData.kpis.slaHealth == null ? null : Math.round(fleetData.kpis.slaHealth),
         faultCount: fleetData.kpis.isErrorCount ?? null,
@@ -316,8 +319,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       totalCalls: calls.toLocaleString(),
       totalTokens: formatTokens(tokens),
       totalSpend: spend.toFixed(2),
-      cacheSavings: (spend * 0.35).toFixed(2),
-      cacheHitRate: calls > 0 ? 33 : 0,
+      // Cache is measured by the dc_cache_status dimension, which is not broken down per
+      // user, so there is no honest per-user figure. These were `spend * 0.35` and a flat
+      // `33`, which meant a single user could be shown a cache hit rate while having made
+      // no cacheable calls at all.
+      cacheSavings: null,
+      cacheHitRate: null,
       slaHealth: canReportSla ? Math.round((1 - errors / measuredCalls) * 100) : null,
       faultCount: hasErrorData ? errors : null,
     };
@@ -753,21 +760,24 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
               <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
                 <span className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">
-                  ${aggregatedStats.cacheSavings}
+                  {aggregatedStats.cacheSavings === null ? '—' : `$${aggregatedStats.cacheSavings}`}
                 </span>
-                {/* Marked "est." deliberately: this ratio is a fixed assumption, not a measured
-                    hit rate. There is no per-request cache-hit data collector yet. */}
                 <span
                   className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0"
-                  title="Estimated from an assumed cache hit ratio, not measured per request."
+                  title={
+                    aggregatedStats.cacheHitRate === null
+                      ? 'Cache hit rate is measured fleet-wide from the dc_cache_status dimension. It is not broken down per user, and traffic served before that collector shipped is excluded.'
+                      : 'Measured from the dc_cache_status dimension: HIT / (HIT + MISS).'
+                  }
                 >
-                  {aggregatedStats.cacheHitRate === null ? '—' : `~${aggregatedStats.cacheHitRate}%`} Hits (est.)
+                  {aggregatedStats.cacheHitRate === null
+                    ? 'No cache data'
+                    : `${aggregatedStats.cacheHitRate}% Hits`}
                 </span>
               </div>
-              {/* Mini Area Sparkline */}
-              <div className="pt-1">
-                <AreaSparkline data={[8, 11, 14, 16, 19, 21, 25, 28, 30, 35, 38]} color="#0d9488" id="cache" />
-              </div>
+              {/* No sparkline here. It used to render a hardcoded [8,11,14…38] series that
+                  always sloped upward regardless of actual cache behaviour. */}
+              <div className="pt-1 h-[26px]" />
             </div>
           </div>
         </div>
@@ -786,8 +796,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
                   </div>
                 </div>
+                {/* Was `flashPercent * 0.55`, presented as a savings percentage. The 0.55 had
+                    no basis — it was not a price ratio between the tiers and not measured.
+                    Report the routing split itself, which is a real quantity. */}
                 <div className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/30 shrink-0">
-                  ⚡ ~{Math.round(routingStats.flashPercent * 0.55)}% {viewMode === 'user' ? 'User' : 'Fleet'} Savings
+                  {routingStats.flashPercent === null
+                    ? '⚡ No routing data'
+                    : `⚡ ${routingStats.flashPercent}% to low-cost tier`}
                 </div>
               </div>
 
@@ -811,11 +826,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         strokeWidth="12"
                         strokeLinecap="round"
                         strokeDasharray="126"
-                        strokeDashoffset={126 * (1 - routingStats.flashPercent / 100)}
+                        strokeDashoffset={126 * (1 - (routingStats.flashPercent ?? 0) / 100)}
                       />
                     </svg>
                     <div className="absolute bottom-1 font-mono font-bold text-lg text-slate-900 dark:text-white">
-                      {routingStats.flashPercent}%
+                      {routingStats.flashPercent === null ? '—' : `${routingStats.flashPercent}%`}
                     </div>
                   </div>
                   <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">

@@ -745,7 +745,7 @@ JavaScript resources: `AutoRouting.js`, `CalculateCost.js`, `ClaudeRequestPrep.j
 | :--- | :--- | :--- |
 | 400 | `OAS-ValidateRequest` | Payload/parameter fails the OpenAPI schema |
 | 400 | `SUP-UserPrompt` | Model Armor filter match on the prompt |
-| 401 | `RF-MissingUserEmail` | No JWT `email` claim and no `X-User-Email` |
+| 401 | `RF-MissingUserEmail` | No JWT, or a JWT with no `email` claim |
 | 401 | `VA-VerifyAPIKey` | Invalid key, or no API Product matches the resource |
 | 403 | `MLC-EnforceMonetizationLimits` | Monetization limit / prepaid balance exhausted |
 | 429 | `LTQ-TokenEnforce` | LLM token quota breached (`gemini-2.5-flash` flow) |

@@ -1362,11 +1362,16 @@ const server = http.createServer(async (req, res) => {
       const statsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(is_error),sum(dc_prompt_token_count),sum(dc_candidates_token_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
       const proxyStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/apiproxy?select=sum(message_count),sum(is_error),avg(total_response_time)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
       const kvmUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/ai-model-rates/entries/rate_card`;
+      // Real semantic-cache signal. dc_cache_status is HIT / MISS / DISABLED, captured by
+      // DC-ModelAnalytics. Traffic served before that collector shipped reports "(not set)"
+      // and is excluded from the denominator rather than counted as a miss.
+      const cacheStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_cache_status?select=sum(message_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
 
-      const [statsRes, proxyRes, kvmRes] = await Promise.all([
+      const [statsRes, proxyRes, kvmRes, cacheRes] = await Promise.all([
         fetch(statsUrl, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(proxyStatsUrl, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(kvmUrl, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        fetch(cacheStatsUrl, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
       ]);
 
       let rates = {};
@@ -1449,8 +1454,15 @@ const server = http.createServer(async (req, res) => {
         totalCostUsd += cost;
         totalAttributedErrors += ec;
 
-        if (tier === 'high') proCalls += mc;
-        else flashCalls += mc;
+        // Routing split counts only calls that actually reached a model. A blocked call has
+        // no model, and 'unknown-model' would otherwise fall through the tier ladder into the
+        // non-high bucket and be presented as a cheap-model routing win. '{flow.model}' is
+        // residue from the pre-rev-13 DataCapture literal-default bug and is equally not a model.
+        const modelResolved = model !== 'unknown-model' && model !== '{flow.model}';
+        if (modelResolved) {
+          if (tier === 'high') proCalls += mc;
+          else flashCalls += mc;
+        }
 
         consumptionRows.push({
           userEmail,
@@ -1467,91 +1479,45 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // Reconcile registered developers who have active prepaid wallet deductions so Analytics & Cost and Monetization stay in sync
-      try {
-        const devListRes = await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (devListRes.ok) {
-          const devData = await devListRes.json();
-          const developers = devData.developer || [];
-          await Promise.all(
-            developers.map(async (d) => {
-              const email = d.email;
-              if (!email) return;
-              const existingRows = consumptionRows.filter((r) => r.userEmail.toLowerCase() === email.toLowerCase());
-              const existingSpend = existingRows.reduce((acc, r) => acc + r.costUsd, 0);
-              try {
-                const balRes = await fetch(
-                  `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/balance`,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
-                if (balRes.ok) {
-                  const bJson = await balRes.json();
-                  const primaryWallet = bJson.wallets?.[0];
-                  if (primaryWallet?.balance) {
-                    const units = Number(primaryWallet.balance.units || 0);
-                    const nanos = Number(primaryWallet.balance.nanos || 0);
-                    const rawTotal = units + nanos / 1e9;
-                    const sessionDebit = sessionLedgerByDev.get(email.toLowerCase())?.debitedUsd || 0;
-                    const balanceUsd = Number(Math.max(0, rawTotal - sessionDebit).toFixed(6));
-                    const walletConsumedUsd = balanceUsd < 20.0 ? Number(Math.max(0, 20.0 - balanceUsd).toFixed(6)) : 0;
-                    const unindexedSpend = Number(Math.max(0, walletConsumedUsd - existingSpend).toFixed(4));
-                    if (unindexedSpend >= 0.01) {
-                      const synthCalls = Math.max(4, Math.round(unindexedSpend * 16));
-                      const synthTokens = Math.max(2400, Math.round(unindexedSpend * 48500));
-                      const inTok = Math.round(synthTokens * 0.65);
-                      const outTok = synthTokens - inTok;
-                      totalTraffic += synthCalls;
-                      totalPromptTokens += inTok;
-                      totalCandidateTokens += outTok;
-                      totalCostUsd += unindexedSpend;
-                      flashCalls += Math.ceil(synthCalls * 0.6);
-                      proCalls += Math.floor(synthCalls * 0.4);
-                      // These two rows are reconstructed from wallet-balance drift, not from
-                      // analytics. They carry no error signal, so isSynthetic lets the UI keep
-                      // them out of any success-rate denominator.
-                      consumptionRows.push({
-                        userEmail: email,
-                        model: 'gemini-2.5-flash',
-                        provider: 'Google',
-                        tier: 'medium',
-                        totalTraffic: Math.ceil(synthCalls * 0.6),
-                        errorCount: 0,
-                        inputTokens: Math.round(inTok * 0.6),
-                        outputTokens: Math.round(outTok * 0.6),
-                        costUsd: Number((unindexedSpend * 0.45).toFixed(4)),
-                        isUnauthenticated: false,
-                        isSynthetic: true,
-                      });
-                      consumptionRows.push({
-                        userEmail: email,
-                        model: 'gemini-3.1-pro-preview',
-                        provider: 'Google',
-                        tier: 'high',
-                        totalTraffic: Math.max(1, Math.floor(synthCalls * 0.4)),
-                        errorCount: 0,
-                        inputTokens: Math.round(inTok * 0.4),
-                        outputTokens: Math.round(outTok * 0.4),
-                        costUsd: Number((unindexedSpend * 0.55).toFixed(4)),
-                        isUnauthenticated: false,
-                        isSynthetic: true,
-                      });
-                    }
-                  }
-                }
-              } catch { }
-            })
-          );
-        }
-      } catch { }
+      // NOTE: there was previously a "wallet reconciliation" block here that invented
+      // consumption rows for any developer whose prepaid balance had dropped below its
+      // starting value. It fabricated a call count (spend x 16), a token count
+      // (spend x 48500), a 65/35 prompt-to-candidate split and a two-model breakdown
+      // (60% gemini-2.5-flash, 40% gemini-3.1-pro-preview) — none of which was measured.
+      // On dev, where the Analytics add-on is disabled, it was the *only* source of rows,
+      // so the dashboard showed 110 entirely imaginary calls. Removed: the ledger now
+      // contains only what Apigee actually recorded.
 
       consumptionRows.sort((a, b) => b.costUsd - a.costUsd || b.totalTraffic - a.totalTraffic);
+
+      // Real cache hit rate from the dc_cache_status dimension.
+      //
+      // Only HIT and MISS count toward the rate. DISABLED means the caller turned caching
+      // off for that request, and "(not set)" is traffic served before the collector
+      // existed — neither is a cache miss, so counting them would understate the rate.
+      // When nothing measurable is present the KPI is null and the UI renders an em dash,
+      // rather than the 29.4 constant that used to sit here.
+      let cacheHits = 0;
+      let cacheMisses = 0;
+      if (cacheRes && cacheRes.ok) {
+        try {
+          const cacheJson = await cacheRes.json();
+          for (const dim of cacheJson?.environments?.[0]?.dimensions || []) {
+            const label = String(dim.individualNames?.[0] || dim.name || '').toUpperCase();
+            const n = Number(dim.metrics?.find((m) => m.name === 'sum(message_count)')?.values?.[0] || 0);
+            if (label === 'HIT') cacheHits += n;
+            else if (label === 'MISS') cacheMisses += n;
+          }
+        } catch { }
+      }
+      const cacheMeasured = cacheHits + cacheMisses;
+      const cacheHitRate = cacheMeasured > 0 ? Number(((cacheHits / cacheMeasured) * 100).toFixed(1)) : null;
 
       const totalCalls = totalTraffic;
       // null, not 99: a "99% success rate" over zero traffic is a fabrication. The UI renders an em dash.
       const slaHealth = totalProxyCalls > 0 ? Math.round((1 - totalProxyErrors / totalProxyCalls) * 100) : null;
-      const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : 78.5;
+      // null, not 78.5: with no traffic there is no routing split to report.
+      const flashRatio = (flashCalls + proCalls) > 0 ? Number(((flashCalls / (flashCalls + proCalls)) * 100).toFixed(1)) : null;
 
       res.end(JSON.stringify({
         status: 'ok',
@@ -1569,8 +1535,20 @@ const server = http.createServer(async (req, res) => {
           inputTokens: totalPromptTokens,
           outputTokens: totalCandidateTokens,
           totalSpendUsd: Number(totalCostUsd.toFixed(2)),
-          cacheCostSavingsUsd: Number((totalCostUsd * 0.35).toFixed(2)),
-          cacheHitRate: 29.4,
+          // Savings are only claimed for calls actually served from cache. The old figure
+          // was 35% of total spend regardless of whether anything was cached at all.
+          //
+          // The denominator is the number of calls that actually reached a model
+          // (everything except the cache hits, which cost nothing), so the quotient is a
+          // real average price per model call. Dividing by cacheMisses alone would treat
+          // the whole window's spend as the cost of the handful of measured misses.
+          cacheCostSavingsUsd:
+            cacheHitRate === null || cacheHits === 0
+              ? null
+              : Number(((totalCostUsd / Math.max(1, totalCalls - cacheHits)) * cacheHits).toFixed(2)),
+          cacheHitRate,
+          cacheHitCount: cacheMeasured > 0 ? cacheHits : null,
+          cacheMeasuredCalls: cacheMeasured > 0 ? cacheMeasured : null,
           slaHealth,
           avgLatencyMs,
           isErrorCount: totalProxyErrors,
@@ -1582,7 +1560,7 @@ const server = http.createServer(async (req, res) => {
           flashCalls,
           flashPercent: flashRatio,
           proOpusCalls: proCalls,
-          proOpusPercent: Number((100 - flashRatio).toFixed(1)),
+          proOpusPercent: flashRatio === null ? null : Number((100 - flashRatio).toFixed(1)),
         },
         consumptionRows,
       }));
@@ -1613,19 +1591,62 @@ const server = http.createServer(async (req, res) => {
       const devData = await devListRes.json();
       const developers = devData.developer || [];
 
+      // Per-developer usage, priced from the live KVM rate card.
+      //
+      // This previously selected only total tokens and multiplied by a flat $0.75/M, a rate
+      // that appears nowhere in the rate card and matches no actual model. Breaking the query
+      // down by model lets each model be charged at its real input/output prices, the same way
+      // /api/analytics/fleet-stats does.
+      //
+      // The apiproxy filter matters here for the same reason it does there: dc_user_email is
+      // environment-wide, so without it `mcp` traffic is attributed to AI Gateway spend.
       let statsByUser = {};
       try {
         const dynamicRange = getApigeeTimeRange('30d');
-        const sUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/prod/stats/dc_user_email?select=sum(message_count),sum(dc_total_token_count)&timeRange=${encodeURIComponent(dynamicRange)}`;
-        const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
+        const monFilter = encodeURIComponent(`(apiproxy eq 'ai-gateway-v1')`);
+        const sUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/prod/stats/dc_user_email,dc_model_name?select=sum(message_count),sum(dc_total_token_count),sum(dc_prompt_token_count),sum(dc_candidates_token_count)&timeRange=${encodeURIComponent(dynamicRange)}&filter=${monFilter}`;
+        const rcUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/prod/keyvaluemaps/ai-model-rates/entries/rate_card`;
+        const [sRes, rcRes] = await Promise.all([
+          fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(rcUrl, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        ]);
+
+        let monRates = {};
+        if (rcRes && rcRes.ok) {
+          try {
+            const rcJson = await rcRes.json();
+            monRates = typeof rcJson.value === 'string' ? JSON.parse(rcJson.value) : rcJson.value || {};
+          } catch { }
+        }
+
         if (sRes.ok) {
           const sData = await sRes.json();
           const dims = sData.environments?.[0]?.dimensions || [];
           for (const d of dims) {
-            const email = d.name;
+            const names = d.individualNames || String(d.name || '').split(',');
+            const email = names[0];
+            const model = names[1] || '';
+            if (!email || email === '(not set)' || email === 'null') continue;
+
             const calls = Number(d.metrics?.find((m) => m.name === 'sum(message_count)')?.values?.[0] || 0);
             const tokens = Number(d.metrics?.find((m) => m.name === 'sum(dc_total_token_count)')?.values?.[0] || 0);
-            statsByUser[email] = { calls, tokens };
+            const pt = Number(d.metrics?.find((m) => m.name === 'sum(dc_prompt_token_count)')?.values?.[0] || 0);
+            const ct = Number(d.metrics?.find((m) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
+
+            const rateKey = Object.keys(monRates).find(
+              (k) => k !== 'default' && (model === k || model.startsWith(k) || k.startsWith(model))
+            );
+            const matched = (rateKey ? monRates[rateKey] : null) || monRates[model] || monRates['default'] || {};
+            const isHigh = model.includes('pro') || model.includes('opus');
+            const inRate = matched.input ?? (isHigh ? 1.25 : 0.15);
+            const outRate = matched.output ?? (isHigh ? 5.0 : 0.60);
+            const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
+
+            const acc = statsByUser[email] || { calls: 0, tokens: 0, costUsd: 0 };
+            acc.calls += calls;
+            acc.tokens += tokens;
+            acc.costUsd += cost;
+            statsByUser[email] = acc;
           }
         }
       } catch { }
@@ -1708,15 +1729,22 @@ const server = http.createServer(async (req, res) => {
               ? `${firstName} ${cleanLast}`
               : firstName || email.split('@')[0];
           const isEnterprise = apps.some((a) => a.toLowerCase().includes('enterprise') || a.toLowerCase().includes('admin'));
-          const userStats = statsByUser[email] || { calls: 0, tokens: 0 };
+          const userStats = statsByUser[email] || { calls: 0, tokens: 0, costUsd: 0 };
           const sessionDebit = sessionLedgerByDev.get(email.toLowerCase())?.debitedUsd || 0;
-          const tokenConsumedUsd = (userStats.tokens / 1_000_000) * 0.75 + sessionDebit;
-          const walletConsumedUsd = hasWallet && balanceUsd < 20.0 ? Number(Math.max(0, 20.0 - balanceUsd).toFixed(6)) : 0;
-          const consumedUsd = Number(Math.max(tokenConsumedUsd, walletConsumedUsd).toFixed(6));
-          const minExpectedCalls = walletConsumedUsd > 0 ? Math.max(4, Math.round(walletConsumedUsd * 16)) : 0;
-          const minExpectedTokens = walletConsumedUsd > 0 ? Math.max(2400, Math.round(walletConsumedUsd * 48500)) : 0;
-          const totalCalls = Math.max(userStats.calls, minExpectedCalls);
-          const totalTokens = Math.max(userStats.tokens, minExpectedTokens);
+
+          // Measured usage only.
+          //
+          // These two lines used to be Math.max(measured, walletConsumedUsd * 16) and
+          // Math.max(measured, walletConsumedUsd * 48500) — synthetic floors that invented a
+          // call and token count for any developer whose prepaid balance had moved. A
+          // developer with an untracked wallet debit now simply shows the traffic Apigee
+          // actually recorded, which may be less than their wallet spend implies. That gap is
+          // real and worth seeing; papering over it was the bug.
+          const totalCalls = userStats.calls;
+          const totalTokens = userStats.tokens;
+
+          // Spend priced from the KVM rate card per model, plus this session's live debits.
+          const consumedUsd = Number((userStats.costUsd + sessionDebit).toFixed(6));
 
           return {
             userEmail: email,

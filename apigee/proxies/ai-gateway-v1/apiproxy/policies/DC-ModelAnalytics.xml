@@ -33,6 +33,18 @@
     <DataCollector>dc_total_token_count</DataCollector>
   </Capture>
   <Capture>
+    <!--
+      Semantic cache outcome: HIT, MISS or DISABLED. Set by AM-SetCacheHitExpected /
+      AM-SetCacheMiss / AM-InitCacheStatus, all of which run before the response flow.
+
+      Without this the dashboard had no cache signal at all and the hit rate was a
+      hardcoded constant. Only requests served after this collector shipped carry the
+      dimension; earlier traffic reports "(not set)" and is excluded from the rate.
+    -->
+    <Collect ref="flow.cacheStatus" default=""/>
+    <DataCollector>dc_cache_status</DataCollector>
+  </Capture>
+  <Capture>
     <Collect ref="perUnitPriceMultiplier" default="1.0"/>
     <DataCollector scope="monetization">perUnitPriceMultiplier</DataCollector>
   </Capture>
