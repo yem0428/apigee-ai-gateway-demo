@@ -1417,13 +1417,22 @@ const server = http.createServer(async (req, res) => {
         const ct = Number(dim.metrics?.find((m) => m.name === 'sum(dc_candidates_token_count)')?.values?.[0] || 0);
 
         if (mc <= 0) continue;
+
+        // Apigee reports a missing dimension as the string '(not set)', but a dimension that was
+        // captured while its source variable was unresolved comes back as the literal string
+        // 'null'. Both mean "no identity". The fault path produces the latter for requests that
+        // die before PreFlow step 5 (DJWT-ExtractUserIdentity) — a malformed body rejected by
+        // OAS-ValidateRequest at step 2, or a request with no JWT at all. Treating only
+        // '(not set)' as absent would render those in the ledger as a user literally named 'null'.
+        const isAbsent = (v) => !v || v === '(not set)' || v === 'null' || v === 'undefined';
+
         // A blocked call legitimately has no model and no tokens. Only drop the row when it also
         // has no errors, otherwise this guard would silently discard the very data we just added.
-        if ((rawModel === '(not set)' || !rawModel) && pt === 0 && ct === 0 && ec === 0) continue;
+        if (isAbsent(rawModel) && pt === 0 && ct === 0 && ec === 0) continue;
 
-        const isUnauthenticated = rawUser === '(not set)' || !rawUser;
+        const isUnauthenticated = isAbsent(rawUser);
         const userEmail = isUnauthenticated ? 'anonymous.caller@external.client' : rawUser;
-        const model = rawModel === '(not set)' || !rawModel ? 'unknown-model' : rawModel;
+        const model = isAbsent(rawModel) ? 'unknown-model' : rawModel;
 
         const provider = model.includes('claude') ? 'Anthropic' : 'Google';
         const tier = model.includes('pro') || model.includes('opus') ? 'high' : model.includes('flash-lite') ? 'low' : 'medium';

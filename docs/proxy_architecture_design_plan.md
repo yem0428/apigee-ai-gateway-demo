@@ -522,6 +522,27 @@ flowchart LR
   `flow.emailId` is assigned in PreFlow ahead of Model Armor, the LLM token quota
   and the budget check, so it is populated for every fault except the
   missing-identity 401 itself — that one correctly stays unattributed.
+
+  **The model collector must reference `flow.model`, not `flow.target_model`.**
+  `flow.target_model` is only populated by `AutoRouting.js` (PreFlow step 15) or
+  from an explicit `payload.model`, and this gateway takes the model from the URI
+  path rather than the body. Every guardrail fault is raised at PreFlow steps
+  10-12, *before* auto-routing, so `flow.target_model` is still unset there.
+  `flow.model` is set from the URI much earlier and is the only variable reliably
+  available on the fault path.
+
+  > [!CAUTION]
+  > `DataCapture`'s `default` attribute is a **string literal** and performs no
+  > message-template substitution. `default="{flow.model}"` does not resolve the
+  > variable — it records the eleven characters `{flow.model}` into the dimension.
+  > Both collectors previously carried that value; it was invisible on the success
+  > path (where `flow.target_model` is always set, so the default never fired) but
+  > polluted every single fault row until it was corrected in **rev 13**. Use an
+  > empty default, which Apigee reports as `(not set)`.
+
+  Because a dimension captured from an unresolved variable is reported as the
+  literal string `null` rather than `(not set)`, the UI server treats `(not set)`,
+  `null`, `undefined` and empty as equivalent when bucketing rows.
 - `ML-CloudLogging` writes a structured JSON record to
   `projects/{organization.name}/logs/apigee` in `PostClientFlow`, including
   `userEmail`, `model`, `targetProvider`, `autoRouted`, `cached`, `costUsd`,

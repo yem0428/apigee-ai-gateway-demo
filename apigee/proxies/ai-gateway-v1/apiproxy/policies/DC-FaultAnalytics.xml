@@ -22,7 +22,20 @@
     <DataCollector>dc_user_email</DataCollector>
   </Capture>
   <Capture>
-    <Collect ref="flow.target_model" default="{flow.model}"/>
+    <!--
+      Must be flow.model, not flow.target_model.
+
+      flow.target_model is only populated by AutoRouting.js (PreFlow step 15) or from an
+      explicit payload.model, and this gateway takes the model from the URI path rather than
+      the body. Every guardrail fault — Model Armor, token quota, budget — is raised at
+      PreFlow steps 10-12, before auto-routing has run, so flow.target_model is still unset.
+
+      The default is deliberately empty. DataCapture treats `default` as a string literal, not
+      a message template: `default="{flow.model}"` records the eleven characters "{flow.model}"
+      rather than resolving the variable. An empty default records nothing, which Apigee
+      reports as "(not set)" and the UI renders as "unknown-model".
+    -->
+    <Collect ref="flow.model" default=""/>
     <DataCollector>dc_model_name</DataCollector>
   </Capture>
 </DataCapture>

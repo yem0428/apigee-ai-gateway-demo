@@ -412,6 +412,30 @@ which emits `dc_user_email` on the fault path. The server selects `sum(is_error)
 `dc_user_email,dc_model_name` dimension and returns it as `errorCount` on each row, plus
 `kpis.attributedErrorCount` as the total.
 
+**The query must be filtered to `(apiproxy eq 'ai-gateway-v1')`.** `dc_user_email` is an
+environment-wide dimension, so an unfiltered query also returns `mcp` and any other proxy's
+traffic. Those proxies never set the dimension, so their calls arrive bucketed as `(not set)`
+and would be rendered in the AI Gateway ledger as anonymous AI callers. Measured on prod:
+unfiltered 126 calls / 45 errors versus filtered 76 / 39, the latter matching the `apiproxy`
+dimension exactly. Without the filter `attributedErrorCount` can exceed `isErrorCount`, which
+is the symptom to look for if this regresses.
+
+**Placeholder normalisation.** Apigee reports a dimension that was never written as
+`(not set)`, but a dimension captured from an *unresolved variable* as the literal string
+`null`. The fault path produces the latter whenever a request dies before
+`DJWT-ExtractUserIdentity` — a malformed body rejected by `OAS-ValidateRequest`, or a request
+with no JWT. The server therefore treats `(not set)`, `null`, `undefined` and empty as
+equivalent, mapping the user to `anonymous.caller@external.client` and the model to
+`unknown-model`. Matching only `(not set)` would surface a user literally named "null" in the
+ledger.
+
+> [!NOTE]
+> The **dev environment has no Analytics add-on** — every stats query against it returns
+> `400 invalid argument: Analytics add-on is disabled for dev environment`. Dev therefore has
+> no real `consumptionRows` at all and falls back entirely to synthetic wallet-derived rows,
+> which correctly renders the success-rate card as an em dash. Verify analytics behaviour
+> against **prod** only.
+
 > [!WARNING]
 > Two failure modes this design exists to prevent:
 >

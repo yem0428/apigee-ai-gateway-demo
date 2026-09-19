@@ -7,7 +7,17 @@
     <DataCollector>dc_user_email</DataCollector>
   </Capture>
   <Capture>
-    <Collect ref="flow.target_model" default="{flow.model}"/>
+    <!--
+      Empty default, not "{flow.model}". DataCapture treats `default` as a string literal and
+      performs no message-template substitution, so the old value recorded the eleven
+      characters "{flow.model}" verbatim into the dc_model_name dimension.
+
+      On this success path the default is unreachable — flow.target_model is always set by
+      AutoRouting.js before the response flow runs — but it fired constantly on the fault path
+      twin (DC-FaultAnalytics) and polluted the analytics ledger. Empty degrades safely to
+      Apigee's "(not set)".
+    -->
+    <Collect ref="flow.target_model" default=""/>
     <DataCollector>dc_model_name</DataCollector>
   </Capture>
   <Capture>

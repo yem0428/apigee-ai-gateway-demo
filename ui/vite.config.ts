@@ -1363,15 +1363,22 @@ export default defineConfig(({ mode }) => {
 
                 if (mc <= 0) continue;
 
+                // Apigee reports a missing dimension as '(not set)', but a dimension captured
+                // while its source variable was unresolved comes back as the literal string
+                // 'null'. Both mean "no identity" — the fault path produces the latter for
+                // requests that die before PreFlow step 5 (DJWT-ExtractUserIdentity).
+                const isAbsent = (v?: string) =>
+                  !v || v === '(not set)' || v === 'null' || v === 'undefined';
+
                 // Exclude probe/health-check traffic where no model was invoked and no tokens were
                 // captured. A blocked call looks the same but has errors, so keep those.
-                if ((rawModel === '(not set)' || !rawModel) && pt === 0 && ct === 0 && ec === 0) {
+                if (isAbsent(rawModel) && pt === 0 && ct === 0 && ec === 0) {
                   continue;
                 }
 
-                const isUnauthenticated = rawUser === '(not set)' || !rawUser;
+                const isUnauthenticated = isAbsent(rawUser);
                 const userEmail = isUnauthenticated ? 'anonymous.caller@external.client' : rawUser;
-                const model = rawModel === '(not set)' || !rawModel ? 'unknown-model' : rawModel;
+                const model = isAbsent(rawModel) ? 'unknown-model' : rawModel;
 
                 const provider = model.includes('claude') ? 'Anthropic' : 'Google';
                 const tier = model.includes('pro') || model.includes('opus') ? 'high' : model.includes('flash-lite') ? 'low' : 'medium';

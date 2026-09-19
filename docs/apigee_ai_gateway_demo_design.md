@@ -189,6 +189,10 @@ request. This rule re-emits just the two identifying collectors — `dc_user_ema
 `dc_model_name` — so a Model Armor block, an LLM token-quota rejection, a budget denial or an
 unentitled-model 401 is attributed to the caller who made it.
 
+The model collector reads `flow.model`, **not** `flow.target_model`. Guardrails fire at PreFlow
+steps 10-12, before `JS-AutoRouting` at step 15 has resolved a target, so `flow.target_model` is
+still unset on every fault path — whereas `flow.model` is populated from the URI early in PreFlow.
+
 > [!IMPORTANT]
 > Without this, blocked calls were counted in the fleet-wide `sum(is_error)` but belonged to
 > nobody, so the Analytics & Cost **Request Success Rate** showed a real figure for *All Users*
