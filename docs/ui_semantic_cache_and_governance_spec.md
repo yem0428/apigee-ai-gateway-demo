@@ -710,12 +710,17 @@ Still to run per change:
       *Monetization* (admin persona required for the last one).
 - [ ] `npm run test:live` — runs
       [`tests/gateway-live.test.mjs`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs)
-      (**22 tests**; last recorded run 18 passed, 0 failed, 4 skipped for environmental reasons).
+      (**22 tests**). The result depends on the target the suite picks: with `node server.js`
+      listening on `:3000` it runs via the local proxy and reports **22 passed, 0 skipped**; with no
+      local server it falls back to direct Apigee and reports **18 passed, 4 skipped**. The 4 skips
+      are the local-proxy-only tests (both `/api/me` checks, the proxy route check, and the
+      SSO-token test), not upstream failures. The suite prints a provenance banner naming the
+      target, JWT identity and API key sources before the first test.
 
   > [!IMPORTANT]
   > **`ui/.env` is a hard prerequisite.** The script is
   > `node --env-file=.env --test tests/gateway-live.test.mjs`
-  > ([package.json#L13](file:///Users/maloosatyam/Codebase/AI%20Code/ui/package.json#L13)), and Node
+  > ([package.json#L14](file:///Users/maloosatyam/Codebase/AI%20Code/ui/package.json#L14)), and Node
   > exits with an error before running a single test if the file is missing. `.env` is gitignored
   > ([ui/.gitignore#L3](file:///Users/maloosatyam/Codebase/AI%20Code/ui/.gitignore#L3)), so a fresh
   > clone will always fail here until you create it. `npm run test:all` has the same requirement;

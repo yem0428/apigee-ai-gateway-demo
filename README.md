@@ -471,11 +471,12 @@ All scripts live in [ui/package.json](file:///Users/maloosatyam/Codebase/AI%20Co
 | `npm run dev` | `vite` | Dev server with live `/api/*` middleware |
 | `npm run build` | `tsc && vite build` | Type-check then emit `dist/` |
 | `npm run preview` | `vite preview` | Preview the built bundle |
-| `npm test` | `node --test tests/autorouting.unit.test.mjs` | Alias of `test:unit` |
-| `npm run test:unit` | `node --test tests/autorouting.unit.test.mjs` | Offline auto-routing unit suite |
-| `npm run test:autorouting` | `node --test tests/autorouting.unit.test.mjs` | Alias of `test:unit` |
+| `npm test` | `node --test tests/autorouting.unit.test.mjs tests/calculatecost.unit.test.mjs` | Alias of `test:unit` |
+| `npm run test:unit` | `node --test tests/autorouting.unit.test.mjs tests/calculatecost.unit.test.mjs` | Both offline unit suites (72 tests) |
+| `npm run test:autorouting` | `node --test tests/autorouting.unit.test.mjs` | Model-selection suite only (46 tests) |
+| `npm run test:cost` | `node --test tests/calculatecost.unit.test.mjs` | Cost-calculation suite only (26 tests) |
 | `npm run test:live` | `node --env-file=.env --test tests/gateway-live.test.mjs` | Live gateway integration suite |
-| `npm run test:all` | unit suite `&&` live suite | Everything |
+| `npm run test:all` | unit suites `&&` live suite | Everything |
 
 ### Running the UI playground locally
 
@@ -519,12 +520,15 @@ Recognised keys: `VITE_DEFAULT_ENV`, `VITE_ADMIN_API_KEY`, `VITE_ADMIN_USER_EMAI
 
 ## 🧪 Test Suites
 
-Two suites live in [ui/tests/](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests):
+Three suites live in [ui/tests/](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests):
 
 | Suite | File | Command | Network | Current result |
 | :--- | :--- | :--- | :--- | :--- |
-| Auto-routing unit | [autorouting.unit.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/autorouting.unit.test.mjs) | `npm run test:unit` | Offline | **45 tests — 45 pass, 0 fail, 0 skipped** |
-| Live gateway integration | [gateway-live.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs) | `npm run test:live` | Live Apigee | **22 tests — 18 pass, 0 fail, 4 skipped** |
+| Auto-routing unit | [autorouting.unit.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/autorouting.unit.test.mjs) | `npm run test:autorouting` | Offline | **46 tests — 46 pass, 0 fail, 0 skipped** |
+| Cost calculation unit | [calculatecost.unit.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/calculatecost.unit.test.mjs) | `npm run test:cost` | Offline | **26 tests — 26 pass, 0 fail, 0 skipped** |
+| Live gateway integration | [gateway-live.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs) | `npm run test:live` | Live Apigee | **22 tests — see modes below** |
+
+`npm run test:unit` runs both offline suites together (**72 tests**).
 
 The live suite is organised into four describe blocks:
 
@@ -538,8 +542,35 @@ proxy and harvests API keys from the `/api/me` response, otherwise it falls back
 `https://api.maloosatyam.demo.altostrat.com` directly. It also retries HTTP 429 responses with
 backoff, since the `claude-haiku-4-5@20251001` quota demo is deliberately tight.
 
-The 4 skips are environmental, not failures — Anthropic Claude upstream not provisioned, MCP upstream
-unavailable in the local mock, and Cloud Logging assertions that need an audit-log reader.
+**The result depends on which target it picked**, so the suite prints a provenance banner naming the
+target, the JWT identity, and the source of each API key before any test runs:
+
+| Target | Result |
+| :--- | :--- |
+| Local proxy (`node server.js` on `:3000`) | **22 pass, 0 fail, 0 skipped** |
+| Direct Apigee (no local server) | **18 pass, 0 fail, 4 skipped** |
+
+The 4 skips are the tests that can only run against the local proxy — the two `/api/me` checks, the
+proxy route check, and the SSO-token test, which cannot obtain a token without `/api/me`. They are
+not upstream or provisioning failures.
+
+When keys are not supplied via `.env` or `/api/me` the suite discovers them from Apigee with
+`gcloud`. Two separate developers are involved, and they are selected independently:
+
+| Variable | Default | Selects |
+| :--- | :--- | :--- |
+| `APIGEE_ORG` | `bap-apac-demo2` | Org queried for apps and keys |
+| `APIGEE_DEVELOPER` | `VITE_SSO_USER_EMAIL` | Developer owning the **admin** app → `ADMIN_KEY` |
+| `APIGEE_PERSONA_DEVELOPER` | `maloosatyam@gmail.com` | Developer owning the **sales/loans** apps (MCP personas only) |
+
+> [!IMPORTANT]
+> The admin key must belong to the same developer as the JWT identity. The AI Gateway attributes LLM
+> token quota to the JWT email (`flow.emailId`) but developer budget to the key's developer
+> (`verifyapikey.VA-VerifyAPIKey.developer.id`). If they diverge, the suite still passes while
+> measuring two different subjects. A duplicate admin app exists under `maloosatyam@gmail.com`, so
+> the banner prints a `!!` warning whenever the discovered admin key's developer is not the JWT
+> identity. The sales/loans divergence is expected — those personas exist only for the MCP Gateway
+> demo and are deliberately owned by a different developer.
 
 ```bash
 cd ui

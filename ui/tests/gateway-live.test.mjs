@@ -84,34 +84,76 @@ before(async () => {
     mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
   }
 
-  // Dynamic gcloud Management API fallback when running tests without local server or .env keys
+  // Dynamic gcloud Management API fallback when running tests without local server or .env keys.
+  //
+  // Two DIFFERENT developers are involved, deliberately:
+  //
+  //   APIGEE_DEVELOPER          -> holds the Enterprise admin app. MUST match TEST_EMAIL, because
+  //                                the AI Gateway attributes the same call to two different keys:
+  //                                  LTQ-TokenEnforce / LTQ-TokenCount -> flow.emailId (the JWT email)
+  //                                  QC-DeductBudget                   -> ...developer.id (the KEY's developer)
+  //                                Mismatch them and token quota accrues against one developer while
+  //                                spend accrues against another.
+  //   APIGEE_PERSONA_DEVELOPER  -> holds the Sales and Loans apps. Intentionally a different
+  //                                developer: personas are an MCP-Gateway concern only, and this
+  //                                divergence is the accepted P2 behaviour.
+  //
+  // This block previously searched a single hardcoded list with the persona developer FIRST. That
+  // developer also owns a DUPLICATE 'Unified Admin maloosatyam App', so it won the ADMIN_KEY race
+  // and the AI Gateway tests silently ran as a developer the JWT never names. Resolving the admin
+  // key strictly from APIGEE_DEVELOPER is what fixes that; the personas keep their own source.
+  const APIGEE_ORG = process.env.APIGEE_ORG || 'bap-apac-demo2';
+  const APIGEE_DEVELOPER = process.env.APIGEE_DEVELOPER || TEST_EMAIL;
+  const APIGEE_PERSONA_DEVELOPER = process.env.APIGEE_PERSONA_DEVELOPER || 'maloosatyam@gmail.com';
+
+  let adminKeySource = ADMIN_KEY ? 'env' : (useLocalProxy ? '/api/me' : 'unset');
+  let personaKeySource = SALES_KEY && LOANS_KEY ? 'env' : (useLocalProxy ? '/api/me' : 'unset');
+
   if (!ADMIN_KEY || !SALES_KEY || !LOANS_KEY) {
+    let token = '';
     try {
-      const token = execSync('gcloud auth print-access-token', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      if (token) {
-        const candidates = Array.from(new Set(['maloosatyam@gmail.com', TEST_EMAIL]));
-        for (const candidateEmail of candidates) {
-          const appsUrl = `https://apigee.googleapis.com/v1/organizations/bap-apac-demo2/developers/${encodeURIComponent(candidateEmail)}/apps?expand=true`;
-          const appsRes = await fetch(appsUrl, { headers: { Authorization: `Bearer ${token}` } });
-          if (appsRes.ok) {
-            const appsData = await appsRes.json();
-            for (const app of appsData.app || []) {
-              const approved = (app.credentials || []).find((c) => c.status === 'approved' && c.consumerKey);
-              if (!approved) continue;
-              const nameLower = (app.name || '').toLowerCase();
-              if (!ADMIN_KEY && (nameLower.includes('admin') || nameLower.includes('enterprise'))) {
-                ADMIN_KEY = approved.consumerKey;
-              } else if (!SALES_KEY && nameLower.includes('sales')) {
-                SALES_KEY = approved.consumerKey;
-              } else if (!LOANS_KEY && nameLower.includes('loans')) {
-                LOANS_KEY = approved.consumerKey;
-              }
-            }
-          }
+      token = execSync('gcloud auth print-access-token', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    } catch {
+      // No gcloud; the assertions below report whatever is still unset.
+    }
+
+    const appsFor = async (developer) => {
+      if (!token) return [];
+      try {
+        const url = `https://apigee.googleapis.com/v1/organizations/${APIGEE_ORG}`
+          + `/developers/${encodeURIComponent(developer)}/apps?expand=true`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return [];
+        return (await res.json()).app || [];
+      } catch {
+        return [];
+      }
+    };
+    const approvedKey = (app) =>
+      (app.credentials || []).find((c) => c.status === 'approved' && c.consumerKey)?.consumerKey;
+
+    // 1. Admin key - ONLY from the developer the identity JWT names.
+    if (!ADMIN_KEY) {
+      for (const app of await appsFor(APIGEE_DEVELOPER)) {
+        const name = (app.name || '').toLowerCase();
+        if (name.includes('admin') || name.includes('enterprise')) {
+          const key = approvedKey(app);
+          if (key) { ADMIN_KEY = key; adminKeySource = `gcloud:${APIGEE_DEVELOPER}`; break; }
         }
       }
-    } catch {
-      // Ignore gcloud fallback error; assertions below will report if keys remain unset
+    }
+
+    // 2. Persona keys - from the persona developer. Never substituted with ADMIN_KEY, which
+    //    would mask the Standard vs Enterprise entitlement difference the MCP tests rely on.
+    if (!SALES_KEY || !LOANS_KEY) {
+      for (const app of await appsFor(APIGEE_PERSONA_DEVELOPER)) {
+        const name = (app.name || '').toLowerCase();
+        const key = approvedKey(app);
+        if (!key) continue;
+        if (!SALES_KEY && name.includes('sales')) { SALES_KEY = key; }
+        else if (!LOANS_KEY && name.includes('loans')) { LOANS_KEY = key; }
+      }
+      if (SALES_KEY || LOANS_KEY) personaKeySource = `gcloud:${APIGEE_PERSONA_DEVELOPER}`;
     }
   }
 
@@ -122,7 +164,29 @@ before(async () => {
 
   assert.ok(SALES_KEY, 'SALES_KEY must be provided via env, /api/me, or gcloud for live gateway tests');
   assert.ok(ADMIN_KEY, 'ADMIN_KEY must be provided via env, /api/me, or gcloud for live gateway tests');
-  console.log(`\n>>> [Live Integration Tests] Target: ${useLocalProxy ? 'Local Prod Proxy (' + vertexBaseUrl + ')' : 'Direct Apigee Gateway (' + DIRECT_APIGEE_HOST + ')'}\n`);
+  // State the run's provenance explicitly. Without a local server on :3000 the suite silently
+  // retargets AND skips 4 local-proxy tests while still reporting green, so the headline count
+  // alone does not say what was actually exercised. (3 unconditional local-only checks plus the
+  // SSO-token test, which cannot obtain a token without /api/me.)
+  const mode = useLocalProxy
+    ? `Local Proxy -> ${TEST_ENV} (${vertexBaseUrl})`
+    : `Direct Apigee Gateway (${DIRECT_APIGEE_HOST}) - local-proxy tests WILL BE SKIPPED`;
+  console.log([
+    '',
+    '>>> [Live Integration Tests]',
+    `      target       : ${mode}`,
+    `      identity     : ${TEST_EMAIL}  (JWT email -> LTQ token-quota counter)`,
+    `      admin key    : ${adminKeySource}`,
+    `      persona keys : ${personaKeySource}  (MCP only)`,
+    '',
+  ].join('\n'));
+
+  // The AI Gateway attributes token quota to the JWT email but budget to the key's developer.
+  // If those are different developers the suite still passes while measuring two different
+  // subjects, which is exactly the failure this banner exists to make impossible to miss.
+  if (adminKeySource.startsWith('gcloud:') && adminKeySource !== `gcloud:${TEST_EMAIL}`) {
+    console.warn(`      !! admin key developer (${adminKeySource.slice(7)}) != JWT identity (${TEST_EMAIL})`);
+  }
 });
 
 

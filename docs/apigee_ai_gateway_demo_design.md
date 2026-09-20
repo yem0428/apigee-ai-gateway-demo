@@ -1244,14 +1244,24 @@ wallets they create — is documented in
 
 ```bash
 cd ui
-npm test         # unit only: tests/autorouting.unit.test.mjs
-npm run test:live  # live gateway suite: tests/gateway-live.test.mjs (needs ui/.env)
-npm run test:all   # both
+npm test            # offline only: autorouting.unit.test.mjs + calculatecost.unit.test.mjs (72 tests)
+npm run test:unit   # same as npm test
+npm run test:autorouting  # 46 tests - model selection only
+npm run test:cost         # 26 tests - CalculateCost.js against the real rate card
+npm run test:live   # live gateway suite: tests/gateway-live.test.mjs (needs ui/.env)
+npm run test:all    # offline suites, then live
 ```
 
 > [!WARNING]
-> `npm test` runs **only** the auto-routing unit test. The live integration suite requires
+> `npm test` runs **only** the two offline unit suites. The live integration suite requires
 > the explicit `npm run test:live` script, which loads `ui/.env` via `--env-file`.
+
+> [!NOTE]
+> The two unit suites mirror the separation of concerns in the proxy: `autorouting.unit.test.mjs`
+> asserts that [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
+> selects a model and sets **no** costing variable, while `calculatecost.unit.test.mjs` runs the real
+> [CalculateCost.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js)
+> against the real [model_rate_card.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/config/model_rate_card.json).
 
 [gateway-live.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs)
 contains four suites:
