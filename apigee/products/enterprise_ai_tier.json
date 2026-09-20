@@ -10,6 +10,18 @@
     {
       "name": "access",
       "value": "private"
+    },
+    {
+      "name": "developer.budget.limit",
+      "value": "20000000"
+    },
+    {
+      "name": "developer.budget.interval",
+      "value": "1"
+    },
+    {
+      "name": "developer.budget.timeunit",
+      "value": "month"
     }
   ],
   "llmOperationGroup": {

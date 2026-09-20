@@ -87,13 +87,20 @@ Five product definitions exist in
 > The three MCP products use `payloadOperationGroup.operationConfigs[].quota`
 > (call-count based, per JSON-RPC operation).
 
-| File | `name` | Group type | `apiSource` | Key attributes |
+| File | `name` | Group type | `apiSource` | Attributes |
 | --- | --- | --- | --- | --- |
-| [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | Standard AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `tier=standard`, `access=private` |
-| [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | Enterprise AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `tier=enterprise`, `access=private` |
-| [sales_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/sales_tools_mcp.json) | Sales Tools MCP | `payloadOperationGroup` | `mcp` | `domain=sales`, `access=private` |
-| [loans_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/loans_tools_mcp.json) | Loans Tools MCP | `payloadOperationGroup` | `mcp` | `domain=loans`, `access=private` |
-| [enterprise_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_tools_mcp.json) | Enterprise Tools MCP | `payloadOperationGroup` | `mcp` | `domain=enterprise`, `access=private` |
+| [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | Standard AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `access=private`, `developer.budget.limit=5000000` ($5/mo), `.interval=1`, `.timeunit=month` |
+| [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | Enterprise AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `access=private`, `developer.budget.limit=20000000` ($20/mo), `.interval=1`, `.timeunit=month` |
+| [sales_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/sales_tools_mcp.json) | Sales Tools MCP | `payloadOperationGroup` | `mcp` | `access=private` |
+| [loans_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/loans_tools_mcp.json) | Loans Tools MCP | `payloadOperationGroup` | `mcp` | `access=private` |
+| [enterprise_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_tools_mcp.json) | Enterprise Tools MCP | `payloadOperationGroup` | `mcp` | `access=private` |
+
+> [!WARNING]
+> This table previously listed `tier=standard`, `tier=enterprise` and `domain=sales|loans|enterprise`.
+> **Those attributes do not exist** — they were removed from every product, as section 10 of this
+> same document already recorded. The table contradicted it. Nothing reads a `tier` or `domain`
+> attribute: routing tier comes from the product **name**, and MCP persona comes from the
+> credential's product grants.
 
 All five declare `approvalType: auto` and `environments: ["dev", "prod"]`.
 
@@ -380,10 +387,15 @@ executes **before** `VA-VerifyAPIKey`
 ### Auto-routing decisions
 
 [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L9-L21)
-reads the tier from `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` — `tier` is a
-**product** attribute, so the bare `...VA-VerifyAPIKey.tier` form (which addresses *app*
-attributes) never resolves. Only when that variable is empty does it fall back to a
-substring match on `...apiproduct.name`.
+derives the tier from `verifyapikey.VA-VerifyAPIKey.apiproduct.name`: any product whose
+name contains `"enterprise"` gets the premium routing branch.
+
+> [!WARNING]
+> This section previously stated that the script reads
+> `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` and falls back to a name match only when
+> that is empty. **It does not** — there is no `tier` read in the script and no product
+> defines a `tier` attribute, so the described primary path never existed. The name match
+> is the only mechanism.
 
 > [!IMPORTANT]
 > Routing **fails closed**. Premium models (Pro / Opus) require a positive enterprise
@@ -468,8 +480,9 @@ PostFlow order is `EV-ModelResponse` → `KVM-GetModelRates` → `JS-CalculateCo
 
 `QC-EnforceBudgetLimit` and `QC-DeductBudget` share `SharedName` `developer-budget-counter`,
 key off `verifyapikey.VA-VerifyAPIKey.developer.id`, and resolve
-`...apiproduct.developer.budget.{limit,interval,timeunit}` with fallbacks
-`100000000` / `1` / `month`. `QC-DeductBudget` applies `<Weight ref="flow.tx_cost_micros"/>`.
+`...apiproduct.developer.budget.{limit,interval,timeunit}` from the API product attributes:
+**Enterprise AI Tier $20/month** (`20000000` micros) and **Standard AI Tier $5/month**
+(`5000000`). `QC-DeductBudget` applies `<Weight ref="flow.tx_cost_micros"/>`.
 
 > [!IMPORTANT]
 > Both budget policies are `continueOnError="true"` so their raw `QuotaViolation` never
@@ -477,8 +490,9 @@ key off `verifyapikey.VA-VerifyAPIKey.developer.id`, and resolve
 > PreFlow, which returns **429 `RESOURCE_EXHAUSTED`**. Delete that step and the cap stops
 > applying with no other symptom. `QC-EnforceBudgetLimit` is `<EnforceOnly>true</EnforceOnly>`
 > (reads, never counts); `QC-DeductBudget` carries the `<Weight>` (counts, never rejects).
-> If the budget variables are not populated on the product, both fall back to
-> `100000000` / `1` / `month`.
+> The `100000000` / `1` / `month` literals in the XML are a **fallback only**, for a product
+> that omits the attributes — they are not the effective limit. Keep the two policies'
+> limit configuration identical, or enforcement and counting would target different buckets.
 
 `JS-AuditBudgetAccounting` runs unconditionally after `QC-DeductBudget` and names the
 outcome in `flow.budget_status` (`ok`, `skipped_cached`, `skipped_no_cost`,
@@ -1022,9 +1036,10 @@ Admin, Sales and Loans personas alike.
 | `:streamGenerateContent` | **Resolved.** Now 501 `UNIMPLEMENTED` via `RF-StreamingNotSupported`. Previously returned a non-streaming 200 |
 | `LTQ-TokenEnforce` coverage | Only wired to `claude-haiku-4-5@20251001` via `LLMTokenLimitFlow`; other models are metered but not request-blocked |
 | `/models/auto` entitlement | **Resolved.** Dropped from both AI tiers. No product grants it and no flow routes it; `OAS-ValidateRequest` rejects it with 400. The UI always calls bare `/auto` |
-| Stale product `description` attributes | **Resolved.** All custom attributes (`description`, `tier`, `domain`) were removed from every product. The only attribute left is `access: private`, which Apigee itself interprets |
+| Stale product `description` attributes | **Resolved.** The descriptive attributes (`description`, `tier`, `domain`) were removed from every product. Products now carry `access: private`, plus the three `developer.budget.*` attributes on the two AI tiers |
 | Leaked consumer key in git history | A literal consumer key was committed in `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer contains it, but git history does — treat that key as compromised and rotate it |
-| Budget quota variables | `QC-EnforceBudgetLimit` / `QC-DeductBudget` read `...apiproduct.developer.budget.*`, which no committed product JSON defines; both are `continueOnError="true"` and fall back to `100000000` micro-dollars / month. Confirmed live on dev: `x-gateway-budget-limit-usd` returns `100.000000` |
+| Budget quota variables | **Resolved.** Both AI products now define `developer.budget.{limit,interval,timeunit}` — Enterprise `20000000` micros ($20/month), Standard `5000000` ($5/month). Verified live on dev and prod: `x-gateway-budget-limit-usd` returns `20.000000` for the Enterprise-entitled admin key. The `100000000` literal remains in the XML as a fallback only |
+| "Custom product attributes never resolve" | **Disproven 2026-09-20.** This belief was recorded in `GEMINI.md` rule 13 and blocked the product-driven budget design. A custom attribute named `developer.budget.limit` resolves at `verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.limit`; `.interval` and `.timeunit` resolve too. Propagation is **~10s and non-uniform across message processors** — a probe that slept a fixed 6s read a stale processor and produced a false negative. Poll until the change is observed |
 | Budget cap is not enforced | **Resolved.** `RF-BudgetExceeded` now returns 429 `RESOURCE_EXHAUSTED` when the counter is exhausted. Verified two-sided on dev with the cap forced to 2 micro-dollars: over budget → 429, cap restored → 200 with `exceed.count` back to `0` |
 | Enforcer double-counts | **Resolved.** `<EnforceOnly>true</EnforceOnly>` added to `QC-EnforceBudgetLimit`. Verified on dev: the same call that advanced the counter by `0.000002` now advances it by `0.000001` |
 | `ratelimit.<policy>.exceeded` does not exist | Referencing it returns null and silently evaluates to false. Use `.failed` together with `.exceed.count`. The first version of the enforcement fix used the non-existent name and did not fire |

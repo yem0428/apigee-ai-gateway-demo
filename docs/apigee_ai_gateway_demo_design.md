@@ -756,7 +756,7 @@ Two client-side behaviours matter before a live demo:
 | `SUP-UserPrompt` | **SanitizeUserPrompt** (Model Armor) | Screens the prompt via template `apigee-sanitize-user-prompt` (`asia-southeast1`); blocks with HTTP 400 |
 | `VA-VerifyAPIKey` | VerifyAPIKey | Validates `x-apikey`; 401 on product mismatch |
 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | **HTTP 403 PERMISSION_DENIED** on exhausted prepaid balance |
-| `QC-EnforceBudgetLimit` | Quota (`EnforceOnly`) | Reads the monetary budget counter (`developer-budget-counter`). `continueOnError="true"`; the client-facing rejection is raised by `RF-BudgetExceeded` |
+| `QC-EnforceBudgetLimit` | Quota (`EnforceOnly`) | Reads the monetary budget counter (`developer-budget-counter`). The cap comes from the API product attributes `developer.budget.{limit,interval,timeunit}` — **Enterprise $20/month, Standard $5/month**; the `100000000` literal in the XML is a fallback only. `continueOnError="true"`; the client-facing rejection is raised by `RF-BudgetExceeded` |
 | `RF-BudgetExceeded` | RaiseFault | **HTTP 429 RESOURCE_EXHAUSTED** when the developer budget is exhausted. Removing this step silently disables budget enforcement |
 | `RF-StreamingNotSupported` | RaiseFault | **HTTP 501 UNIMPLEMENTED** on `:streamGenerateContent`. Without it the request was served as a non-streaming 200 |
 | `AM-RemoveAuthorization` | AssignMessage | Strips the client `Authorization` header before upstream |

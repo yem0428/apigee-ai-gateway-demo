@@ -547,9 +547,35 @@ flowchart LR
 - `QC-DeductBudget` is a `Quota` with
   `<Weight ref="flow.tx_cost_micros"/>`, identified by
   `verifyapikey.VA-VerifyAPIKey.developer.id`, sharing counter
-  `developer-budget-counter` with `QC-EnforceBudgetLimit`. Both read the limit
-  from `verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.limit`
-  (fallback `100000000` micro-dollars = $100 / month).
+  `developer-budget-counter` with `QC-EnforceBudgetLimit`. Both read the limit,
+  interval and time unit from the API product attributes
+  `verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.{limit,interval,timeunit}`.
+
+  | API product | `developer.budget.limit` | Effective cap |
+  | :--- | ---: | :--- |
+  | Enterprise AI Tier | `20000000` | **$20 / month** |
+  | Standard AI Tier | `5000000` | **$5 / month** |
+
+  The literals on the policy elements (`100000000` / `1` / `month`) are a
+  **fallback only**, used when a product omits the attribute. They are not the
+  effective limit. Before 2026-09-20 no product set these attributes, so every
+  request silently fell back to a $100/month cap that nobody had chosen — and
+  because the cap was not enforced at all until the `RF-BudgetExceeded` step was
+  added, that went unnoticed.
+
+  > [!NOTE]
+  > **The budget quota and the monetization wallet are complementary, not
+  > redundant.** `MLC-EnforceMonetizationLimits` charges the prepaid wallet a flat
+  > **$0.001 per call** under the published `FIXED_PER_UNIT` rate plan and returns
+  > **403** when the $20 balance is exhausted — effectively a call-volume cap. The
+  > budget quota charges **real model cost** and returns **429**. They diverge by
+  > orders of magnitude: cheap high-volume traffic exhausts the wallet first, while
+  > an expensive-model blowout trips the budget first. For example `gemini-3.7-flash`
+  > at $7.50 / 1M output burns $20 of real cost in roughly 2,700 calls while
+  > consuming only ~$2.70 of wallet. Sizing the budget above the wallet, as the old
+  > $100 fallback did, makes it unreachable and removes the only guard against a
+  > cost blowout.
+
 - `JS-AuditBudgetAccounting` ([AuditBudgetAccounting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AuditBudgetAccounting.js)) runs immediately
   after `QC-DeductBudget` and is **deliberately unconditional**. It writes
   `flow.budget_status`, `flow.budget_exceeded` and the USD-formatted

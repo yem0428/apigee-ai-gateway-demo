@@ -12,6 +12,18 @@
   continueOnError stays "true" so that the raw QuotaViolation is swallowed; RF-BudgetExceeded
   in the PreFlow raises the client-facing 429 instead, in the same error envelope as every
   other guardrail. Removing that RaiseFault step silently disables budget enforcement.
+
+  THE LIMIT COMES FROM THE API PRODUCT. Each AI product sets the custom attributes
+  developer.budget.limit / .interval / .timeunit, which is what the three refs below read
+  (Enterprise AI Tier = 20000000 micros = $20/month, Standard AI Tier = 5000000 = $5/month).
+  The literals on those elements are a FALLBACK ONLY, used when a product omits the
+  attribute - they are not the effective limit. Keep the pair in QC-DeductBudget identical;
+  a read side and write side that disagree would enforce against one budget while counting
+  into another.
+
+  Measured 2026-09-20: a product attribute change reaches the message processors in roughly
+  10s and NOT uniformly - during that window different requests can observe the old and new
+  limits. Poll until the change is observed rather than sleeping a fixed time.
 -->
 <Quota async="false" continueOnError="true" enabled="true" name="QC-EnforceBudgetLimit">
   <DisplayName>QC-EnforceBudgetLimit</DisplayName>
