@@ -182,8 +182,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       if (row.errorCount !== undefined || existing.errorCount !== undefined) {
         existing.errorCount = (existing.errorCount ?? 0) + (row.errorCount ?? 0);
       }
-      // A merged row is only synthetic if every contributing row was.
-      existing.isSynthetic = Boolean(existing.isSynthetic) && Boolean(row.isSynthetic);
       existing.isUnauthenticated = Boolean(existing.isUnauthenticated) && Boolean(row.isUnauthenticated);
     });
 
@@ -305,7 +303,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       tokens += r.inputTokens + r.outputTokens;
       spend += r.costUsd;
 
-      if (r.isSynthetic) return;
       measuredCalls += r.totalTraffic;
       if (r.errorCount !== undefined) {
         hasErrorData = true;

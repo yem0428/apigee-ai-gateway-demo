@@ -432,7 +432,7 @@ query string preserved. Anything else falls through to static file serving.
 | Scope | Numerator source | Denominator |
 | :--- | :--- | :--- |
 | Admin · All Users | `kpis.isErrorCount` — `sum(is_error)` on the `apiproxy` dimension | `kpis.totalCalls` (server computes `kpis.slaHealth`) |
-| Admin · single user | `errorCount` summed over that user's `consumptionRows` | `totalTraffic` of the same rows, **excluding `isSynthetic`** |
+| Admin · single user | `errorCount` summed over that user's `consumptionRows` | `totalTraffic` of the same rows |
 | User view | same, scoped to the signed-in email | same |
 
 Per-user error data only exists because the proxy's `DefaultFaultRule` runs `DC-FaultAnalytics`,

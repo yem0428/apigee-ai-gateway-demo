@@ -12,6 +12,29 @@ let tokenExpiry = 0
 // Real-time session debit ledger per developer email to bridge Apigee's 15-min Analytics settlement window
 const sessionLedgerByDev = new Map<string, { debitedUsd: number; lastCreditTimeSeen: string }>()
 
+// Mirrors server.js. This dev middleware reimplements the production /api surface, so the
+// two must agree; changing one without the other makes `npm run dev` and `node server.js`
+// disagree about what the Monetization tab shows.
+//
+// Demo constant: the prepaid wallet each new developer is credited on onboarding. It is NOT
+// the gateway budget cap, which is enforced by QC-EnforceBudgetLimit / RF-BudgetExceeded and
+// falls back to $100/month.
+const PREPAID_STARTING_BALANCE_USD = 20
+// Untouched wallets can report fractionally above the credited amount, so exact equality
+// would misclassify them as partially spent.
+const PREPAID_BALANCE_EPSILON_USD = 0.05
+
+/** The denominator behind the "spent X of Y" reading in the Monetization tab. */
+function allocatedBudgetFor(hasWallet: boolean, balanceUsd: number, consumedUsd: number): number {
+  if (hasWallet && balanceUsd <= PREPAID_STARTING_BALANCE_USD + PREPAID_BALANCE_EPSILON_USD) {
+    return PREPAID_STARTING_BALANCE_USD
+  }
+  if (balanceUsd > 0) {
+    return Number((balanceUsd + consumedUsd).toFixed(2))
+  }
+  return PREPAID_STARTING_BALANCE_USD
+}
+
 async function getGcpAccessToken(): Promise<string> {
   const now = Date.now()
   if (cachedToken && now < tokenExpiry) {
@@ -598,7 +621,7 @@ async function provisionUserDeveloperAndApp(
     }
 
     if (needsInitialTopup) {
-      console.log(`[Vite Server] Adding $20 starting balance for developer ${email}...`);
+      console.log(`[Vite Server] Adding $${PREPAID_STARTING_BALANCE_USD} starting balance for developer ${email}...`);
       const creditUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/balance:credit`;
       await fetch(creditUrl, {
         method: 'POST',
@@ -607,8 +630,8 @@ async function provisionUserDeveloperAndApp(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transactionAmount: { currencyCode: 'USD', units: '20', nanos: 0 },
-          transactionId: `init-topup-20-${Date.now()}`,
+          transactionAmount: { currencyCode: 'USD', units: String(PREPAID_STARTING_BALANCE_USD), nanos: 0 },
+          transactionId: `init-topup-${PREPAID_STARTING_BALANCE_USD}-${Date.now()}`,
         }),
       });
     }
@@ -1433,7 +1456,6 @@ export default defineConfig(({ mode }) => {
                   outputTokens: ct,
                   costUsd: Number(cost.toFixed(4)),
                   isUnauthenticated,
-                  isSynthetic: false,
                 });
               }
 
@@ -1686,7 +1708,7 @@ export default defineConfig(({ mode }) => {
                     totalCalls,
                     totalTokens,
                     currentBalanceUsd: balanceUsd,
-                    allocatedBudgetUsd: hasWallet && balanceUsd <= 20.05 ? 20.0 : (balanceUsd > 0 ? Number((balanceUsd + consumedUsd).toFixed(2)) : 20.0),
+                    allocatedBudgetUsd: allocatedBudgetFor(hasWallet, balanceUsd, consumedUsd),
                     lastActive: hasWallet ? 'Active Wallet' : 'Registered',
                   };
                 })

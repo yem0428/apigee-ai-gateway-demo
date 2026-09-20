@@ -1016,6 +1016,10 @@ Admin, Sales and Loans personas alike.
 | Item | State |
 | --- | --- |
 | `ModelRateCardView.tsx` | Present in the tree but never imported or rendered — dead code |
+| `isSynthetic` | **Resolved.** Removed. Both producers hardcoded `false`, so the two consumers in `AnalyticsDashboard.tsx` were dead branches. It was left over from wallet-drift rows that no longer exist |
+| `allocatedBudgetUsd` | **Resolved.** The repeated `20` / `20.05` literals are now `PREPAID_STARTING_BALANCE_USD` and `PREPAID_BALANCE_EPSILON_USD` behind an `allocatedBudgetFor()` helper, duplicated in `server.js` and `vite.config.ts` with a comment noting they must agree. This is the **prepaid wallet**, unrelated to the gateway's $100 budget quota |
+| `scenario_presets_review.md` drift | **Resolved.** The file is now generated from `defaultSettings.ts` by `npm run docs:presets`; `--check` fails when stale. It had drifted to claim titles `Unauthorized`, `Auto Routing`, `Token Limits` and `Semantic Cache` long after the code moved to `Access Control`, `Model Routing`, `Tokenomics` and `Cache` |
+| `:streamGenerateContent` | **Resolved.** Now 501 `UNIMPLEMENTED` via `RF-StreamingNotSupported`. Previously returned a non-streaming 200 |
 | `LTQ-TokenEnforce` coverage | Only wired to `claude-haiku-4-5@20251001` via `LLMTokenLimitFlow`; other models are metered but not request-blocked |
 | `/models/auto` entitlement | **Resolved.** Dropped from both AI tiers. No product grants it and no flow routes it; `OAS-ValidateRequest` rejects it with 400. The UI always calls bare `/auto` |
 | Stale product `description` attributes | **Resolved.** All custom attributes (`description`, `tier`, `domain`) were removed from every product. The only attribute left is `access: private`, which Apigee itself interprets |

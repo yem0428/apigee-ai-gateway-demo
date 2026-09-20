@@ -219,11 +219,6 @@ export interface UserConsumptionRecord {
   outputTokens: number;
   costUsd: number;
   isUnauthenticated?: boolean;
-  /**
-   * True when the row was reconstructed from wallet-balance drift rather than read from
-   * analytics. Synthetic rows carry no error signal and must stay out of success-rate maths.
-   */
-  isSynthetic?: boolean;
 }
 
 export interface UserMonetizationAttribution {

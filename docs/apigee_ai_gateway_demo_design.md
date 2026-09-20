@@ -277,7 +277,7 @@ and validated by `OAS-ValidateRequest`:
 | `POST /auto:generateContent` | Intelligent auto-routing |
 | `POST /auto` | Intelligent auto-routing (bare form) |
 | `POST /models/{modelId}:generateContent` | Model-agnostic direct invocation, Gemini **and** Claude |
-| `POST /models/{modelId}:streamGenerateContent` | Streaming variant |
+| `POST /models/{modelId}:streamGenerateContent` | Declared in the OpenAPI spec, but **rejected with 501 UNIMPLEMENTED** by `RF-StreamingNotSupported` |
 
 Concrete production examples:
 
@@ -758,6 +758,7 @@ Two client-side behaviours matter before a live demo:
 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | **HTTP 403 PERMISSION_DENIED** on exhausted prepaid balance |
 | `QC-EnforceBudgetLimit` | Quota (`EnforceOnly`) | Reads the monetary budget counter (`developer-budget-counter`). `continueOnError="true"`; the client-facing rejection is raised by `RF-BudgetExceeded` |
 | `RF-BudgetExceeded` | RaiseFault | **HTTP 429 RESOURCE_EXHAUSTED** when the developer budget is exhausted. Removing this step silently disables budget enforcement |
+| `RF-StreamingNotSupported` | RaiseFault | **HTTP 501 UNIMPLEMENTED** on `:streamGenerateContent`. Without it the request was served as a non-streaming 200 |
 | `AM-RemoveAuthorization` | AssignMessage | Strips the client `Authorization` header before upstream |
 | `AM-InitCacheStatus` | AssignMessage | Initialises cache flow variables |
 | `JS-AutoRouting` | Javascript | Heuristic model selection on `/auto*` |

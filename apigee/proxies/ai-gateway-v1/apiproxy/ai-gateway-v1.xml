@@ -36,6 +36,7 @@
     <Policy>QC-DeductBudget</Policy>
     <Policy>QC-EnforceBudgetLimit</Policy>
     <Policy>RF-BudgetExceeded</Policy>
+    <Policy>RF-StreamingNotSupported</Policy>
     <Policy>RF-MissingUserEmail</Policy>
     <Policy>SCL-Semantic-Cache-Lookup</Policy>
     <Policy>SCP-Semantic-Cache-Populate</Policy>

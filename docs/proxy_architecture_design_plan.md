@@ -64,8 +64,9 @@ which `OAS-ValidateRequest` enforces.
 | `POST /models/claude-*` | `AnthropicDirectFlow` | `AM-PrepClaudeDirect` pins `flow.target_provider = anthropic` |
 
 The OpenAPI spec additionally declares the `:streamGenerateContent` path shape so
-that `OAS-ValidateRequest` does not reject it, but there is **no streaming
-handling in the bundle** — see [Section 11.1](#111-sse-streaming--not-in-ai-gateway-v1).
+that `OAS-ValidateRequest` does not reject it with a generic parse error, but there
+is **no streaming handling in the bundle**: `RF-StreamingNotSupported` returns
+**501 UNIMPLEMENTED** — see [Section 11.1](#111-sse-streaming--not-in-ai-gateway-v1).
 
 > [!NOTE]
 > There is **no** `GET /models` model-catalog flow in `ai-gateway-v1`. No such
@@ -1117,9 +1118,25 @@ Both target endpoints declare an **empty `<Properties/>`** block. There is no
 `:streamGenerateContent` routing behaviour, and no streaming token capture
 policy in this bundle.
 
-The OpenAPI spec does declare `:streamGenerateContent` paths, but only so that
-`OAS-ValidateRequest` will not reject such a request — the proxy has no
-streaming-specific handling behind them.
+The OpenAPI spec still declares the `:streamGenerateContent` path so that
+`OAS-ValidateRequest` does not reject it with a generic "no API path found"
+error. `RF-StreamingNotSupported` then refuses it explicitly with **501
+UNIMPLEMENTED**.
+
+> [!WARNING]
+> Before that policy existed the request was **silently served as non-streaming**.
+> OAS validation passed, `GeminiDirectFlow` matched on the `/models/gemini*`
+> prefix regardless of the method suffix, and `AM-RouteGeminiTarget` builds its
+> `target.url` with a hardcoded `:generateContent`. Verified against prod: a
+> `:streamGenerateContent` call returned `HTTP 200`,
+> `content-type: application/json` and one complete body — billed, with no
+> indication the requested capability was absent.
+
+`RF-StreamingNotSupported` sits after `VA-VerifyAPIKey` so an unauthenticated
+caller still receives 401 rather than discovering which capabilities exist, and
+before `SUP-UserPrompt` so no Model Armor call is paid for on a request that is
+about to be refused. Confirmed on dev: authenticated → 501, unauthenticated →
+401, `:generateContent` and `/auto` → 200.
 
 > [!NOTE]
 > Streaming **is** present in the separate declarative template at

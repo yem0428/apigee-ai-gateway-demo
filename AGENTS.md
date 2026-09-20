@@ -31,13 +31,19 @@ This file registers all specialized subagents, procedural skills, and operationa
 ## 5. Working Scratchpads (repo root)
 - [`scenario_presets_review.md`](file:///Users/maloosatyam/Codebase/AI%20Code/scenario_presets_review.md): Editable copy deck for the UI playground scenario preset cards — titles, badges, descriptions, sub-button labels and prompts.
 
-> [!CAUTION]
-> `scenario_presets_review.md` self-describes as text to be applied **verbatim** into
-> [`defaultSettings.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts).
-> It is a scratchpad, not a source of truth, and it drifts. It was last reconciled against the code
-> on **2026-09-17**. Always diff it against the live `SCENARIO_PRESETS` / `*_EXAMPLES` arrays before
-> applying anything, and never apply its prompt text without also carrying the `settingsOverride`
-> blocks, which the document does not fully model.
+> [!NOTE]
+> `scenario_presets_review.md` is now **generated** from
+> [`defaultSettings.ts`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts)
+> by [`generate_scenario_presets_doc.mjs`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/scripts/generate_scenario_presets_doc.mjs)
+> (`npm run docs:presets` in `ui/`, or `-- --check` to fail when stale). Do not hand-edit it — edit
+> the code and regenerate. It now carries the `settingsOverride` blocks and `category` /
+> `badgeColor` fields it previously omitted.
+>
+> It was formerly a hand-maintained scratchpad that described itself as text to apply **verbatim**
+> into the code, and it drifted in the dangerous direction: it still claimed the titles
+> `Unauthorized`, `Auto Routing`, `Token Limits` and `Semantic Cache` long after the code had moved
+> to `Access Control`, `Model Routing`, `Tokenomics` and `Cache`, so applying it verbatim would have
+> regressed shipped demo copy.
 
 > [!IMPORTANT]
 > `SemanticCacheView.tsx` does not exist in [`ui/src/components/`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/). Semantic cache behaviour is surfaced today through `ChatPlayground` scenario presets and `GatewayTraceViewer`. Treat the Semantic Cache Explorer as a proposal, not shipped code.

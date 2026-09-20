@@ -27,6 +27,35 @@ if (fs.existsSync(envPath)) {
 
 const PORT = process.env.PORT || 8080;
 
+// Demo constant: every new developer is provisioned a prepaid wallet with this starting
+// balance (see /api/me/onboard). It is NOT the gateway's budget cap - that is enforced by
+// QC-EnforceBudgetLimit / RF-BudgetExceeded and falls back to $100/month, because no API
+// product defines developer.budget.limit. The two numbers are unrelated on purpose: this
+// one is the wallet Apigee Monetization debits, the other is the quota counter.
+const PREPAID_STARTING_BALANCE_USD = 20;
+// Tolerance for "the wallet has not been spent from yet". Monetization reports the balance
+// with sub-cent precision, so an untouched wallet can read fractionally above the credited
+// amount; comparing for exact equality would misclassify it as partially spent.
+const PREPAID_BALANCE_EPSILON_USD = 0.05;
+
+/**
+ * The denominator behind the "spent X of Y" reading in the Monetization tab.
+ *
+ * An untouched wallet still shows the starting balance. Once spending begins, the original
+ * allocation is reconstructed as balance + consumed, because Monetization exposes the
+ * remaining balance rather than the credited total. With no wallet at all there is nothing
+ * to reconstruct from, so the default allocation is reported.
+ */
+function allocatedBudgetFor(hasWallet, balanceUsd, consumedUsd) {
+  if (hasWallet && balanceUsd <= PREPAID_STARTING_BALANCE_USD + PREPAID_BALANCE_EPSILON_USD) {
+    return PREPAID_STARTING_BALANCE_USD;
+  }
+  if (balanceUsd > 0) {
+    return Number((balanceUsd + consumedUsd).toFixed(2));
+  }
+  return PREPAID_STARTING_BALANCE_USD;
+}
+
 // In-memory token cache for Apigee Management API
 let cachedToken = '';
 let tokenExpiry = 0;
@@ -565,14 +594,14 @@ async function provisionUserDeveloperAndApp(
     }
 
     if (needsInitialTopup) {
-      console.log(`[Server] Adding $20 starting balance for developer ${email}...`);
+      console.log(`[Server] Adding $${PREPAID_STARTING_BALANCE_USD} starting balance for developer ${email}...`);
       const creditUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(email)}/balance:credit`;
       await fetch(creditUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transactionAmount: { currencyCode: 'USD', units: '20', nanos: 0 },
-          transactionId: `init-topup-20-${Date.now()}`,
+          transactionAmount: { currencyCode: 'USD', units: String(PREPAID_STARTING_BALANCE_USD), nanos: 0 },
+          transactionId: `init-topup-${PREPAID_STARTING_BALANCE_USD}-${Date.now()}`,
         }),
       });
     }
@@ -1494,7 +1523,6 @@ const server = http.createServer(async (req, res) => {
           outputTokens: ct,
           costUsd: Number(cost.toFixed(4)),
           isUnauthenticated,
-          isSynthetic: false,
         });
       }
 
@@ -1776,7 +1804,7 @@ const server = http.createServer(async (req, res) => {
             totalCalls,
             totalTokens,
             currentBalanceUsd: balanceUsd,
-            allocatedBudgetUsd: hasWallet && balanceUsd <= 20.05 ? 20.0 : (balanceUsd > 0 ? Number((balanceUsd + consumedUsd).toFixed(2)) : 20.0),
+            allocatedBudgetUsd: allocatedBudgetFor(hasWallet, balanceUsd, consumedUsd),
             lastActive: hasWallet ? 'Active Wallet' : 'Registered',
           };
         })

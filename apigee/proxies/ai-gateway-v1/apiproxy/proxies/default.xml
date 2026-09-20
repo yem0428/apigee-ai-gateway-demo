@@ -38,6 +38,15 @@
         <Name>VA-VerifyAPIKey</Name>
         <Condition>request.verb != "OPTIONS"</Condition>
       </Step>
+      <!--
+        Placed after VA-VerifyAPIKey so an unauthenticated caller still gets 401 rather than
+        learning which capabilities exist, and before SUP-UserPrompt so we do not pay for a
+        Model Armor screen on a request we are about to refuse.
+      -->
+      <Step>
+        <Name>RF-StreamingNotSupported</Name>
+        <Condition>request.verb != "OPTIONS" and proxy.pathsuffix JavaRegex "^.*:streamGenerateContent$"</Condition>
+      </Step>
       <Step>
         <Name>SUP-UserPrompt</Name>
         <Condition>request.verb != "OPTIONS" and flow.userPrompt != null and flow.userPrompt != ""</Condition>
