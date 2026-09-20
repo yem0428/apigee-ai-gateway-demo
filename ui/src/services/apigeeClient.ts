@@ -223,8 +223,15 @@ export async function sendPromptToApigee(
     const effectiveCandidatesTokens = candidatesTokens ?? (headersReceived['x-gateway-completion-tokens'] ? parseInt(headersReceived['x-gateway-completion-tokens'], 10) : undefined);
     const effectiveTotalTokens = totalTokens ?? (headersReceived['x-gateway-total-tokens'] ? parseInt(headersReceived['x-gateway-total-tokens'], 10) : undefined);
     const effectiveProvider = headersReceived['x-gateway-provider'] || (targetModel.startsWith('claude') ? 'anthropic' : 'google');
-    const effectiveCostUsd = headersReceived['x-gateway-cost-usd'] || (effectiveTotalTokens ? ((effectiveTotalTokens / 1000000) * 0.20).toFixed(6) : '0.000000');
-    const effectiveCostTier = headersReceived['x-gateway-cost-tier'] || (targetModel.includes('pro') || targetModel.includes('opus') ? 'high' : targetModel.includes('flash-lite') ? 'low' : 'medium');
+    // Cost is NOT recomputed client-side. JS-CalculateCost in the gateway is the single
+    // costing authority and derives both figures from the ai-model-rates KVM, on cache
+    // hits too. The previous fallbacks invented a $0.20/1M blended rate and guessed the
+    // tier by substring-matching the model name, which mis-tiers gemini-3.7-flash and
+    // gemini-3.8-flash: they bill at 7.50, above gemini-3.1-pro-preview's 5.00. When the
+    // header is absent the value stays undefined and the trace viewer hides the chip,
+    // which is honest; a wrong number is not.
+    const effectiveCostUsd = headersReceived['x-gateway-cost-usd'] || undefined;
+    const effectiveCostTier = headersReceived['x-gateway-cost-tier'] || undefined;
     const effectiveCategory = headersReceived['x-gateway-category'] || headersReceived['x-gateway-intent'];
     let effectiveIntent: string | undefined = effectiveCategory;
     if (!effectiveIntent && (headersReceived['x-auto-routed'] === 'true' || isAuto)) {

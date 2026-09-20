@@ -592,8 +592,10 @@ URL construction differs only between `auto` and a named model
 Source: [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js).
 The script reads `flow.userPrompt` plus
 `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` and `...apiproduct.name`, then sets
-`flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted`,
-`flow.costTier` and `flow.routingTier`.
+`flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted`
+and `flow.routingTier`. It does **not** set `flow.costTier` — the cost tiers shown
+in the table below are the values `JS-CalculateCost` derives downstream from the
+`ai-model-rates` KVM for each selected model, not something routing asserts.
 
 | Classification | Trigger | Standard tier | Enterprise tier |
 | :--- | :--- | :--- | :--- |

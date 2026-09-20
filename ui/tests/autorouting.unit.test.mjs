@@ -58,7 +58,7 @@ function runAutoRouting({ userPrompt = "", tier = "", productName } = {}) {
 
 describe("AutoRouting.js - Unit Test Suite", () => {
   describe("1. Enterprise Tier (Default / Multi-Provider Routing)", () => {
-    describe("Coding Heuristics -> claude-opus-4-5@20251101 (anthropic / high)", () => {
+    describe("Coding Heuristics -> claude-opus-4-5@20251101 (anthropic)", () => {
       const codingPrompts = [
         { label: "Python def", prompt: "def calculate_discount(price, rate): return price * (1 - rate)" },
         { label: "Python class", prompt: "class TransactionManager: pass" },
@@ -83,13 +83,12 @@ describe("AutoRouting.js - Unit Test Suite", () => {
           const res = runAutoRouting({ userPrompt: prompt, tier: "enterprise" });
           assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
           assert.strictEqual(res.targetProvider, "anthropic");
-          assert.strictEqual(res.costTier, "high");
           assert.strictEqual(res.autoRouted, "true");
         });
       }
     });
 
-    describe("Deep Reasoning Heuristics -> gemini-3.1-pro-preview (google / high)", () => {
+    describe("Deep Reasoning Heuristics -> gemini-3.1-pro-preview (google)", () => {
       const deepPrompts = [
         { label: "compare keyword", prompt: "Compare Apache Kafka and Google Cloud Pub/Sub for event streaming" },
         { label: "architect keyword", prompt: "Help me architect a fault-tolerant multi-region payment gateway" },
@@ -108,13 +107,12 @@ describe("AutoRouting.js - Unit Test Suite", () => {
           const res = runAutoRouting({ userPrompt: prompt, tier: "enterprise" });
           assert.strictEqual(res.targetModel, "gemini-3.1-pro-preview");
           assert.strictEqual(res.targetProvider, "google");
-          assert.strictEqual(res.costTier, "high");
           assert.strictEqual(res.autoRouted, "true");
         });
       }
     });
 
-    describe("Simple Prompts -> gemini-3.1-flash-lite (google / low)", () => {
+    describe("Simple Prompts -> gemini-3.1-flash-lite (google)", () => {
       const simplePrompts = [
         "Hi!",
         "What is the capital of Japan?",
@@ -128,13 +126,12 @@ describe("AutoRouting.js - Unit Test Suite", () => {
           const res = runAutoRouting({ userPrompt: prompt, tier: "enterprise" });
           assert.strictEqual(res.targetModel, "gemini-3.1-flash-lite");
           assert.strictEqual(res.targetProvider, "google");
-          assert.strictEqual(res.costTier, "low");
           assert.strictEqual(res.autoRouted, "true");
         });
       }
     });
 
-    describe("General Complex Prompts (>= 200 chars, no code, no deep reasoning) -> gemini-3-flash-preview (google / medium)", () => {
+    describe("General Complex Prompts (>= 200 chars, no code, no deep reasoning) -> gemini-3-flash-preview (google)", () => {
       it("routes general lengthy paragraph to Gemini 3 Flash", () => {
         const longPrompt =
           "The quick brown fox jumps over the lazy dog repeatedly until evening shadows settle across the ancient hills. " +
@@ -145,7 +142,6 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         const res = runAutoRouting({ userPrompt: longPrompt, tier: "enterprise" });
         assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
         assert.strictEqual(res.targetProvider, "google");
-        assert.strictEqual(res.costTier, "medium");
         assert.strictEqual(res.autoRouted, "true");
       });
     });
@@ -156,37 +152,33 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         const res = runAutoRouting({ userPrompt: combinedPrompt, tier: "enterprise" });
         assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
         assert.strictEqual(res.targetProvider, "anthropic");
-        assert.strictEqual(res.costTier, "high");
       });
     });
   });
 
   describe("2. Standard Tier (Budget Constrained to Flash Models)", () => {
-    it("routes simple query to Gemini 3.1 Flash Lite (low cost tier)", () => {
+    it("routes simple query to Gemini 3.1 Flash Lite", () => {
       const res = runAutoRouting({ userPrompt: "What time is it in Tokyo?", tier: "standard" });
       assert.strictEqual(res.targetModel, "gemini-3.1-flash-lite");
       assert.strictEqual(res.targetProvider, "google");
-      assert.strictEqual(res.costTier, "low");
     });
 
-    it("constrains coding prompt to Gemini 3 Flash (medium cost tier, NOT Opus)", () => {
+    it("constrains coding prompt to Gemini 3 Flash (NOT Opus)", () => {
       const res = runAutoRouting({
         userPrompt: "def calculate_sum(a, b): return a + b",
         tier: "standard",
       });
       assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
       assert.strictEqual(res.targetProvider, "google");
-      assert.strictEqual(res.costTier, "medium");
     });
 
-    it("constrains deep reasoning prompt to Gemini 3 Flash (medium cost tier, NOT Pro)", () => {
+    it("constrains deep reasoning prompt to Gemini 3 Flash (NOT Pro)", () => {
       const res = runAutoRouting({
         userPrompt: "Compare and architect the trade-offs of microservices",
         tier: "standard",
       });
       assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
       assert.strictEqual(res.targetProvider, "google");
-      assert.strictEqual(res.costTier, "medium");
     });
 
     it("routes long general prompt (>= 200 chars) to Gemini 3 Flash", () => {
@@ -199,7 +191,6 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       const res = runAutoRouting({ userPrompt: longPrompt, tier: "standard" });
       assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
       assert.strictEqual(res.targetProvider, "google");
-      assert.strictEqual(res.costTier, "medium");
     });
   });
 
@@ -264,7 +255,6 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       const res = runAutoRouting({ userPrompt: "", tier: "enterprise" });
       assert.strictEqual(res.targetModel, "gemini-3.1-flash-lite");
       assert.strictEqual(res.targetProvider, "google");
-      assert.strictEqual(res.costTier, "low");
     });
 
     it("verifies all expected context variables are populated", () => {
@@ -273,7 +263,24 @@ describe("AutoRouting.js - Unit Test Suite", () => {
       assert.ok(res.allVars["flow.model"]);
       assert.ok(res.allVars["flow.target_provider"]);
       assert.strictEqual(res.allVars["flow.autoRouted"], "true");
-      assert.ok(res.allVars["flow.costTier"]);
+    });
+
+    it("sets NO costing variables - routing selects a model, nothing else", () => {
+      // Separation of concerns guard. Routing used to hardcode a costTier literal
+      // beside each decision, which then beat the KVM-resolved rate in
+      // CalculateCost.js on the /auto path. Costing now lives in exactly one place.
+      for (const prompt of ["Hello", "def f(): pass", "Compare A and B"]) {
+        for (const tier of ["standard", "enterprise"]) {
+          const res = runAutoRouting({ userPrompt: prompt, tier });
+          assert.strictEqual(
+            res.costTier,
+            undefined,
+            `AutoRouting must not set flow.costTier (prompt: ${prompt}, tier: ${tier})`
+          );
+          assert.strictEqual(res.allVars["flow.tx_cost_usd"], undefined);
+          assert.strictEqual(res.allVars["flow.tx_cost_micros"], undefined);
+        }
+      }
     });
   });
 });

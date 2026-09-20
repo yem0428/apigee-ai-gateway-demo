@@ -461,8 +461,8 @@ PostFlow **response** steps, in order:
 | # | Policy | Condition |
 | :--- | :--- | :--- |
 | 1 | `EV-ModelResponse` | *(none)* |
-| 2 | `KVM-GetModelRates` | `response.status.code = 200 and flow.cached != "true"` |
-| 3 | `JS-CalculateCost` | `response.status.code = 200 and flow.cached != "true"` |
+| 2 | `KVM-GetModelRates` | `response.status.code = 200` |
+| 3 | `JS-CalculateCost` | `response.status.code = 200` |
 | 4 | `QC-DeductBudget` | `flow.tx_cost_micros != null and flow.cached != "true"` |
 | 5 | `LTQ-TokenCount` | `response.status.code = 200 and flow.cached != "true"` |
 | 6 | `DC-ModelAnalytics` | `response.status.code = 200` |
@@ -472,22 +472,40 @@ PostFlow **response** steps, in order:
 
 Then `PostClientFlow` response: `ML-CloudLogging` (unconditional).
 
-### 7.1 Why steps 2–5 are gated on `flow.cached != "true"`
+### 7.1 Costing runs on a cache hit; spending does not
 
 `AM-InitCacheStatus` sets `flow.cached = false` at PreFlow step 15. If
 `SCL-Semantic-Cache-Lookup` serves a hit, `AM-SetCacheHitExpected` has already
-set `flow.cached = true`, `flow.cacheStatus = HIT` and `flow.tx_cost_usd = 0.000000`,
-and no upstream call is made. Gating rate lookup, cost calculation, budget
-deduction and token counting on `flow.cached != "true"` is what makes a cache hit
-genuinely **free**: no dollars deducted, no tokens charged against the rolling
-window, and the `x-gateway-cost-usd: 0.000000` header preserved.
+set `flow.cached = true` and `flow.cacheStatus = HIT`, and no upstream call is
+made.
+
+The gate is deliberately split in two:
+
+| Runs on a hit | Excluded on a hit |
+| :--- | :--- |
+| `KVM-GetModelRates`, `JS-CalculateCost` | `QC-DeductBudget`, `LTQ-TokenCount`, `SCP-Semantic-Cache-Populate` |
+
+**Why costing runs.** `JS-CalculateCost` is the single costing authority and it
+also derives `flow.costTier`. When it was excluded on a hit, nothing set the
+tier and `x-gateway-cost-tier` came back **empty** — verified on prod: the seed
+call returned `low` and the hit returned an empty header. It now runs, sets the
+tier from the KVM rate, and writes `flow.tx_cost_usd = 0.000000` and
+`flow.tx_cost_micros = 0` itself. It deliberately leaves the token variables and
+the monetization block alone on a hit, because `DC-ModelAnalytics` runs on hits
+too and the reported token counts must not change.
+
+**Why spending is still excluded.** A cache hit must stay genuinely **free**: no
+dollars deducted from the prepaid wallet, and no tokens charged against the
+rolling quota window.
+
+> [!IMPORTANT]
+> `AM-SetCacheHitExpected` used to hardcode `flow.tx_cost_usd = 0.000000`. That
+> made it a *second* costing source. It now sets cache state only. Do not add a
+> cost assignment back into it.
 
 If the request does reach a target, `AM-SetCacheMiss` in the target PreFlow flips
 `flow.cached` back to `false` with `flow.cacheStatus = MISS` — but only when a
 cache header was supplied, so non-cache requests stay at `DISABLED`.
-
-`SCP-Semantic-Cache-Populate` carries the same `flow.cached != "true"` guard so
-a hit is never re-upserted.
 
 ### 7.2 Cost pipeline
 
@@ -693,21 +711,32 @@ Three heuristics drive the decision:
 | `isSimple` | prompt length < 200 **and** not coding **and** not deep reasoning |
 
 Routing table as implemented
-([AutoRouting.js#L30-L60](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L30-L60)):
+([AutoRouting.js#L29-L53](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L29-L53)):
 
-| Tier | Signal | `flow.target_model` | Provider | `flow.costTier` |
-| :--- | :--- | :--- | :--- | :--- |
-| Standard | simple | `gemini-3.1-flash-lite` | google | low |
-| Standard | anything else | `gemini-3-flash-preview` | google | medium |
-| Enterprise | coding | `claude-opus-4-5@20251101` | anthropic | high |
-| Enterprise | deep reasoning | `gemini-3.1-pro-preview` | google | high |
-| Enterprise | simple | `gemini-3.1-flash-lite` | google | low |
-| Enterprise | anything else | `gemini-3-flash-preview` | google | medium |
+| Tier | Signal | `flow.target_model` | Provider |
+| :--- | :--- | :--- | :--- |
+| Standard | simple | `gemini-3.1-flash-lite` | google |
+| Standard | anything else | `gemini-3-flash-preview` | google |
+| Enterprise | coding | `claude-opus-4-5@20251101` | anthropic |
+| Enterprise | deep reasoning | `gemini-3.1-pro-preview` | google |
+| Enterprise | simple | `gemini-3.1-flash-lite` | google |
+| Enterprise | anything else | `gemini-3-flash-preview` | google |
 
 Sets `flow.target_model`, `flow.model`, `flow.target_provider`,
-`flow.autoRouted = "true"`, `flow.costTier`, and `flow.routingTier`
-(`enterprise` / `standard`) so a downgrade caused by unresolved entitlement is
-visible in trace rather than silent.
+`flow.autoRouted = "true"`, and `flow.routingTier` (`enterprise` / `standard`)
+so a downgrade caused by unresolved entitlement is visible in trace rather than
+silent.
+
+> [!IMPORTANT]
+> **Routing selects a model. It does not do costing.** Each branch above used to
+> also assign a `costTier` string literal, and `CalculateCost.js` only derived
+> the tier when the variable was still unset — so on the `/auto` path the literal
+> always won and the KVM rate card was never consulted. The literals happened to
+> agree with the card, so nothing was visibly wrong, but a reprice would have
+> silently desynchronised the two. `flow.costTier` is now set in exactly one
+> place: [CalculateCost.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js).
+> [autorouting.unit.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/autorouting.unit.test.mjs)
+> asserts the router sets no costing variable at all.
 
 > [!NOTE]
 > The standard tier is deliberately **capped at flash models** — it can never
@@ -752,10 +781,24 @@ explicitly here.
 
 #### Cost tier
 
-`flow.costTier` is set by `AutoRouting.js`, but **only on the `/auto` path**. A direct
-`/models/{model}` call left it unresolved and `x-gateway-cost-tier` came back empty.
-`CalculateCost.js` now fills it when unset, deriving it from the resolved **output rate**
-(`>= 5.00` high, `<= 0.30` low, otherwise medium) rather than from the model name.
+`flow.costTier` is set **here and nowhere else**, unconditionally, from the resolved
+**output rate** (`>= 5.00` high, `<= 0.30` low, otherwise medium) — never from the model
+name, and never from a literal set upstream.
+
+This is the whole point of the consolidation. Three places used to contribute to costing:
+
+| Was | Now |
+| :--- | :--- |
+| `AutoRouting.js` assigned a `costTier` literal beside each routing decision | removed — routing selects a model only |
+| `CalculateCost.js` derived the tier, but only `if (!flow.costTier)` — so the literal beat it on `/auto` | derives it always, from the KVM rate |
+| `AM-SetCacheHitExpected.xml` hardcoded `flow.tx_cost_usd = 0.000000` | removed — `CalculateCost.js` now runs on hits and zeroes the cost itself |
+
+Because the tier is derived from the rate, repricing a model in
+[model_rate_card.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/config/model_rate_card.json)
+and pushing it with `sync_rate_card.sh` moves the tier with no code change.
+[calculatecost.unit.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/calculatecost.unit.test.mjs)
+asserts the derived tier matches the `tier` field declared on every entry in the card,
+so the KVM cannot drift away from the header the proxy emits.
 
 Rate resolution is a cascade against the KVM rate card, then the same cascade
 again against the bundled property set:
@@ -910,7 +953,7 @@ Complete and exhaustive. Verified against both the policy directory and the
 | 4 | `AM-RemoveAuthorization` | AssignMessage | PreFlow 13 | Strips `x-apikey`, `Authorization`, `X-Identity-Token`, `X-User-Email` |
 | 5 | `AM-RouteClaudeTarget` | AssignMessage | Claude target PreFlow | Builds `:rawPredict` URL, sets `anthropic_version` |
 | 6 | `AM-RouteGeminiTarget` | AssignMessage | Gemini target PreFlow | Builds `:generateContent` URL |
-| 7 | `AM-SetCacheHitExpected` | AssignMessage | PreFlow 18 | `flow.cached=true`, `cacheStatus=HIT`, `tx_cost_usd=0.000000` |
+| 7 | `AM-SetCacheHitExpected` | AssignMessage | PreFlow 18 | `flow.cached=true`, `cacheStatus=HIT` (cache state only — no cost) |
 | 8 | `AM-SetCacheMiss` | AssignMessage | Both target PreFlows | `flow.cached=false`, `cacheStatus=MISS` |
 | 9 | `AM-SetResponseHeaders` | AssignMessage | PostFlow resp 9 | 15 `x-gateway-*` / `x-auto-routed` headers |
 | 10 | `AM-SetUserIdentity` | AssignMessage | PreFlow 6 | JWT `email` claim → `flow.emailId` |
@@ -977,7 +1020,7 @@ Both `use-cache` and `x-use-cache` are formally declared in the OpenAPI spec as
 
 ```mermaid
 flowchart TD
-  R["Request with use-cache: true"] --> H["AM-SetCacheHitExpected (cached=true, status=HIT, cost=0.000000)"]
+  R["Request with use-cache: true"] --> H["AM-SetCacheHitExpected (cached=true, status=HIT)"]
   H --> L["SCL-Semantic-Cache-Lookup (embed then findNeighbors at 0.95)"]
   L -->|HIT| RESP["Cached response returned; cost, token and budget steps all skipped"]
   L -->|MISS| T["Target PreFlow: AM-SetCacheMiss (cached=false, status=MISS)"]

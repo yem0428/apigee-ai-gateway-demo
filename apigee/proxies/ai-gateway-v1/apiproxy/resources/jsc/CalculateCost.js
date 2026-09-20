@@ -118,47 +118,58 @@ if (inputRate === null || isNaN(inputRate)) {
 if (isNaN(inputRate)) inputRate = 0.15;
 if (isNaN(outputRate)) outputRate = 0.60;
 
-var inputCost = (promptTokens / 1000000.0) * inputRate;
-var outputCost = (completionTokens / 1000000.0) * outputRate;
-var totalCostUSD = inputCost + outputCost;
+// Cost tier — the ONLY place it is set. Always derived from the resolved OUTPUT
+// RATE, never from the model name and never from an upstream literal:
+// gemini-3.7-flash and gemini-3.8-flash bill at 7.50, above gemini-3.1-pro-preview's
+// 5.00, so any name-based guess would label them cheap. Deriving it here means a
+// reprice in the ai-model-rates KVM moves the tier with no code change.
+var derivedTier = "medium";
+if (outputRate >= 5.0) { derivedTier = "high"; }
+else if (outputRate <= 0.30) { derivedTier = "low"; }
+context.setVariable("flow.costTier", derivedTier);
 
-// Integer micro-dollars (1 USD = 1,000,000 micro-dollars) for Apigee Quota deduction
-var costMicros = Math.max(1, Math.round(totalCostUSD * 1000000));
+// A semantic-cache hit never reached a model, so it costs nothing. It still gets a
+// tier above, because the tier describes the model that WOULD have served it and the
+// UI reads x-gateway-cost-tier on every response.
+var isCached = String(context.getVariable("flow.cached") || "") === "true";
+if (isCached) {
+  context.setVariable("flow.tx_cost_usd", "0.000000");
+  // Explicitly zero, not the Math.max(1, ...) floor applied to real calls.
+  context.setVariable("flow.tx_cost_micros", "0");
+  // Deliberately leave the token variables and the monetization block untouched:
+  // DC-ModelAnalytics runs on cache hits too, and rewriting them here would change
+  // what a hit reports today. QC-DeductBudget stays excluded on hits in default.xml.
+} else {
+  var inputCost = (promptTokens / 1000000.0) * inputRate;
+  var outputCost = (completionTokens / 1000000.0) * outputRate;
+  var totalCostUSD = inputCost + outputCost;
 
-context.setVariable("flow.promptTokenCount", promptTokens.toString());
-context.setVariable("flow.candidatesTokenCount", completionTokens.toString());
-context.setVariable("flow.totalTokenCount", totalTokens.toString());
-context.setVariable("flow.thoughtsTokenCount", thoughtTokens.toString());
-context.setVariable("flow.tx_cost_usd", totalCostUSD.toFixed(6));
-context.setVariable("flow.tx_cost_micros", costMicros.toString());
+  // Integer micro-dollars (1 USD = 1,000,000 micro-dollars) for Apigee Quota deduction
+  var costMicros = Math.max(1, Math.round(totalCostUSD * 1000000));
 
-// Cost tier. AutoRouting.js sets flow.costTier, but only on the /auto path — a direct
-// /models/{model} call left it unresolved and x-gateway-cost-tier came back empty. Derive it
-// from the resolved OUTPUT RATE, never from the model name: gemini-3.7-flash and
-// gemini-3.8-flash bill at 7.50, above gemini-3.1-pro-preview's 5.00, so any name-based
-// guess would label them cheap.
-if (!context.getVariable("flow.costTier")) {
-  var derivedTier = "medium";
-  if (outputRate >= 5.0) { derivedTier = "high"; }
-  else if (outputRate <= 0.30) { derivedTier = "low"; }
-  context.setVariable("flow.costTier", derivedTier);
-}
+  context.setVariable("flow.promptTokenCount", promptTokens.toString());
+  context.setVariable("flow.candidatesTokenCount", completionTokens.toString());
+  context.setVariable("flow.totalTokenCount", totalTokens.toString());
+  context.setVariable("flow.thoughtsTokenCount", thoughtTokens.toString());
+  context.setVariable("flow.tx_cost_usd", totalCostUSD.toFixed(6));
+  context.setVariable("flow.tx_cost_micros", costMicros.toString());
 
-// Apigee Monetization Rating Engine variables
-// Rate plans have base fee = $0.001 USD (1,000,000 nanos).
-// Since Charged Amount = Base Fee ($0.001) * perUnitPriceMultiplier,
-// perUnitPriceMultiplier must be totalCostUSD * 1000 so that $0.001 * (totalCostUSD * 1000) = totalCostUSD.
-var ratePlanMultiplier = totalCostUSD * 1000.0;
-context.setVariable("perUnitPriceMultiplier", ratePlanMultiplier.toFixed(6));
-context.setVariable("currency", "USD");
-context.setVariable("transactionSuccess", "true");
+  // Apigee Monetization Rating Engine variables
+  // Rate plans have base fee = $0.001 USD (1,000,000 nanos).
+  // Since Charged Amount = Base Fee ($0.001) * perUnitPriceMultiplier,
+  // perUnitPriceMultiplier must be totalCostUSD * 1000 so that $0.001 * (totalCostUSD * 1000) = totalCostUSD.
+  var ratePlanMultiplier = totalCostUSD * 1000.0;
+  context.setVariable("perUnitPriceMultiplier", ratePlanMultiplier.toFixed(6));
+  context.setVariable("currency", "USD");
+  context.setVariable("transactionSuccess", "true");
 
-// Compute estimated remaining prepaid wallet balance
-var initialBalanceStr = context.getVariable("mint.limitscheck.prepaid_developer_balance");
-if (initialBalanceStr) {
-  var initialBal = parseFloat(initialBalanceStr);
-  if (!isNaN(initialBal)) {
-    var remBal = Math.max(0, initialBal - totalCostUSD);
-    context.setVariable("flow.prepaid_balance_remaining", remBal.toFixed(6));
+  // Compute estimated remaining prepaid wallet balance
+  var initialBalanceStr = context.getVariable("mint.limitscheck.prepaid_developer_balance");
+  if (initialBalanceStr) {
+    var initialBal = parseFloat(initialBalanceStr);
+    if (!isNaN(initialBal)) {
+      var remBal = Math.max(0, initialBal - totalCostUSD);
+      context.setVariable("flow.prepaid_balance_remaining", remBal.toFixed(6));
+    }
   }
 }

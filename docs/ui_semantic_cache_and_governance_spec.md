@@ -317,8 +317,8 @@ when judging whether a number in the trace pane is authoritative.
 | `model` | Gateway, with fallback | `x-gateway-model`, else the requested model |
 | `provider` | Gateway, with fallback | `x-gateway-provider`, else inferred from the model prefix |
 | `autoRouted` | Gateway, with fallback | `x-auto-routed === 'true'`, else the client's `isAuto` flag |
-| `costUsd` | Gateway, with fallback | `x-gateway-cost-usd`, else a client estimate at `$0.20 / 1M` tokens |
-| `costTier` | Gateway, with fallback | `x-gateway-cost-tier`, else inferred from the model name |
+| `costUsd` | **Gateway only** | `x-gateway-cost-usd`, else `undefined` — see the note below |
+| `costTier` | **Gateway only** | `x-gateway-cost-tier`, else `undefined` — see the note below |
 | `promptTokens`, `candidatesTokens`, `totalTokens` | Body first, then gateway | Response `usageMetadata` / `usage`, falling back to the token headers |
 | `cacheStatus` | Gateway | `x-gateway-cache-status`, else derived from `x-gateway-cached` |
 | `headersReceived` | Gateway | Every response header, lower-cased — **except** the two wallet keys, which the debit ledger overwrites |
@@ -326,6 +326,16 @@ when judging whether a number in the trace pane is authoritative.
 | **`intent`** | **Client** | Always the heuristic in §5.0.1; the gateway sets no intent header |
 | **`guardrailStatus`, `guardrailMessage`** | **Client** | Inferred by string-matching the 400 response body for `model armor` / `sanitize` / `blocked` / `sup-userprompt` ([L199-L204](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L199-L204)) |
 | `headersSent`, `rawRequest`, `endpointUrl`, `targetUrl`, `environment`, `user`, `userEmail`, `ssoUser`, `requestedModel` | Client | Request-side context |
+
+> [!IMPORTANT]
+> **The client never computes cost.** Both cost fields used to fall back to a client-side
+> guess — a flat `$0.20 / 1M` blended rate, and a cost tier inferred by substring-matching the
+> model name. The name heuristic was actively wrong: it labelled `gemini-3.7-flash` and
+> `gemini-3.8-flash` *medium* when they bill at `7.50`, above `gemini-3.1-pro-preview`'s `5.00`.
+> Both fallbacks are gone. `JS-CalculateCost` in the gateway is the single costing authority and
+> now populates the headers on cache hits too, so the fallbacks had no legitimate caller left.
+> When a header is genuinely absent the field stays `undefined` and `GatewayTraceViewer` hides
+> the chip rather than showing a fabricated number.
 
 The `x-*` keys at the bottom of the interface are **backwards-compatibility aliases**, not headers.
 They are assigned from already-resolved values

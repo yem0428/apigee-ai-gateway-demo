@@ -403,9 +403,13 @@ simple, so a short prompt containing a coding indicator still routes to Claude O
 Every model the router can select is entitled in the tier that can reach it.
 
 The script sets `flow.target_model`, `flow.model`, `flow.target_provider`,
-`flow.autoRouted=true`, `flow.costTier` and `flow.routingTier`. Target selection then
+`flow.autoRouted=true` and `flow.routingTier`. Target selection then
 happens via the proxy `RouteRule` on `flow.target_provider == "anthropic"` — there is
 **no** `AM-RouteModel` policy in the bundle.
+
+> [!NOTE]
+> The router does **not** set `flow.costTier`. Routing picks a model; costing is done
+> once, downstream, by `JS-CalculateCost` from the `ai-model-rates` KVM.
 
 
 ---

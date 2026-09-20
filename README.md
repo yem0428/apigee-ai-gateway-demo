@@ -53,9 +53,15 @@ unresolved tier is downgraded to the constrained Standard branch rather than han
 models. The downgrade is visible in the trace via `flow.routingTier`.
 
 Coding heuristics take precedence over deep-reasoning heuristics on the Enterprise branch. The
-policy writes `flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted`,
-`flow.costTier` and `flow.routingTier`; `flow.target_provider == "anthropic"` is what selects the
-Claude Vertex target at route time.
+policy writes `flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted` and
+`flow.routingTier`; `flow.target_provider == "anthropic"` is what selects the Claude Vertex target
+at route time.
+
+**Routing selects a model; it does not do costing.** `flow.costTier` is set in exactly one place,
+[CalculateCost.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js),
+which derives it from the rate resolved out of the `ai-model-rates` KVM — on cache hits too. The
+router used to carry a hardcoded `costTier` literal beside each decision that beat the KVM on the
+`/auto` path; that, and the hardcoded zero cost in `AM-SetCacheHitExpected`, have been removed.
 
 ### 2. 🛡️ Access Control & Model Armor
 

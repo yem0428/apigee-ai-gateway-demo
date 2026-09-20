@@ -9,9 +9,11 @@
     <Name>flow.cacheStatus</Name>
     <Value>HIT</Value>
   </AssignVariable>
-  <AssignVariable>
-    <Name>flow.tx_cost_usd</Name>
-    <Value>0.000000</Value>
-  </AssignVariable>
+  <!--
+    Sets cache STATE only. It deliberately does not set flow.tx_cost_usd: costing
+    is owned solely by JS-CalculateCost, which now runs on cache hits too and
+    zeroes the cost there. Two policies writing the same cost variable is exactly
+    the drift this consolidation removed.
+  -->
   <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
 </AssignMessage>

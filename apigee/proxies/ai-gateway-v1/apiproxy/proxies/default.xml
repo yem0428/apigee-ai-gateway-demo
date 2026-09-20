@@ -135,13 +135,20 @@
       <Step>
         <Name>EV-ModelResponse</Name>
       </Step>
+      <!--
+        Rate lookup and costing DO run on a semantic-cache hit. JS-CalculateCost is
+        the single costing authority: it derives flow.costTier from the KVM rate so
+        x-gateway-cost-tier is populated on a hit, and zeroes the cost itself.
+        QC-DeductBudget and LTQ-TokenCount below stay excluded on hits - a cached
+        answer must not spend budget or burn token quota.
+      -->
       <Step>
         <Name>KVM-GetModelRates</Name>
-        <Condition>response.status.code = 200 and flow.cached != "true"</Condition>
+        <Condition>response.status.code = 200</Condition>
       </Step>
       <Step>
         <Name>JS-CalculateCost</Name>
-        <Condition>response.status.code = 200 and flow.cached != "true"</Condition>
+        <Condition>response.status.code = 200</Condition>
       </Step>
       <Step>
         <Name>QC-DeductBudget</Name>
