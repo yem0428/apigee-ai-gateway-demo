@@ -471,12 +471,14 @@ key off `verifyapikey.VA-VerifyAPIKey.developer.id`, and resolve
 `...apiproduct.developer.budget.{limit,interval,timeunit}` with fallbacks
 `100000000` / `1` / `month`. `QC-DeductBudget` applies `<Weight ref="flow.tx_cost_micros"/>`.
 
-> [!WARNING]
-> Both budget policies are `continueOnError="true"`, and **nothing reads
-> `ratelimit.QC-EnforceBudgetLimit.exceeded`**. Crossing the cap therefore raises a
-> `QuotaViolation` that is swallowed, and the request is served anyway. Treat
-> `developer-budget-counter` as accounting, not as a spend control. If the budget
-> variables are not populated on the product these policies also degrade silently.
+> [!IMPORTANT]
+> Both budget policies are `continueOnError="true"` so their raw `QuotaViolation` never
+> reaches the client. Enforcement is done by the separate `RF-BudgetExceeded` step in the
+> PreFlow, which returns **429 `RESOURCE_EXHAUSTED`**. Delete that step and the cap stops
+> applying with no other symptom. `QC-EnforceBudgetLimit` is `<EnforceOnly>true</EnforceOnly>`
+> (reads, never counts); `QC-DeductBudget` carries the `<Weight>` (counts, never rejects).
+> If the budget variables are not populated on the product, both fall back to
+> `100000000` / `1` / `month`.
 
 `JS-AuditBudgetAccounting` runs unconditionally after `QC-DeductBudget` and names the
 outcome in `flow.budget_status` (`ok`, `skipped_cached`, `skipped_no_cost`,
@@ -1019,5 +1021,6 @@ Admin, Sales and Loans personas alike.
 | Stale product `description` attributes | **Resolved.** All custom attributes (`description`, `tier`, `domain`) were removed from every product. The only attribute left is `access: private`, which Apigee itself interprets |
 | Leaked consumer key in git history | A literal consumer key was committed in `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer contains it, but git history does — treat that key as compromised and rotate it |
 | Budget quota variables | `QC-EnforceBudgetLimit` / `QC-DeductBudget` read `...apiproduct.developer.budget.*`, which no committed product JSON defines; both are `continueOnError="true"` and fall back to `100000000` micro-dollars / month. Confirmed live on dev: `x-gateway-budget-limit-usd` returns `100.000000` |
-| Budget cap is not enforced | Nothing inspects `ratelimit.QC-EnforceBudgetLimit.exceeded` and the policy is `continueOnError="true"`, so exceeding the counter does not reject the request. Now *visible* via `x-gateway-budget-status` / `flow.budget_exceeded`, but still not enforced — making it fail closed is a deliberate, unmade decision |
-| Enforcer double-counts | `QC-EnforceBudgetLimit` has neither `<Weight>` nor `<EnforceOnly>`, so it adds a flat 1 micro-dollar per request to the shared counter in addition to `QC-DeductBudget`'s real cost. Measured on dev: a `0.000001` call advanced the counter `0.000002` |
+| Budget cap is not enforced | **Resolved.** `RF-BudgetExceeded` now returns 429 `RESOURCE_EXHAUSTED` when the counter is exhausted. Verified two-sided on dev with the cap forced to 2 micro-dollars: over budget → 429, cap restored → 200 with `exceed.count` back to `0` |
+| Enforcer double-counts | **Resolved.** `<EnforceOnly>true</EnforceOnly>` added to `QC-EnforceBudgetLimit`. Verified on dev: the same call that advanced the counter by `0.000002` now advances it by `0.000001` |
+| `ratelimit.<policy>.exceeded` does not exist | Referencing it returns null and silently evaluates to false. Use `.failed` together with `.exceed.count`. The first version of the enforcement fix used the non-existent name and did not fire |

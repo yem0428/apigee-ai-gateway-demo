@@ -756,7 +756,8 @@ Two client-side behaviours matter before a live demo:
 | `SUP-UserPrompt` | **SanitizeUserPrompt** (Model Armor) | Screens the prompt via template `apigee-sanitize-user-prompt` (`asia-southeast1`); blocks with HTTP 400 |
 | `VA-VerifyAPIKey` | VerifyAPIKey | Validates `x-apikey`; 401 on product mismatch |
 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | **HTTP 403 PERMISSION_DENIED** on exhausted prepaid balance |
-| `QC-EnforceBudgetLimit` | Quota | Monetary budget **counter** (`developer-budget-counter`). `continueOnError="true"` with nothing reading `.exceeded`, so it does **not** reject over-budget traffic |
+| `QC-EnforceBudgetLimit` | Quota (`EnforceOnly`) | Reads the monetary budget counter (`developer-budget-counter`). `continueOnError="true"`; the client-facing rejection is raised by `RF-BudgetExceeded` |
+| `RF-BudgetExceeded` | RaiseFault | **HTTP 429 RESOURCE_EXHAUSTED** when the developer budget is exhausted. Removing this step silently disables budget enforcement |
 | `AM-RemoveAuthorization` | AssignMessage | Strips the client `Authorization` header before upstream |
 | `AM-InitCacheStatus` | AssignMessage | Initialises cache flow variables |
 | `JS-AutoRouting` | Javascript | Heuristic model selection on `/auto*` |

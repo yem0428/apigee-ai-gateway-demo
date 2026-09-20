@@ -576,21 +576,45 @@ carries no `<Condition>`. The status values are:
 | `violation` | The Quota raised, but the spend *was* recorded — the cap is now crossed |
 | `error` | **Silent failure.** The Quota faulted before counting; this request's spend is lost permanently |
 
-> [!WARNING]
-> **The budget cap is not enforced.** `QC-EnforceBudgetLimit` is also
-> `continueOnError="true"` and nothing inspects
-> `ratelimit.QC-EnforceBudgetLimit.exceeded`, so exceeding the counter raises a
-> `QuotaViolation` that is swallowed and the request proceeds. The counter is
-> **accounting, not a control**. `flow.budget_exceeded` now reports the condition;
-> no policy acts on it. Contrast `LTQ-TokenEnforce`, which is
-> `continueOnError="false"` and genuinely returns 429.
+#### 7.2.2 Enforcing the cap
 
-> [!NOTE]
-> `QC-EnforceBudgetLimit` has no `<Weight>` and no `<EnforceOnly>`, so it also
-> *counts* — adding a flat **1 micro-dollar per request** to the same shared
-> counter on top of the real cost. Measured on dev: a call costing `0.000001`
-> advanced the counter by `0.000002`. Against the $100 fallback the distortion is
-> negligible, but the counter is not a pure sum of `tx_cost_micros`.
+`QC-EnforceBudgetLimit` reads the counter in the PreFlow; `RF-BudgetExceeded`
+immediately after it returns **HTTP 429 `RESOURCE_EXHAUSTED`** when the budget is
+exhausted.
+
+The quota policy deliberately stays `continueOnError="true"` so its raw
+`policies.ratelimit.QuotaViolation` envelope never reaches the client — the
+RaiseFault emits the same Google-API-style error shape as `RF-MissingUserEmail`
+and `MLC-EnforceMonetizationLimits`.
+
+> [!CAUTION]
+> **Removing the `RF-BudgetExceeded` step silently disables budget enforcement.**
+> Because the quota swallows its own fault, there is no error, no log line and no
+> behavioural hint — the cap simply stops applying. This proxy shipped in exactly
+> that state until the step was added.
+
+> [!IMPORTANT]
+> **There is no `ratelimit.<policy>.exceeded` variable.** Referencing it yields
+> null, which silently evaluates the condition to false — the first attempt at this
+> fix used that name and enforcement did not fire at all. Verified on dev by dumping
+> every candidate to response headers with the cap forced to 2 micro-dollars:
+>
+> ```
+> exceeded=''  exceed.count=1  failed=true  allowed=2  used=235  available=0
+> ```
+>
+> The working condition is
+> `ratelimit.QC-EnforceBudgetLimit.failed = true and ratelimit.QC-EnforceBudgetLimit.exceed.count > 0`.
+> Both signals reset once the request is back under budget (confirmed:
+> `exceed.count` returned to `0` and calls returned 200 after the cap was restored),
+> so an over-budget window cannot wedge the proxy.
+
+`QC-EnforceBudgetLimit` also carries `<EnforceOnly>true</EnforceOnly>`. Without it
+the policy has no `<Weight>` and therefore defaults to a weight of 1, adding a flat
+**1 micro-dollar per request** to the shared counter on top of the real cost —
+measured on dev as `0.000001` of cost advancing the counter by `0.000002`, then
+`0.000001` once `EnforceOnly` was applied. It mirrors the
+`LTQ-TokenEnforce` / `LTQ-TokenCount` split: one policy reads, the other writes.
 
 ### 7.3 Response headers emitted by `AM-SetResponseHeaders`
 

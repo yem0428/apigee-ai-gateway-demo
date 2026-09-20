@@ -1,10 +1,25 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Read side of the developer-budget counter. The write side is QC-DeductBudget in the
+  PostFlow, which applies <Weight ref="flow.tx_cost_micros"/>.
+
+  EnforceOnly is REQUIRED, not cosmetic. Without it this policy has no <Weight> and so
+  defaults to a weight of 1, meaning it silently added a flat 1 micro-dollar per request
+  to the shared counter on top of the real cost - a 0.000001 call advanced the counter by
+  0.000002. EnforceOnly makes it check without counting, mirroring the
+  LTQ-TokenEnforce / LTQ-TokenCount pair.
+
+  continueOnError stays "true" so that the raw QuotaViolation is swallowed; RF-BudgetExceeded
+  in the PreFlow raises the client-facing 429 instead, in the same error envelope as every
+  other guardrail. Removing that RaiseFault step silently disables budget enforcement.
+-->
 <Quota async="false" continueOnError="true" enabled="true" name="QC-EnforceBudgetLimit">
   <DisplayName>QC-EnforceBudgetLimit</DisplayName>
   <Identifier ref="verifyapikey.VA-VerifyAPIKey.developer.id"/>
   <Allow count="100000000" countRef="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.limit"/>
   <Interval ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.interval">1</Interval>
   <TimeUnit ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.timeunit">month</TimeUnit>
+  <EnforceOnly>true</EnforceOnly>
   <Distributed>true</Distributed>
   <Synchronous>true</Synchronous>
   <SharedName>developer-budget-counter</SharedName>

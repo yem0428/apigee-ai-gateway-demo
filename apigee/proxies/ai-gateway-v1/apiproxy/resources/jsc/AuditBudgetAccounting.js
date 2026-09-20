@@ -75,11 +75,19 @@ if (deductFailed) {
 
 context.setVariable("flow.budget_status", status);
 
-// True whenever the shared counter is exhausted. Nothing acts on this - surfacing it is the
-// entire point, because the cap is not currently enforced.
-var enforceExceeded = v("ratelimit." + ENFORCE + ".exceeded") === "true";
-var deductExceeded = v("ratelimit." + DEDUCT + ".exceeded") === "true";
-context.setVariable("flow.budget_exceeded", (enforceExceeded || deductExceeded) ? "true" : "false");
+// True whenever the shared counter is exhausted.
+//
+// NOTE: there is no `ratelimit.<policy>.exceeded` variable. Apigee exposes `.exceed.count`
+// (how many requests in this window were refused) and `.failed`. Reading the non-existent
+// name silently yields null, which made this report "false" unconditionally - verified on
+// dev by dumping all the candidates to response headers with the cap forced to 2 micros:
+//   exceeded='' exceed.count=1 failed=true allowed=2 used=235 available=0
+function exceedCount(policy) {
+  var n = num("ratelimit." + policy + ".exceed.count");
+  return n === null ? 0 : n;
+}
+var isExceeded = exceedCount(ENFORCE) > 0 || exceedCount(DEDUCT) > 0;
+context.setVariable("flow.budget_exceeded", isExceeded ? "true" : "false");
 
 if (usedMicros !== null) { context.setVariable("flow.budget_used_usd", usd(usedMicros)); }
 if (allowedMicros !== null) { context.setVariable("flow.budget_limit_usd", usd(allowedMicros)); }

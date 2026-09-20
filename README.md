@@ -172,12 +172,16 @@ matches. Breaching the limit returns **HTTP 429**.
   `JS-AuditBudgetAccounting` records the outcome in `flow.budget_status`.
   `MLC-EnforceMonetizationLimits` gates the request on the way in with a 403.
 
-  > [!WARNING]
-  > `QC-EnforceBudgetLimit` does **not** gate anything. It is `continueOnError="true"` and
-  > nothing reads `ratelimit.QC-EnforceBudgetLimit.exceeded`, so crossing the cap raises a
-  > `QuotaViolation` that is swallowed and the request is served. The
-  > `developer-budget-counter` is accounting, not a spend control. The real prepaid gate is
-  > `MLC-EnforceMonetizationLimits`.
+- **Budget enforcement** — `QC-EnforceBudgetLimit` checks the counter on the way in and
+  `RF-BudgetExceeded` returns **HTTP 429 `RESOURCE_EXHAUSTED`** when it is exhausted.
+
+  > [!IMPORTANT]
+  > The quota policy is `continueOnError="true"` on purpose, so its raw
+  > `policies.ratelimit.QuotaViolation` never reaches the client; `RF-BudgetExceeded` raises the
+  > 429 instead, in the same envelope as every other guardrail. **Deleting that step silently
+  > disables budget enforcement entirely** — which is exactly the state this proxy was in until
+  > it was added. There is no `ratelimit.<policy>.exceeded` variable; the working signal is
+  > `ratelimit.<policy>.failed = true and ratelimit.<policy>.exceed.count > 0`.
 - **Prepaid provisioning** — [server.js](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L531-L569)
   sets `billingType: PREPAID` and credits a **$20 USD** starting balance. This now runs from the
   explicit `/api/me/onboard` step rather than silently on sign-in — see

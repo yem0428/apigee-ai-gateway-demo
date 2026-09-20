@@ -50,6 +50,16 @@
         <Name>QC-EnforceBudgetLimit</Name>
         <Condition>request.verb != "OPTIONS"</Condition>
       </Step>
+      <!--
+        QC-EnforceBudgetLimit is continueOnError="true", so its QuotaViolation never reaches
+        the client. This step is what actually enforces the budget; without it the cap is
+        purely decorative. Kept separate from the quota policy so the 429 matches the
+        Google-API-style envelope used by RF-MissingUserEmail and MLC-EnforceMonetizationLimits.
+      -->
+      <Step>
+        <Name>RF-BudgetExceeded</Name>
+        <Condition>request.verb != "OPTIONS" and ratelimit.QC-EnforceBudgetLimit.failed = true and ratelimit.QC-EnforceBudgetLimit.exceed.count &gt; 0</Condition>
+      </Step>
       <Step>
         <Name>AM-RemoveAuthorization</Name>
         <Condition>request.verb != "OPTIONS"</Condition>
