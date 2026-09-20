@@ -65,8 +65,8 @@ Use this document to edit, refine, or leave comments on the titles, badges, desc
 - **Description**: `Demonstrates token limit enforcement.`
 - **Sub-Buttons**:
   - `Pass (200 OK)` -> Prompt: `Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words.` *(Consumes ~90 tokens in a single prompt call)*
-  - `Exceeded (429)` -> Prompt: `Summarize API gateway token bucket algorithms and rate limiting principles in 50 concise words.` *(A second small request under the same consumer key. The 429 comes from the **cumulative** `gemini-2.5-flash` counter — 100 tokens / 1 minute, shared across requests — not from one oversized prompt. Both steps run on `gemini-2.5-flash`.)*
-- *Required override (do not drop):* `{ model: 'gemini-2.5-flash', useCache: false, activeUser: 'admin' }`. `gemini-2.5-flash` is the only model carrying the 100 tok/min demo cap.
+  - `Exceeded (429)` -> Prompt: `Summarize API gateway token bucket algorithms and rate limiting principles in 50 concise words.` *(A second small request from the same SSO user. The 429 comes from the **cumulative** `claude-haiku-4-5@20251001` counter — 50 tokens / 1 minute, keyed on the user's email — not from one oversized prompt. Both steps run on `claude-haiku-4-5@20251001`.)*
+- *Required override (do not drop):* `{ model: 'claude-haiku-4-5@20251001', useCache: false, activeUser: 'admin' }`. `claude-haiku-4-5@20251001` is the only model carrying the 50 tok/min demo cap.
 
 ---
 

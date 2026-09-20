@@ -218,7 +218,7 @@ Source: [default.xml#L88-L126](file:///Users/maloosatyam/Codebase/AI%20Code/apig
 | Flow | Steps | Condition (verbatim) |
 | :--- | :--- | :--- |
 | `OptionsPreFlight` | `CORS-Headers` | `request.verb == "OPTIONS" AND request.header.origin != null AND request.header.Access-Control-Request-Method != null` |
-| `LLMTokenLimitFlow` | `LTQ-TokenEnforce` | `(proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash:generateContent") or (flow.model == "gemini-2.5-flash") or (proxy.pathsuffix JavaRegex "^/models/gemini-2.5-flash.*")` |
+| `LLMTokenLimitFlow` | `LTQ-TokenEnforce` | `(proxy.pathsuffix MatchesPath "/models/claude-haiku-4-5@20251001:generateContent") or (flow.model == "claude-haiku-4-5@20251001") or (proxy.pathsuffix JavaRegex "^/models/claude-haiku-4-5.*")` |
 | `AutoRoutingFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")` |
 | `GeminiDirectFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/models/gemini*") or (proxy.pathsuffix JavaRegex "^/models/gemini.*")` |
 | `AnthropicDirectFlow` | *(empty)* | `(proxy.pathsuffix MatchesPath "/models/claude*") or (proxy.pathsuffix JavaRegex "^/models/claude.*")` |
@@ -329,15 +329,15 @@ and [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apige
 | Model | Resources | Standard | Enterprise |
 | :--- | :--- | :--- | :--- |
 | `auto` | `/auto`, `/auto:*` | 2000 / 1 min | 10000 / 1 min |
-| **`gemini-2.5-flash`** | `/models/gemini-2.5-flash:*` | **100 / 1 min** | **100 / 1 min** |
+| **`claude-haiku-4-5@20251001`** | `/models/claude-haiku-4-5@20251001:*` | **50 / 1 min** | **50 / 1 min** |
 | `gemini-3.1-flash-lite` | `/models/gemini-3.1-flash-lite:*` | 2000 / 1 min | 10000 / 1 min |
 | `gemini-3-flash-preview` | `/models/gemini-3-flash-preview:*` | 2000 / 1 min | 10000 / 1 min |
 | `claude-haiku-4-5@20251001` | `/models/claude-haiku-4-5@20251001:*` | 2000 / 1 min | 10000 / 1 min |
 | `gemini-3.1-pro-preview` | `/models/gemini-3.1-pro-preview:*` | *not granted* | 10000 / 1 min |
 | `claude-opus-4-5@20251101` | `/models/claude-opus-4-5@20251101:*` | *not granted* | 10000 / 1 min |
 
-Enterprise grants 10000 / 1 min everywhere **except** `gemini-2.5-flash`, which
-is pinned to **100 / 1 min** in both tiers.
+Enterprise grants 10000 / 1 min everywhere **except** `claude-haiku-4-5@20251001`, which
+is pinned to **50 / 1 min** in both tiers.
 
 Neither product contains a catch-all entitlement any more: there is no `/v1/**`,
 no `/models/*`, no `/*`, and no `model="*"` operation in either JSON. Access is
@@ -355,8 +355,8 @@ it. `AutoRoutingFlow` and the `JS-AutoRouting` PreFlow step both key off bare
 `OAS-ValidateRequest` with 400, because the path is absent from the OpenAPI spec.
 
 > [!IMPORTANT]
-> `gemini-2.5-flash` is the deliberate **token-limit demo model** at
-> **100 tokens/minute**, in both tiers. This is why `LLMTokenLimitFlow` exists
+> `claude-haiku-4-5@20251001` is the deliberate **token-limit demo model** at
+> **50 tokens/minute**, in both tiers. This is why `LLMTokenLimitFlow` exists
 > and is conditioned on exactly that model. To change the demo limit, edit the
 > **API Product JSON** and re-provision — do **not** edit the policy XML.
 
@@ -516,7 +516,7 @@ flowchart LR
   > up a model present in no API Product `operationConfig` and failed with
   > `keymanagement.service.InvalidAPICallAsNoApiProductMatchFound`. Because that
   > policy is `continueOnError="true"` the fault was swallowed: the counter never
-  > incremented and the 100 tok/min quota **never tripped**, no matter how many
+  > incremented and the 50 tok/min quota **never tripped**, no matter how many
   > calls were made. Gemini masked the bug entirely, since its `modelVersion`
   > equals the requested id. Do not reintroduce a response-flow variable named
   > `model` under the `flow` prefix.
@@ -795,7 +795,7 @@ From `model_rates.properties` (USD per 1M tokens):
 | Model key | Input | Output |
 | :--- | ---: | ---: |
 | `gemini-2.0-flash` | 0.10 | 0.40 |
-| `gemini-2.5-flash` | 0.30 | 2.50 |
+| `gemini-2.5-flash` *(retired; rate kept for historical analytics)* | 0.30 | 2.50 |
 | `gemini-3.1-flash-lite` | 0.075 | 0.30 |
 | `gemini-3-flash-preview` | 0.15 | 0.60 |
 | `gemini-3.1-pro-preview` | 1.25 | 5.00 |
@@ -1166,7 +1166,7 @@ Previously listed here and now **resolved in code**, verified today:
   entitlement**. Neither AI product grants `/models/auto` or `/models/auto:*` any
   more, so there is no longer an entitlement without a matching flow.
 - [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh)
-  targets `/models/gemini-2.5-flash:generateContent` — the model
+  targets `/models/claude-haiku-4-5@20251001:generateContent` — the model
   `LLMTokenLimitFlow` is conditioned on — no longer sends the meaningless
   `x-enforce-token-limit` header, and now requires `API_KEY` in the environment,
   exiting 1 if it is unset.

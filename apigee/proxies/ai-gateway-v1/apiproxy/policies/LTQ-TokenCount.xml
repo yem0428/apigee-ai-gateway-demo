@@ -6,7 +6,13 @@
   <TimeUnit ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.timeunit">minute</TimeUnit>
   <Distributed>true</Distributed>
   <Synchronous>true</Synchronous>
-  <Identifier ref="verifyapikey.VA-VerifyAPIKey.client_id"/>
+  <!--
+    MUST stay identical to the Identifier in LTQ-TokenEnforce. See the comment there.
+    This policy is the CountOnly half: it writes consumption into common-counter, and
+    LTQ-TokenEnforce reads it. Diverging identifiers means the enforcer reads a counter
+    nobody writes to, and the quota silently admits everything.
+  -->
+  <Identifier ref="flow.emailId"/>
   <LLMTokenUsageSource>{jsonPath('$.usageMetadata.totalTokenCount',response.content,true)}</LLMTokenUsageSource>
   <LLMModelSource>{flow.model}</LLMModelSource>
   <CountOnly>true</CountOnly>

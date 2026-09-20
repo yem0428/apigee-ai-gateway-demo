@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
-# Apigee AI Gateway - LLM Token Limit (100 tokens/min) Integration Tests
-# Validates Success (<100 tokens) and Rate Limit Exceeded (HTTP 429)
+# Apigee AI Gateway - LLM Token Limit (50 tokens/min) Integration Tests
+# Validates Success (first call of the minute) and Rate Limit Exceeded (HTTP 429)
 # ==============================================================================
 
 SET_X=false
@@ -30,21 +30,22 @@ if [ -z "$API_KEY" ]; then
 fi
 
 echo "=============================================================================="
-echo "⚡ AI GATEWAY: LLM TOKEN RATE LIMIT TEST SUITE (claude-haiku-4-5, 100 tokens/min)"
+echo "⚡ AI GATEWAY: LLM TOKEN RATE LIMIT TEST SUITE (claude-haiku-4-5, 50 tokens/min)"
 echo "Target Endpoint: ${BASE_URL}"
 echo "User Email: ${USER_EMAIL}"
 echo "=============================================================================="
 
-# Test Case 1: Success Within Quota (<100 Tokens)
+# Test Case 1: Success on the first call of a fresh 50-token window
 echo ""
 echo "------------------------------------------------------------------------------"
 echo "TEST 1: First call of the minute (Model: claude-haiku-4-5@20251001)"
 echo "------------------------------------------------------------------------------"
 # The quota is EnforceOnly on the request path, so an empty counter always admits call 1 --
-# the block can only land on call 2, and only if call 1 alone overfills the 100-token window.
-# "What is an API gateway? Answer in 1 sentence." draws only ~58 tokens, which left the counter
-# under the limit and let call 2 through with a 200. Use the same prompt as TOKEN_LIMIT_EXAMPLES
-# step 1 in the UI, measured at 117 tokens.
+# the block can only land on call 2, and only if call 1 alone overfills the 50-token window.
+# "What is an API gateway? Answer in 1 sentence." draws only ~57 tokens, which clears 50 by
+# just 14% and is the kind of margin that silently evaporates when the model answers tersely.
+# Use the same prompt as TOKEN_LIMIT_EXAMPLES step 1 in the UI, measured at 117 tokens --
+# well over 2x the cap, so call 2 is reliably blocked.
 TEST1_PROMPT="Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words."
 
 RESPONSE1=$(curl -s -i -X POST "${BASE_URL}/models/claude-haiku-4-5@20251001:generateContent" \
@@ -57,13 +58,13 @@ HTTP_STATUS1=$(echo "$RESPONSE1" | head -n 1 | awk '{print $2}')
 echo "HTTP Status Code: ${HTTP_STATUS1}"
 
 if [ "$HTTP_STATUS1" == "200" ]; then
-  echo "✅ TEST 1 PASSED: Successfully generated content within 100 tokens/min limit (HTTP 200 OK)."
+  echo "✅ TEST 1 PASSED: Successfully generated content within 50 tokens/min limit (HTTP 200 OK)."
 else
   echo "❌ TEST 1 FAILED: Expected HTTP 200, got HTTP ${HTTP_STATUS1}."
   echo "$RESPONSE1" | head -n 25
 fi
 
-# Test Case 2: Exceeding Quota Limit (>100 Tokens -> HTTP 429)
+# Test Case 2: Exceeding Quota Limit (window already over 50 tokens -> HTTP 429)
 echo ""
 echo "------------------------------------------------------------------------------"
 echo "TEST 2: Second call in the same minute (window already consumed -> expect 429)"

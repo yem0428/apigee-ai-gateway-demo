@@ -722,7 +722,7 @@ These are defects in the application, not in this document:
 
 | Location | Issue |
 | --- | --- |
-| [GatewayTraceViewer.tsx#L160](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L160) | 429 banner hardcodes "200 tokens/min limit on Standard tier"; the Standard AI Tier product sets **100** tokens/min for `gemini-2.5-flash`, and other operations are 2000/min |
+| [GatewayTraceViewer.tsx#L160](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L160) | 429 banner hardcodes "200 tokens/min limit on Standard tier"; the Standard AI Tier product sets **50** tokens/min for `claude-haiku-4-5@20251001`, and other operations are 2000/min |
 | [apigeeClient.ts#L403-L406](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L403-L406) | `exhaustLlmQuota` docstring repeats the stale "200 token/min" figure |
 | [GatewayTraceViewer.tsx#L340-L346](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L340-L346) | Wallet tiles fall back to a hardcoded `109.988` |
 | [GatewayTraceViewer.tsx#L387](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/GatewayTraceViewer.tsx#L387) | Empty-state guard destructures an array of key **strings** as `([k]) =>`, so `k` is only the first character and the filter is always empty — the "No custom x-gateway headers" notice renders even when such headers are present |

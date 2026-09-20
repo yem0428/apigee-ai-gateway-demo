@@ -109,7 +109,7 @@ All five declare `approvalType: auto` and `environments: ["dev", "prod"]`.
 | --- | --- | --- | --- | --- |
 | 1 | `/auto` | `auto` | 2000 | 1 minute |
 | 2 | `/auto:*` | `auto` | 2000 | 1 minute |
-| 3 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 3 | **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50** | 1 minute |
 | 4 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
 | 5 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
 | 6 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 | 1 minute |
@@ -117,7 +117,7 @@ All five declare `approvalType: auto` and `environments: ["dev", "prod"]`.
 Source: [standard_ai_tier.json#L15-L118](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L15-L118).
 
 > [!IMPORTANT]
-> `gemini-2.5-flash` is deliberately capped at **100 tokens / minute** so the quota
+> `claude-haiku-4-5@20251001` is deliberately capped at **50 tokens / minute** so the quota
 > breach is reproducible inside a live demo. Every other Standard-tier operation is
 > 2000 tokens / minute. This is the only model that will throttle in a few prompts.
 
@@ -130,7 +130,7 @@ Source: [standard_ai_tier.json#L15-L118](file:///Users/maloosatyam/Codebase/AI%2
 | --- | --- | --- | --- | --- |
 | 1 | `/auto` | `auto` | 10000 | 1 minute |
 | 2 | `/auto:*` | `auto` | 10000 | 1 minute |
-| 3 | **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100** | 1 minute |
+| 3 | **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50** | 1 minute |
 | 4 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
 | 5 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
 | 6 | `/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
@@ -141,8 +141,8 @@ Source: [enterprise_ai_tier.json#L15-L152](file:///Users/maloosatyam/Codebase/AI
 
 Enterprise is a **superset of Standard by enumeration**, not by wildcard: it adds
 `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` and raises every non-capped
-limit from 2000 to 10000 tokens/minute. It **inherits the same 100 tokens/min cap on
-`gemini-2.5-flash`**, so the token-quota demo reproduces on every persona. Standard
+limit from 2000 to 10000 tokens/minute. It **inherits the same 50 tokens/min cap on
+`claude-haiku-4-5@20251001`**, so the token-quota demo reproduces on every persona. Standard
 simply has no operation naming the Pro or Opus models, which is why a Standard key
 calling `gemini-3.1-pro-preview` is rejected by `VA-VerifyAPIKey`.
 
@@ -283,15 +283,15 @@ rolling window is exhausted.
 `LTQ-TokenEnforce` only runs inside `LLMTokenLimitFlow`, whose condition is:
 
 ```
-(proxy.pathsuffix MatchesPath "/models/gemini-2.5-flash:generateContent")
-  or (flow.model == "gemini-2.5-flash")
-  or (proxy.pathsuffix JavaRegex "^/models/gemini-2.5-flash.*")
+(proxy.pathsuffix MatchesPath "/models/claude-haiku-4-5@20251001:generateContent")
+  or (flow.model == "claude-haiku-4-5@20251001")
+  or (proxy.pathsuffix JavaRegex "^/models/claude-haiku-4-5.*")
 ```
 
 Source: [default.xml#L98-L107](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L98-L107).
 
 > [!WARNING]
-> Enforcement is therefore scoped to `gemini-2.5-flash` today. Other models have
+> Enforcement is therefore scoped to `claude-haiku-4-5@20251001` today. Other models have
 > product-level token quotas declared, and `LTQ-TokenCount` still meters them, but
 > no request-side enforcement step runs for them. Do not claim the gateway hard-fails
 > other models on tokens.
@@ -355,7 +355,7 @@ a recorded live run. It states what the committed configuration authorises.
 | --- | --- | --- | --- | --- |
 | `gemini-3.1-flash-lite` | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` |
 | `gemini-3-flash-preview` | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` |
-| `gemini-2.5-flash` | allowed, 100 tok/min | allowed, 100 tok/min | allowed, 100 tok/min | `VA-VerifyAPIKey` + `LTQ-TokenEnforce` |
+| `gemini-2.5-flash` | **retired — 401** | **retired — 401** | **retired — 401** | `VA-VerifyAPIKey` (entitled by no product) |
 | `claude-haiku-4-5@20251001` | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` |
 | `gemini-3.1-pro-preview` | allowed, 10000 tok/min | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
 | `claude-opus-4-5@20251101` | allowed, 10000 tok/min | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
@@ -527,7 +527,7 @@ USD per 1M tokens (entries for models no product entitles are omitted here):
 
 | Key | Input | Output |
 | --- | --- | --- |
-| `gemini-2.5-flash` | 0.30 | 2.50 |
+| `gemini-2.5-flash` *(retired; rate kept for historical analytics)* | 0.30 | 2.50 |
 | `gemini-3.1-flash-lite` | 0.075 | 0.30 |
 | `gemini-3-flash-preview` | 0.15 | 0.60 |
 | `gemini-3.1-pro-preview` | 1.25 | 5.00 |
@@ -820,8 +820,8 @@ bash apigee/scripts/test_autorouting.sh --all
 | [test_autorouting.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_autorouting.sh) | Runs `ui/tests/autorouting.unit.test.mjs` offline; live phase loads `ui/.env` via `node --env-file` | Skips the live phase when `ui/.env` is absent |
 | [gateway-live.test.mjs](file:///Users/maloosatyam/Codebase/AI%20Code/ui/tests/gateway-live.test.mjs#L4-L45) | `VITE_ADMIN_API_KEY` / `VITE_SALES_API_KEY` / `VITE_LOANS_API_KEY` (or the `*_API_KEY` forms), else `/api/me` | Asserts that `ADMIN_KEY` is present; sales/loans keys are never substituted with the admin key |
 
-`test_token_limit.sh` targets `/models/gemini-2.5-flash:generateContent` — the model the
-100 tokens/minute quota is attached to and the only one `LLMTokenLimitFlow` matches. It
+`test_token_limit.sh` targets `/models/claude-haiku-4-5@20251001:generateContent` — the model the
+50 tokens/minute quota is attached to and the only one `LLMTokenLimitFlow` matches. It
 sends `X-User-Email` and `x-apikey` only; there is no `x-enforce-token-limit` header,
 because no policy in the bundle reads one.
 
@@ -846,11 +846,11 @@ All UI labels below are quoted exactly as they render today.
 - Quick-scenario chips in the chat pane are: **Unauthorized**, **Model Armor**,
   **Auto Routing**, **Token Limits**, **Semantic Cache**, **Direct LLM**
   ([defaultSettings.ts#L390-L451](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L390-L451)).
-- Model dropdown values, in order: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`,
+- Model dropdown values, in order: `auto`, `gemini-3.1-flash-lite`,
   `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-ultra`,
   `claude-haiku-4-5@20251001`, `claude-opus-4-5@20251101`
   ([defaultSettings.ts#L252-L265](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L252-L265)).
-  Each entry renders with a tag: `Intelligent Routing`, `Rate Limited (100 tok/min)`,
+  Each entry renders with a tag: `Intelligent Routing`, `Rate Limited (50 tok/min)`,
   `Flash Lite`, `Flash`, `Pro Preview`, `Restricted (Not Entitled)`, `Claude Haiku`,
   `Claude Opus`.
 
@@ -935,20 +935,27 @@ All UI labels below are quoted exactly as they render today.
 ### Act 6 — Token quota throttling
 
 1. Click the **Token Limits** chip (badge `Pass → Limit`). It applies
-   `model: 'gemini-2.5-flash'`, `useCache: false`, `activeUser: 'admin'`.
-2. Step 1 *"Token Quota: Within Quota Limit (Pass)"* — a short prompt consuming
-   roughly 90 tokens → **HTTP 200**. `LTQ-TokenCount` adds the real
+   `model: 'claude-haiku-4-5@20251001'`, `useCache: false`, `activeUser: 'admin'`.
+2. Step 1 *"Token Quota: Within Quota Limit (Pass)"* — a short prompt measured at
+   **117 tokens** → **HTTP 200**. `LTQ-TokenCount` adds the real
    `usageMetadata.totalTokenCount` to the shared `common-counter`.
 3. Step 2 *"Token Quota: Quota Exceeded (429)"* — the next prompt in the same minute
-   breaches the **100 tokens / minute** budget declared on
-   `/models/gemini-2.5-flash:*`, and `LTQ-TokenEnforce` returns **HTTP 429**.
-4. Talking point: the 100-token limit lives in the API Product, not the proxy.
+   breaches the **50 tokens / minute** budget declared on
+   `/models/claude-haiku-4-5@20251001:*`, and `LTQ-TokenEnforce` returns **HTTP 429**.
+4. Talking point: the 50-token limit lives in the API Product, not the proxy.
    `LTQ-TokenEnforce` resolves it through
    `verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.limit`, so raising a
    customer's allowance is a product edit, not a redeploy.
 
-Both AI tiers carry the same 100/min cap on this model, so the act reproduces on the
+Both AI tiers carry the same 50/min cap on this model, so the act reproduces on the
 Admin, Sales and Loans personas alike.
+
+> [!NOTE]
+> The counter is keyed on `flow.emailId`, not the consumer key, so two people running
+> this act at the same time each get their own 50-token window even though they share
+> the `Unified Admin … App` credential. Verified on prod: user A is blocked on call 2
+> while user B's first call still returns 200 on the same key, and B's traffic does not
+> reset A.
 
 ### Act 7 — MCP tool-level RBAC
 
@@ -990,7 +997,7 @@ Admin, Sales and Loans personas alike.
 | Item | State |
 | --- | --- |
 | `ModelRateCardView.tsx` | Present in the tree but never imported or rendered — dead code |
-| `LTQ-TokenEnforce` coverage | Only wired to `gemini-2.5-flash` via `LLMTokenLimitFlow`; other models are metered but not request-blocked |
+| `LTQ-TokenEnforce` coverage | Only wired to `claude-haiku-4-5@20251001` via `LLMTokenLimitFlow`; other models are metered but not request-blocked |
 | `/models/auto` entitlement | **Resolved.** Dropped from both AI tiers. No product grants it and no flow routes it; `OAS-ValidateRequest` rejects it with 400. The UI always calls bare `/auto` |
 | Stale product `description` attributes | **Resolved.** All custom attributes (`description`, `tier`, `domain`) were removed from every product. The only attribute left is `access: private`, which Apigee itself interprets |
 | Leaked consumer key in git history | A literal consumer key was committed in `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer contains it, but git history does — treat that key as compromised and rotate it |

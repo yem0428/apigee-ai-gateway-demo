@@ -157,8 +157,11 @@ intentional and must not be removed alongside the catalog entries.
 | `gpt-4o` / `gpt-4o-mini` | `gemini-3.1-pro-preview` / `gemini-3.1-flash-lite` |
 | `auto`, `gateway/auto` | `gemini-3-flash-preview` |
 
-`gemini-2.5-flash` is retained deliberately as the token-quota demo model despite its 2026-10-20
-retirement date.
+`gemini-2.5-flash` is listed here because this template catalog is self-contained and its rate
+table must stay internally consistent. It is **no longer the token-quota demo model** — that
+moved to `claude-haiku-4-5@20251001` at 50 tokens/min — and in the hand-maintained
+`ai-gateway-v1` bundle it has been **retired outright** ahead of its 2026-10-20 end of life,
+entitled by no API product. Do not infer the live entitlement set from this table.
 
 ---
 

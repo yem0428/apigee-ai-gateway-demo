@@ -180,8 +180,13 @@ async function parseEmailHandleWithGemini(
   if (geminiNameCache.has(cacheKey)) return geminiNameCache.get(cacheKey)!;
 
   try {
+    // Direct Vertex call, deliberately NOT through the AI Gateway: this is incidental UI
+    // plumbing, and routing it through the proxy would pollute demo analytics and burn
+    // token quota on name parsing. Because it bypasses the gateway, retiring a model from
+    // the API Products does not stop it -- it would just have started 404ing on
+    // gemini-2.5-flash's 2026-10-20 end of life, silently degrading sign-in names.
     const url =
-      'https://aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-2.5-flash:generateContent';
+      'https://aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent';
     const prompt = `Extract the likely human First Name and Last Name from this corporate email address: "${email}".
 Rules:
 1. Strip prefixes like "the", "mr", "ms", "iam", "official" if they precede a clear given name (e.g., "theankitgoel" -> First: "Ankit", Last: "Goel").

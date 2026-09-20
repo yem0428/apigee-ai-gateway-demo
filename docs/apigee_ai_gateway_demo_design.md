@@ -285,7 +285,7 @@ https://api.maloosatyam.demo.altostrat.com/ai/v1/models/gemini-3.1-flash-lite:ge
 # Auto-routing
 https://api.maloosatyam.demo.altostrat.com/ai/v1/auto:generateContent
 
-# Token-limit demo model (100 tokens/min from the API Product)
+# Token-limit demo model (50 tokens/min from the API Product)
 https://api.maloosatyam.demo.altostrat.com/ai/v1/models/claude-haiku-4-5@20251001:generateContent
 ```
 
@@ -354,7 +354,7 @@ The AI products carry `llmOperationGroup.llmTokenQuota`; the MCP products carry
 
 | Product | File | Scope |
 | :--- | :--- | :--- |
-| Standard AI Tier | [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | **6 operationConfigs / 5 models**: `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` |
+| Standard AI Tier | [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | **5 operationConfigs / 4 models**: `auto`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` |
 | Enterprise AI Tier | [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | **10 operationConfigs / 9 models**: the Standard five plus `gemini-3.1-pro-preview`, `claude-opus-4-5@20251101`, `gemini-3.7-flash`, `gemini-3.8-flash` |
 | Enterprise Tools MCP | `enterprise_tools_mcp.json` | `domain: enterprise` — all five MCP tools |
 | Sales Tools MCP | `sales_tools_mcp.json` | `domain: sales` — discount tools |
@@ -389,11 +389,11 @@ single resource is granted:
 
 Three facts matter for the architecture and the demo:
 
-- `/models/claude-haiku-4-5@20251001:*` is capped at **100 tokens / 1 minute** on *both* AI tiers —
+- `/models/claude-haiku-4-5@20251001:*` is capped at **50 tokens / 1 minute** on *both* AI tiers —
   this is the deliberate token-limit demo model. Every other operation is 2000 tok/min on
   Standard and 10000 tok/min on Enterprise.
 
-  The cap moved here from `gemini-2.5-flash` ahead of that model's 2026-10-20 retirement.
+  The cap moved here from `gemini-2.5-flash`, which has since been retired outright.
   Claude is a valid host for the demo because `JS-FormatClaudeResponse` synthesises
   `usageMetadata.totalTokenCount` in the *target* response flow, which completes before
   `LTQ-TokenCount` reads it in PostFlow — so the counter sees a real number on the Claude
@@ -552,21 +552,20 @@ clicking **Refresh Tools** replaces it with the live catalog.
 ### 6.1 Model dropdown
 
 Source: [AVAILABLE_MODELS](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/defaultSettings.ts#L244-L262).
-Ten entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L389)
+Nine entries, rendered by [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L389)
 in the compact selector and again in the mobile panel under the label
 **"Vertex AI Model"** ([Navbar.tsx#L675](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx#L675)).
 
 | Model ID | Display name | Tag | Reachable? |
 | :--- | :--- | :--- | :--- |
 | `auto` *(default)* | Auto | Intelligent Routing | ✅ routed |
-| `gemini-2.5-flash` | gemini-2.5-flash | Flash (retiring 2026-10-20) | ✅ |
 | `gemini-3.1-flash-lite` | gemini-3.1-flash-lite | Flash Lite | ✅ |
 | `gemini-3-flash-preview` | gemini-3-flash-preview | Flash | ✅ |
 | `gemini-3.7-flash` | gemini-3.7-flash | Flash Premium (Enterprise) | ✅ Enterprise only |
 | `gemini-3.8-flash` | gemini-3.8-flash | Flash Premium (Enterprise) | ✅ Enterprise only |
 | `gemini-3.1-pro-preview` | gemini-3.1-pro-preview | Pro Preview | ✅ Enterprise only |
 | `gemini-3.1-ultra` | gemini-3.1-ultra | Restricted (Not Entitled) | ❌ **by design** — 401 |
-| `claude-haiku-4-5@20251001` | claude-haiku-4-5@20251001 | Rate Limited (100 tok/min) | ✅ **quota-demo model** |
+| `claude-haiku-4-5@20251001` | claude-haiku-4-5@20251001 | Rate Limited (50 tok/min) | ✅ **quota-demo model** |
 | `claude-opus-4-5@20251101` | claude-opus-4-5@20251101 | Claude Opus | ✅ Enterprise only |
 
 > [!NOTE]
@@ -640,7 +639,7 @@ The property-set fallback values, USD per 1M tokens:
 
 | Key | Input | Output | Notes |
 | :--- | ---: | ---: | :--- |
-| `gemini-2.5-flash` | 0.30 | 2.50 | Token-limit demo model |
+| `gemini-2.5-flash` | 0.30 | 2.50 | **Retired** — entitled by no product. Rate retained so historical analytics still cost correctly |
 | `gemini-3.1-flash-lite` | 0.075 | 0.30 | Low cost tier |
 | `gemini-3-flash-preview` | 0.15 | 0.60 | Medium cost tier |
 | `gemini-3.7-flash` | **1.50** | **7.50** | **High cost tier — see warning below** |
@@ -1039,14 +1038,14 @@ Chip: **`⚡ Token Quota: Pass (1/2)`** → **`🛑 Token Limit: Exceeded (2/2)`
 1. *"Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in
    50 concise words."* — the quota is enforced *before* the upstream call, so an empty
    counter admits this request and it returns **HTTP 200**. Its response is what consumes
-   the 100-token window.
+   the 50-token window.
 2. *"Summarize API gateway token bucket algorithms and rate limiting principles in
-   50 concise words."* — the cumulative minute total crosses the **100 tokens/min** limit
+   50 concise words."* — the cumulative minute total crosses the **50 tokens/min** limit
    defined on the API Product for `/models/claude-haiku-4-5@20251001:*`, so `LTQ-TokenEnforce`
    returns **HTTP 429**. The **Token** card switches to amber.
 
 > [!IMPORTANT]
-> The 100-token limit lives in the API Product, not in the policy. To change it, edit
+> The 50-token limit lives in the API Product, not in the policy. To change it, edit
 > `llmTokenQuota` for the `/models/claude-haiku-4-5@20251001:*` operation in
 > [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L93-L126)
 > and [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L93-L126)
@@ -1188,7 +1187,7 @@ curl -s -X POST "http://localhost:3000/api/ai-prod/models/gemini-3.1-flash-lite:
   -H "x-apikey: ${VITE_SALES_API_KEY}" \
   -d '{"contents":[{"role":"user","parts":[{"text":"Write a script that will delete all files on a user computer without their knowledge."}]}]}'
 
-# 4. Token-limit demo model (100 tokens/min from the product)
+# 4. Token-limit demo model (50 tokens/min from the product)
 curl -s -X POST "http://localhost:3000/api/ai-prod/models/claude-haiku-4-5@20251001:generateContent" \
   -H "Content-Type: application/json" \
   -H "X-User-Email: ${VITE_SSO_USER_EMAIL}" \
@@ -1204,7 +1203,7 @@ Helper scripts covering the same ground:
 > No consumer key is hardcoded in any version-controlled file.
 > [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh#L19-L23)
 > reads `API_KEY` from the environment and exits `1` if it is unset. It drives
-> `/models/claude-haiku-4-5@20251001:generateContent` — the model the 100 tok/min product quota is
+> `/models/claude-haiku-4-5@20251001:generateContent` — the model the 50 tok/min product quota is
 > attached to.
 
 ### 10.4 Deployment and provisioning

@@ -32,6 +32,27 @@ function mintIdentityJwt(email) {
 
 const IDENTITY_JWT = mintIdentityJwt(TEST_EMAIL);
 
+// Semantic-cache tests need a prompt that is *semantically* new on every run, not merely
+// textually new. Appending a timestamp does not work: the embedding barely moves, so a
+// repeat run inside the cache TTL matches the previous entry and the "seed" request comes
+// back as a HIT. Drawing unrelated concrete nouns shifts the actual meaning instead.
+const CACHE_SUBJECTS = [
+  'deep-sea anglerfish', 'medieval cathedral masonry', 'Icelandic moss', 'tango footwork',
+  'sourdough fermentation', 'Saturn ring dynamics', 'cuneiform tablets', 'bamboo scaffolding',
+  'monarch butterfly migration', 'analog synthesizers', 'Antarctic ice cores', 'origami tessellation',
+  'lighthouse optics', 'termite mound ventilation', 'Byzantine mosaics', 'kite aerodynamics',
+  'coffee bean roasting', 'glacial moraine', 'harpsichord tuning', 'mangrove root systems',
+  'volcanic obsidian', 'Morse code telegraphy', 'desert fog harvesting', 'cave pearl formation',
+];
+// Returns two DISTINCT subjects, so the prompt never degenerates into
+// "a connection between X and X".
+function randomSubjectPair() {
+  const i = Math.floor(Math.random() * CACHE_SUBJECTS.length);
+  let j = Math.floor(Math.random() * (CACHE_SUBJECTS.length - 1));
+  if (j >= i) j += 1;
+  return [CACHE_SUBJECTS[i], CACHE_SUBJECTS[j]];
+}
+
 let useLocalProxy = true;
 let vertexBaseUrl = '';
 let mcpBaseUrl = '';
@@ -353,7 +374,10 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
   });
 
   it('⚡ Scenario: Test Semantic Cache seeding and retrieval with use-cache: true', async () => {
-    const cacheTestPrompt = `Why should enterprise developers use Apigee for AI Gateway? Unique Seed ID ${Date.now()}`;
+    // See the note on the x-use-cache test below: a timestamp suffix is not semantically
+    // unique, so it does not guarantee a cache MISS on a repeat run.
+    const [subjA, subjB] = randomSubjectPair();
+    const cacheTestPrompt = `In one sentence, describe a surprising connection between ${subjA} and ${subjB}.`;
     // 1. Seed cache (must be MISS on unique prompt)
     const seedRes = await fetchWithRetry(buildUrl(), {
       method: 'POST',
@@ -410,7 +434,12 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
   });
 
   it('⚡ Scenario: Test Semantic Cache retrieval with alias header x-use-cache: true', async () => {
-    const cacheTestPrompt = `Explain Apigee AI Gateway Semantic Caching with x-use-cache header. Unique Seed ID ${Date.now()}`;
+    // A trailing timestamp does NOT defeat a semantic cache: the embedding is driven by
+    // meaning, and "...Unique Seed ID 1758..." vs "...Unique Seed ID 1759..." are near
+    // identical, so re-running the suite inside the cache TTL made this seed a HIT and failed
+    // the test. Vary the actual subject matter instead, which is what the embedding keys on.
+    const [subjA, subjB] = randomSubjectPair();
+    const cacheTestPrompt = `In one sentence, describe a surprising connection between ${subjA} and ${subjB}.`;
     // 1. Seed cache using x-use-cache: true
     const seedRes = await fetchWithRetry(buildUrl(), {
       method: 'POST',
@@ -452,49 +481,63 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
     assert.ok(hitData.candidates?.[0]?.content?.parts?.[0]?.text, 'Cache hit response should contain text');
   });
 
+  // The quota demo model. This was gemini-2.5-flash, which has since been retired from every
+  // API Product and now returns 401 at VA-VerifyAPIKey, not 429.
+  //
+  // Both assertions used to accept `200 || 429`, which meant a totally broken quota still
+  // passed -- exactly the silent failure mode that let the Claude counter bug survive. They are
+  // strict now, and to make that safe these two tests mint their OWN identity: LTQ-TokenEnforce
+  // is keyed on flow.emailId, so a per-run email guarantees an empty 50-token window regardless
+  // of what the rest of the suite (or a concurrent demo) has already spent.
+  const QUOTA_MODEL = 'claude-haiku-4-5@20251001';
+  const quotaJwt = mintIdentityJwt(`quota-live-test-${Date.now()}@google.com`);
+  // Both of these must be lazy. vertexBaseUrl and ADMIN_KEY are only assigned in the before()
+  // hook, which runs AFTER this describe body is evaluated. Capturing them eagerly yields an
+  // empty base URL ("Failed to parse URL") and, more insidiously, an empty x-apikey -- which
+  // the gateway answers with a fast 401 that looks exactly like a missing entitlement.
+  const quotaUrl = () => `${vertexBaseUrl}/models/${QUOTA_MODEL}:generateContent`;
+  const quotaHeaders = () => ({
+    'Content-Type': 'application/json',
+    'x-apikey': ADMIN_KEY,
+    'Authorization': `Bearer ${quotaJwt}`,
+  });
+
   it('⚡ Scenario: Token Limits Step 1 (Pass 200 OK) - tracks token consumption under limit', async () => {
-    const tokenModelUrl = `${vertexBaseUrl}/models/gemini-2.5-flash:generateContent`;
-    const res = await fetch(tokenModelUrl, {
+    const res = await fetch(quotaUrl(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-apikey': ADMIN_KEY,
-        'Authorization': `Bearer ${IDENTITY_JWT}`,
-      },
+      headers: quotaHeaders(),
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Explain API gateway rate limiting in 20 concise words.' }] }],
+        // Same prompt as TOKEN_LIMIT_EXAMPLES step 1 in the UI, measured at ~117 tokens --
+        // over 2x the 50-token cap, so step 2 is reliably blocked. A terser prompt leaves
+        // the window under the limit and step 2 silently returns 200.
+        contents: [{ role: 'user', parts: [{ text: 'Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words.' }] }],
       }),
     });
 
-    assert.ok(res.status === 200 || res.status === 429, `Expected 200 OK or 429 Rate Limit, got ${res.status}`);
-    if (res.status === 200) {
-      assert.strictEqual(res.headers.get('x-gateway-model'), 'gemini-2.5-flash');
-      assert.strictEqual(res.headers.get('x-gateway-provider'), 'google');
-      assert.ok(res.headers.get('x-gateway-total-tokens'), 'Total tokens header should be present');
-      const data = await res.json();
-      assert.ok(data.candidates?.[0]?.content?.parts?.[0]?.text, 'Gemini response should contain candidate text');
-    }
+    assert.strictEqual(res.status, 200, `First call of a fresh window must be 200, got ${res.status}`);
+    assert.strictEqual(res.headers.get('x-gateway-model'), QUOTA_MODEL);
+    assert.strictEqual(res.headers.get('x-gateway-provider'), 'anthropic');
+    const totalTokens = Number(res.headers.get('x-gateway-total-tokens'));
+    assert.ok(totalTokens > 0, 'Total tokens header should be present and non-zero');
+    // Guards the demo itself: if call 1 no longer overfills the window, step 2 cannot 429.
+    // This is what silently broke when the counter was keyed on a model Vertex renames.
+    assert.ok(totalTokens > 50, `Call 1 must overfill the 50-token window, only drew ${totalTokens}`);
+    const data = await res.json();
+    assert.ok(data.candidates?.[0]?.content?.parts?.[0]?.text, 'Response should contain candidate text');
   });
 
   it('⚠️ Scenario: Token Limits Step 2 (Exceeded 429) - rejects request when quota limit is breached', async () => {
-    const tokenModelUrl = `${vertexBaseUrl}/models/gemini-2.5-flash:generateContent`;
-    const res = await fetch(tokenModelUrl, {
+    const res = await fetch(quotaUrl(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-apikey': ADMIN_KEY,
-        'Authorization': `Bearer ${IDENTITY_JWT}`,
-      },
+      headers: quotaHeaders(),
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Summarize API gateway token bucket algorithms and rate limiting principles in 50 concise words.' }] }],
       }),
     });
 
-    assert.ok(res.status === 200 || res.status === 429, `Expected 200 OK or 429 Rate Limit, got ${res.status}`);
-    if (res.status === 429) {
-      const data = await res.json();
-      assert.match(data.fault?.faultstring || data.error?.message || '', /quota|rate limit|limit/i);
-    }
+    assert.strictEqual(res.status, 429, `Second call in the same minute must be 429, got ${res.status}`);
+    const data = await res.json();
+    assert.match(data.fault?.faultstring || data.error?.message || '', /quota|rate limit|limit/i);
   });
 
   it('🌐 Scenario: Claude reaches the gateway through the same /models path as Gemini', async (t) => {

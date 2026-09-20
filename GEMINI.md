@@ -8,7 +8,9 @@ This repository is an enterprise demonstration and development platform for:
 5. **Interactive Demo UI**: React + Vite + Tailwind playground with real-time gateway trace inspection, token/latency/cost metrics, and live policy toggles.
 
 > [!WARNING]
-> **Gemini 2.5 retires from 2026-10-20.** The **token-quota demo has already moved off it** onto `claude-haiku-4-5@20251001` (100 tok/min on both AI tiers, enforced by `LLMTokenLimitFlow`). Claude hosts the demo correctly because `JS-FormatClaudeResponse` synthesises `usageMetadata.totalTokenCount` in the *target* response flow, before `LTQ-TokenCount` reads it in PostFlow. `gemini-2.5-flash` stays entitled at each tier's normal ceiling (2000 Standard / 10000 Enterprise) until retirement; remaining references are docs and analytics history.
+> **`gemini-2.5-flash` is RETIRED.** Ahead of its 2026-10-20 end of life it was removed from both API Products and from the UI dropdown, and is now entitled by nothing — calling it returns 401 at `VA-VerifyAPIKey`. Its **rate-card entry, `model_rates.properties` rate, `CalculateCost.js` prefix entry and analytics colour mapping are deliberately retained**, because `server.js` recomputes historical analytics cost by looking the model up in the rate card; deleting them would silently re-cost past traffic at the `default` rate. Do not "clean up" those.
+>
+> The **token-quota demo runs on `claude-haiku-4-5@20251001` at 50 tok/min** on both AI tiers, enforced by `LLMTokenLimitFlow`. Claude hosts it correctly because `JS-FormatClaudeResponse` synthesises `usageMetadata.totalTokenCount` in the *target* response flow, before `LTQ-TokenCount` reads it in PostFlow.
 >
 > **Verified callable targets** (probed against the live publisher catalog 2026-09-19; a fabricated ID and both `gemini-3.{7,8}-flash-lite` returned 404 on the same endpoint, so the probe discriminates): `gemini-3.1-flash-lite` (both tiers), `gemini-3.7-flash` and `gemini-3.8-flash` (Enterprise only — priced, in `AVAILABLE_MODELS`, and **proven with a real `generateContent` call through prod**).
 >

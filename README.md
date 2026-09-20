@@ -98,7 +98,7 @@ dynamically from the API Product attached to the verified key:
   <TimeUnit ref="verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.timeunit">minute</TimeUnit>
   <Distributed>true</Distributed>
   <Synchronous>true</Synchronous>
-  <Identifier ref="verifyapikey.VA-VerifyAPIKey.client_id"/>
+  <Identifier ref="flow.emailId"/>
   <LLMModelSource>{flow.model}</LLMModelSource>
   <EnforceOnly>true</EnforceOnly>
   <SharedName>common-counter</SharedName>
@@ -109,14 +109,17 @@ The inline `count="1000"` / `1` / `minute` values are fallback defaults only —
 `LTQ-TokenEnforce` enforces, `LTQ-TokenCount` counts, and both share the `common-counter` shared name.
 
 > [!NOTE]
-> **Token-quota demo model: `claude-haiku-4-5@20251001`, 100 tokens/min on both AI tiers.**
+> **Token-quota demo model: `claude-haiku-4-5@20251001`, 50 tokens/min on both AI tiers.**
 > It moved off `gemini-2.5-flash` ahead of that model's 2026-10-20 retirement. Claude hosts the
 > demo correctly because `JS-FormatClaudeResponse` synthesises `usageMetadata.totalTokenCount`
 > in the *target* response flow, before `LTQ-TokenCount` reads it in PostFlow — so the demo now
 > also proves token governance works across providers, not just on Google's response shape.
 >
-> `gemini-2.5-flash` remains entitled at each tier's normal ceiling until it retires. Remaining
-> references to it are documentation and analytics history, not the quota demo.
+> `gemini-2.5-flash` has since been **retired outright**: its `operationConfig` was removed from
+> both AI tiers, so it is entitled by no product and now returns **401** at `VA-VerifyAPIKey`.
+> Its rate-card entry, `model_rates.properties` rate, `CalculateCost.js` prefix entry and
+> analytics colour are deliberately kept, because `server.js` re-costs historical analytics from
+> the rate card and deleting them would silently re-price past traffic at the `default` rate.
 >
 > `gemini-3.5-flash` was **removed** from the `ai-gateway-v1` bundle and the rate card: it was in
 > no API product, so it was unreachable and its price key could never be used. It is still a live
@@ -124,25 +127,35 @@ The inline `count="1000"` / `1` / `minute` values are fallback defaults only —
 > ([_helpers.tmpl](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/templates/ai-gateway/_helpers.tmpl)
 > routing tiers and several JS resources), which was deliberately left alone.
 
-**`gemini-2.5-flash` is the deliberate token-limit demo model at 100 tokens / 1 minute.**
+**`claude-haiku-4-5@20251001` is the deliberate token-limit demo model at 50 tokens / 1 minute.**
 Every other operation in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
-is 2000 tokens / 1 minute. The product declares **6 `operationConfigs` across 5 models**, exactly
+is 2000 tokens / 1 minute. The product declares **5 `operationConfigs` across 4 models**, exactly
 one `llmOperation` per config (the Management API rejects more with
 `Operations must contain exactly one entity`, and rejects an empty config with
-`Operations must contain exactly one entity but found 0 entities`):
+`Operations must contain exactly one entity but found 0 entities` — which is why retiring a model
+means deleting its whole wrapper, not just its operation):
 
 | Resource | Model | Token quota |
 | :--- | :--- | :--- |
 | `/auto` | `auto` | 2000 / 1 min |
 | `/auto:*` | `auto` | 2000 / 1 min |
-| **`/models/gemini-2.5-flash:*`** | `gemini-2.5-flash` | **100 / 1 min** |
 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 / 1 min |
-| `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 / 1 min |
+| **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50 / 1 min** |
 
 Enforcement is wired through the dedicated `LLMTokenLimitFlow` conditional flow, which fires on
-`/models/gemini-2.5-flash:generateContent`, on `flow.model == "gemini-2.5-flash"`, or on the
-regex `^/models/gemini-2.5-flash.*`. Breaching the limit returns **HTTP 429**.
+`/models/claude-haiku-4-5@20251001:generateContent`, on
+`flow.model == "claude-haiku-4-5@20251001"`, or on the regex `^/models/claude-haiku-4-5.*` — the
+last clause deliberately omits the `@date` suffix so a future revision of the same model still
+matches. Breaching the limit returns **HTTP 429**.
+
+> [!IMPORTANT]
+> The counter is keyed on `flow.emailId`, the SSO-derived caller identity — **not** on the consumer
+> key. Every demo user shares the same `Unified Admin … App` credential, so a key-keyed window
+> meant two people demoing at once shared one 50-token budget and the second got a 429 they did
+> not cause. `LTQ-TokenEnforce` and `LTQ-TokenCount` must declare an **identical** `<Identifier>`:
+> they share `common-counter`, and if they diverge the enforcer reads a counter nobody writes to
+> and the quota silently stops working.
 
 ### 4. 💳 Apigee Native Monetization & Prepaid Wallets
 
@@ -228,8 +241,8 @@ globs** — both were removed. Each model gets a single gateway-shaped resource:
 
 | Product | Models | Resources | Token quota |
 | :--- | :--- | :--- | :--- |
-| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-2.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **5** | 6 `operationConfigs` | 2000 / min · `gemini-2.5-flash` → **100 / min** |
-| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 5 plus `gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` — **7** | 8 `operationConfigs` | 10000 / min · `gemini-2.5-flash` → **100 / min** |
+| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **4** | 5 `operationConfigs` | 2000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
+| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 4 plus `gemini-3.1-pro-preview`, `gemini-3.7-flash`, `gemini-3.8-flash` and `claude-opus-4-5@20251101` — **8** | 9 `operationConfigs` | 10000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
 
 `auto` is special-cased with **two exact resources** in both products:
 
@@ -253,7 +266,7 @@ Bare `/auto` is the only auto surface: `AutoRoutingFlow` matches
 > `gemini-3.1-pro-preview` or `claude-opus-4-5@20251101`, so calls to those models with a Standard
 > key are rejected by `VA-VerifyAPIKey`. Both products use
 > `llmOperationGroup.operationConfigs[].llmTokenQuota` with exactly one `llmOperation` per config;
-> neither uses the classic product `quota` field. The 100 tokens/min `gemini-2.5-flash` demo cap
+> neither uses the classic product `quota` field. The 50 tokens/min `claude-haiku-4-5@20251001` demo cap
 > applies in **both** tiers.
 
 `gemini-3.1-ultra` is deliberately **unentitled in every product**. It powers the "Restricted Model"
@@ -517,7 +530,7 @@ The live suite is organised into four describe blocks:
 It first probes `http://localhost:3000/api/me`; if the dev server is up it routes through the local
 proxy and harvests API keys from the `/api/me` response, otherwise it falls back to calling
 `https://api.maloosatyam.demo.altostrat.com` directly. It also retries HTTP 429 responses with
-backoff, since the `gemini-2.5-flash` quota demo is deliberately tight.
+backoff, since the `claude-haiku-4-5@20251001` quota demo is deliberately tight.
 
 The 4 skips are environmental, not failures — Anthropic Claude upstream not provisioned, MCP upstream
 unavailable in the local mock, and Cloud Logging assertions that need an audit-log reader.
@@ -584,7 +597,7 @@ Bundle packaging, validation and deployment are scripted in
 populates Apigee Analytics and Monetization with realistic traffic ahead of a demo. It discovers
 every active developer and their approved keys through the Management API via `gcloud`
 (auto-provisioning a `Unified Admin <username> App` for any developer without one), fans live
-requests across `/auto`, `gemini-2.5-flash`, `gemini-3.1-pro-preview` and the other catalog models,
+requests across `/auto`, `gemini-3.1-flash-lite`, `gemini-3.1-pro-preview` and the other catalog models,
 then applies immediate micro-dollar wallet adjustments so prepaid balances reflect the consumption
 straight away. No consumer key is ever hardcoded.
 
@@ -596,7 +609,7 @@ python3 apigee/scripts/generate_demo_traffic.py --requests-per-user 3
 runs the offline unit suite and, when `ui/.env` exists, the live suite.
 
 [test_token_limit.sh](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/scripts/test_token_limit.sh)
-exercises the 100 tokens/min demo cap against `/models/gemini-2.5-flash:generateContent` — one
+exercises the 50 tokens/min demo cap against `/models/claude-haiku-4-5@20251001:generateContent` — one
 request inside the quota and one long prompt expected to trip **HTTP 429**. No consumer key is
 committed to the repo, so `API_KEY` is a **required** environment variable: the script prints
 `ERROR: API_KEY is not set.` and exits `1` if it is missing. `BASE_URL` and `USER_EMAIL` are

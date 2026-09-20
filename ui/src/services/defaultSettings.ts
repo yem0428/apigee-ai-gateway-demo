@@ -243,9 +243,9 @@ export const DEFAULT_SETTINGS: GatewaySettings = {
 
 export const AVAILABLE_MODELS = [
   { id: 'auto', name: 'Auto', tag: 'Intelligent Routing' },
-  // Retires from 2026-10-20. No longer the token-quota demo model; that moved to
-  // claude-haiku-4-5, so this now carries each tier's normal ceiling.
-  { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash', tag: 'Flash (retiring 2026-10-20)' },
+  // gemini-2.5-flash was retired ahead of its 2026-10-20 end of life and is entitled by no
+  // API Product. Its rate-card entry and analytics colour mapping are deliberately retained
+  // so historical traffic still costs and renders correctly.
   { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite', tag: 'Flash Lite' },
   { id: 'gemini-3-flash-preview', name: 'gemini-3-flash-preview', tag: 'Flash' },
   // Premium despite the "flash" name: $1.50/$7.50 per 1M tokens, above gemini-3.1-pro-preview
@@ -257,7 +257,7 @@ export const AVAILABLE_MODELS = [
   // "Restricted Model" scenario to demonstrate an entitlement block: even an
   // Enterprise-tier key is rejected at VA-VerifyAPIKey before any upstream call.
   { id: 'gemini-3.1-ultra', name: 'gemini-3.1-ultra', tag: 'Restricted (Not Entitled)' },
-  { id: 'claude-haiku-4-5@20251001', name: 'claude-haiku-4-5@20251001', tag: 'Rate Limited (100 tok/min)' },
+  { id: 'claude-haiku-4-5@20251001', name: 'claude-haiku-4-5@20251001', tag: 'Rate Limited (50 tok/min)' },
   { id: 'claude-opus-4-5@20251101', name: 'claude-opus-4-5@20251101', tag: 'Claude Opus' },
 ];
 
@@ -317,7 +317,7 @@ export const TOKEN_LIMIT_EXAMPLES = [
     title: 'Token Quota: Within Quota Limit (Pass)',
     tag: 'Pass (200 OK)',
     prompt: 'Explain API gateway rate limiting, spike arrest, and OAuth2 security principles in 50 concise words.',
-    description: 'First call of the minute. The quota is checked before the request is sent, so an empty counter lets it through (200 OK) — and this response is what fills the 100-token window.',
+    description: 'First call of the minute. The quota is checked before the request is sent, so an empty counter lets it through (200 OK) — and this response is what fills the 50-token window.',
     model: 'claude-haiku-4-5@20251001',
   },
   {

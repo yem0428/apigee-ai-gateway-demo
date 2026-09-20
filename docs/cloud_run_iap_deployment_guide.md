@@ -493,7 +493,7 @@ gcloud compute ssl-certificates describe apigee-ai-ui-single-cert --global --pro
 | `/api/me` returns empty `apiKey` / `apiKeys` | The service account could not obtain a token or the Apigee Management API call failed | Check logs for `[Server] Failed to get gcloud auth token` or `[Server] Error provisioning user developer and apps`. Confirm `apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com` retains Apigee admin permissions |
 | Management or analytics panels return HTTP 500 | Token acquisition failed inside a `/api/...` handler | Same as above — every handler returns `{"error": "Could not obtain GCP access token"}` on token failure |
 | Network error calling the gateway from the UI | Apigee proxy unavailable, or an invalid API key | Verify the environment selected in the settings modal, then test the upstream directly: `curl -i https://api.maloosatyam.demo.altostrat.com/ai/v1/...`. The server-side routes are listed in section 3.B.4 |
-| HTTP 429 from the gateway | Product-driven LLM token quota breached | Expected for the `claude-haiku-4-5@20251001` demo model, which is capped at 100 tokens/minute in the API product |
+| HTTP 429 from the gateway | Product-driven LLM token quota breached | Expected for the `claude-haiku-4-5@20251001` demo model, which is capped at 50 tokens/minute in the API product |
 
 ---
 
