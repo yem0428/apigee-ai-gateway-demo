@@ -106,8 +106,9 @@ All five declare `approvalType: auto` and `environments: ["dev", "prod"]`.
 
 ### 2.1 Standard AI Tier — per-model token quotas
 
-**6 `operationConfigs` covering 5 models.** Every `operationConfig` carries exactly
-**one** `llmOperation` and its own `llmTokenQuota`; the Management API rejects more with
+**5 `operationConfigs` covering 4 distinct models** (`auto` is reached by two
+resources). Every `operationConfig` carries exactly **one** `llmOperation` and its own
+`llmTokenQuota`; the Management API rejects more with
 `Operations must contain exactly one entity`, and rejects a config with none at all with
 `Operations must contain exactly one entity but found 0 entities`. Every operation is
 `apiSource: ai-gateway-v1`, method `POST`.
@@ -116,12 +117,19 @@ All five declare `approvalType: auto` and `environments: ["dev", "prod"]`.
 | --- | --- | --- | --- | --- |
 | 1 | `/auto` | `auto` | 2000 | 1 minute |
 | 2 | `/auto:*` | `auto` | 2000 | 1 minute |
-| 3 | **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50** | 1 minute |
-| 4 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
-| 5 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
-| 6 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 2000 | 1 minute |
+| 3 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 | 1 minute |
+| 4 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 | 1 minute |
+| 5 | **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50** | 1 minute |
 
-Source: [standard_ai_tier.json#L15-L118](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L15-L118).
+Source: [standard_ai_tier.json#L27-L115](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json#L27-L115).
+
+> [!WARNING]
+> This table previously listed **six** rows and claimed "6 operationConfigs covering 5
+> models", including a **second `claude-haiku-4-5@20251001` operation at 2000 tokens/minute**.
+> That operation does not exist. There is exactly one haiku operation and it is capped at
+> **50**. The phantom row directly contradicted the 50-token cap that the token-quota demo
+> depends on, and would have sent anyone debugging a quota breach looking for a limit that
+> was never configured.
 
 > [!IMPORTANT]
 > `claude-haiku-4-5@20251001` is deliberately capped at **50 tokens / minute** so the quota
@@ -130,28 +138,45 @@ Source: [standard_ai_tier.json#L15-L118](file:///Users/maloosatyam/Codebase/AI%2
 
 ### 2.2 Enterprise AI Tier — per-model token quotas
 
-**8 `operationConfigs` covering 7 models.** Same shape as Standard: one
-`llmOperation` per `operationConfig`, `apiSource: ai-gateway-v1`, method `POST`.
+**9 `operationConfigs` covering 8 distinct models** (`auto` is reached by two
+resources). Same shape as Standard: one `llmOperation` per `operationConfig`,
+`apiSource: ai-gateway-v1`, method `POST`.
 
 | # | Resource | `model` | Token limit | Interval |
 | --- | --- | --- | --- | --- |
 | 1 | `/auto` | `auto` | 10000 | 1 minute |
 | 2 | `/auto:*` | `auto` | 10000 | 1 minute |
-| 3 | **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50** | 1 minute |
-| 4 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
-| 5 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
-| 6 | `/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
-| 7 | `/models/claude-haiku-4-5@20251001:*` | `claude-haiku-4-5@20251001` | 10000 | 1 minute |
-| 8 | `/models/claude-opus-4-5@20251101:*` | `claude-opus-4-5@20251101` | 10000 | 1 minute |
+| 3 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 10000 | 1 minute |
+| 4 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 10000 | 1 minute |
+| 5 | `/models/gemini-3.1-pro-preview:*` | `gemini-3.1-pro-preview` | 10000 | 1 minute |
+| 6 | **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50** | 1 minute |
+| 7 | `/models/claude-opus-4-5@20251101:*` | `claude-opus-4-5@20251101` | 10000 | 1 minute |
+| 8 | `/models/gemini-3.7-flash:*` | `gemini-3.7-flash` | 10000 | 1 minute |
+| 9 | `/models/gemini-3.8-flash:*` | `gemini-3.8-flash` | 10000 | 1 minute |
 
-Source: [enterprise_ai_tier.json#L15-L152](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L15-L152).
+Source: [enterprise_ai_tier.json#L27-L183](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json#L27-L183).
+
+> [!WARNING]
+> This table previously listed **eight** rows and claimed "8 operationConfigs covering 7
+> models". Two problems: it **omitted `gemini-3.7-flash` and `gemini-3.8-flash` entirely**,
+> even though `GEMINI.md` documents both as priced, Enterprise-only and proven callable
+> through prod; and it invented a **second `claude-haiku-4-5@20251001` operation at 10000
+> tokens/minute** that does not exist. Reading this table would have led you to believe two
+> entitled models were unentitled, and that the capped model had an uncapped twin.
 
 Enterprise is a **superset of Standard by enumeration**, not by wildcard: it adds
-`gemini-3.1-pro-preview` and `claude-opus-4-5@20251101` and raises every non-capped
-limit from 2000 to 10000 tokens/minute. It **inherits the same 50 tokens/min cap on
-`claude-haiku-4-5@20251001`**, so the token-quota demo reproduces on every persona. Standard
-simply has no operation naming the Pro or Opus models, which is why a Standard key
-calling `gemini-3.1-pro-preview` is rejected by `VA-VerifyAPIKey`.
+`gemini-3.1-pro-preview`, `claude-opus-4-5@20251101`, `gemini-3.7-flash` and
+`gemini-3.8-flash`, and raises every non-capped limit from 2000 to 10000 tokens/minute.
+It **inherits the same 50 tokens/min cap on `claude-haiku-4-5@20251001`**, so the
+token-quota demo reproduces on every persona. Standard simply has no operation naming the
+Pro, Opus or 3.7/3.8 Flash models, which is why a Standard key calling
+`gemini-3.1-pro-preview` is rejected by `VA-VerifyAPIKey`.
+
+> [!CAUTION]
+> `gemini-3.7-flash` and `gemini-3.8-flash` are **not cheap despite the "flash" name** —
+> both list at $1.50 / $7.50 per 1M tokens, more than `gemini-3.1-pro-preview`. They are
+> also the two models most likely to trip the $20 Enterprise budget cap, since the budget
+> counts real cost. See the rate card, not the model name.
 
 ### 2.3 Resource patterns and glob semantics
 
@@ -801,7 +826,19 @@ bash apigee/scripts/deploy_proxy.sh --org bap-apac-demo2 --env prod --proxy ai-g
 
 # Products, apps, monetization, ui/.env
 bash apigee/scripts/provision_unified_credentials.sh --org bap-apac-demo2 --dev maloosatyam@google.com
+
+# Verify the product tables in THIS document still match apigee/products/*.json
+python3 apigee/scripts/check_product_docs.py        # add -v to list every row
 ```
+
+> [!IMPORTANT]
+> Run `check_product_docs.py` after any change to an API product. The tables in
+> [section 2](#2-api-products-catalog) drifted badly enough to be actively misleading —
+> the Standard table invented a `claude-haiku-4-5@20251001` operation at 2000 tokens/minute
+> that contradicted the 50-token cap the demo relies on, and the Enterprise table omitted
+> `gemini-3.7-flash` and `gemini-3.8-flash` so two entitled, expensive models read as
+> unentitled. The script compares every `(resource, model, limit)` triple and the declared
+> counts, and fails the build rather than letting the tables rot again.
 
 `deploy_proxy.sh` accepts `--org`, `--env` (default `dev`), `--proxy`, and
 `--service-account` (default `ai-client@bap-apac-demo2.iam.gserviceaccount.com`);
