@@ -549,6 +549,48 @@ flowchart LR
   `developer-budget-counter` with `QC-EnforceBudgetLimit`. Both read the limit
   from `verifyapikey.VA-VerifyAPIKey.apiproduct.developer.budget.limit`
   (fallback `100000000` micro-dollars = $100 / month).
+- `JS-AuditBudgetAccounting` ([AuditBudgetAccounting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AuditBudgetAccounting.js)) runs immediately
+  after `QC-DeductBudget` and is **deliberately unconditional**. It writes
+  `flow.budget_status`, `flow.budget_exceeded` and the USD-formatted
+  `flow.budget_{used,limit,available}_usd`, all read from the `ratelimit.*`
+  variables of the two quota policies. It is pure observability: it changes no
+  failure behaviour and is itself `continueOnError="true"`.
+
+#### 7.2.1 Why the audit policy exists
+
+Every way the budget counter can go wrong is silent:
+
+1. `QC-DeductBudget` is `continueOnError="true"`, so a fault there is swallowed.
+2. Its step condition is `flow.tx_cost_micros != null`, so a `JS-CalculateCost`
+   failure skips it entirely — with **no fault raised anywhere**.
+
+A conditional audit would inherit exactly that blind spot, which is why the step
+carries no `<Condition>`. The status values are:
+
+| `flow.budget_status` | Meaning |
+| :--- | :--- |
+| `ok` | Cost was computed and the counter was incremented |
+| `skipped_cached` | Semantic cache hit — deliberately not charged |
+| `skipped_no_cost` | **Silent failure.** `JS-CalculateCost` produced no weight, so the step was skipped with no fault raised |
+| `skipped_not_run` | The step condition matched nothing, or the policy is disabled |
+| `violation` | The Quota raised, but the spend *was* recorded — the cap is now crossed |
+| `error` | **Silent failure.** The Quota faulted before counting; this request's spend is lost permanently |
+
+> [!WARNING]
+> **The budget cap is not enforced.** `QC-EnforceBudgetLimit` is also
+> `continueOnError="true"` and nothing inspects
+> `ratelimit.QC-EnforceBudgetLimit.exceeded`, so exceeding the counter raises a
+> `QuotaViolation` that is swallowed and the request proceeds. The counter is
+> **accounting, not a control**. `flow.budget_exceeded` now reports the condition;
+> no policy acts on it. Contrast `LTQ-TokenEnforce`, which is
+> `continueOnError="false"` and genuinely returns 429.
+
+> [!NOTE]
+> `QC-EnforceBudgetLimit` has no `<Weight>` and no `<EnforceOnly>`, so it also
+> *counts* — adding a flat **1 micro-dollar per request** to the same shared
+> counter on top of the real cost. Measured on dev: a call costing `0.000001`
+> advanced the counter by `0.000002`. Against the $100 fallback the distortion is
+> negligible, but the counter is not a pure sum of `tx_cost_micros`.
 
 ### 7.3 Response headers emitted by `AM-SetResponseHeaders`
 
@@ -565,6 +607,9 @@ flowchart LR
 | `x-gateway-prompt-tokens` | `flow.promptTokenCount` |
 | `x-gateway-completion-tokens` | `flow.candidatesTokenCount` |
 | `x-gateway-total-tokens` | `flow.totalTokenCount` |
+| `x-gateway-budget-status` | `flow.budget_status` |
+| `x-gateway-budget-used-usd` | `flow.budget_used_usd` |
+| `x-gateway-budget-limit-usd` | `flow.budget_limit_usd` |
 | `x-gateway-monetization-status` | `mint.limitscheck.status_message` |
 | `x-gateway-prepaid-balance` | `mint.limitscheck.prepaid_developer_balance` |
 | `x-gateway-prepaid-currency` | `mint.limitscheck.prepaid_developer_currency` |

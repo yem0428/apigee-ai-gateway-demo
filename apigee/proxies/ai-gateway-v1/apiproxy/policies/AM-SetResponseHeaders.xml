@@ -14,6 +14,9 @@
       <Header name="x-gateway-prompt-tokens">{flow.promptTokenCount}</Header>
       <Header name="x-gateway-completion-tokens">{flow.candidatesTokenCount}</Header>
       <Header name="x-gateway-total-tokens">{flow.totalTokenCount}</Header>
+      <Header name="x-gateway-budget-status">{flow.budget_status}</Header>
+      <Header name="x-gateway-budget-used-usd">{flow.budget_used_usd}</Header>
+      <Header name="x-gateway-budget-limit-usd">{flow.budget_limit_usd}</Header>
       <Header name="x-gateway-monetization-status">{mint.limitscheck.status_message}</Header>
       <Header name="x-gateway-prepaid-balance">{mint.limitscheck.prepaid_developer_balance}</Header>
       <Header name="x-gateway-prepaid-currency">{mint.limitscheck.prepaid_developer_currency}</Header>

@@ -168,8 +168,16 @@ matches. Breaching the limit returns **HTTP 429**.
 - **Cost calculation** — `KVM-GetModelRates` loads the `ai-model-rates` KVM (`rate_card` entry),
   then [CalculateCost.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js)
   computes `flow.tx_cost_micros`.
-- **Wallet deduction** — `QC-DeductBudget` debits the developer wallet; `QC-EnforceBudgetLimit` and
-  `MLC-EnforceMonetizationLimits` gate the request on the way in.
+- **Wallet deduction** — `QC-DeductBudget` debits the developer wallet, and
+  `JS-AuditBudgetAccounting` records the outcome in `flow.budget_status`.
+  `MLC-EnforceMonetizationLimits` gates the request on the way in with a 403.
+
+  > [!WARNING]
+  > `QC-EnforceBudgetLimit` does **not** gate anything. It is `continueOnError="true"` and
+  > nothing reads `ratelimit.QC-EnforceBudgetLimit.exceeded`, so crossing the cap raises a
+  > `QuotaViolation` that is swallowed and the request is served. The
+  > `developer-budget-counter` is accounting, not a spend control. The real prepaid gate is
+  > `MLC-EnforceMonetizationLimits`.
 - **Prepaid provisioning** — [server.js](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server.js#L531-L569)
   sets `billingType: PREPAID` and credits a **$20 USD** starting balance. This now runs from the
   explicit `/api/me/onboard` step rather than silently on sign-in — see
@@ -185,9 +193,13 @@ endpoint (`DeployedIndexID: semantic_cache`) with a similarity **threshold of 0.
 `SCP-Semantic-Cache-Populate` writes successful responses back.
 
 Caching is **opt-in per request** — the lookup only runs when the `use-cache` or `x-use-cache`
-header is `true`. On a hit, `flow.cached` is `"true"`, which skips `KVM-GetModelRates`,
-`JS-CalculateCost`, `QC-DeductBudget` and `LTQ-TokenCount` — so a cache hit costs no tokens and
-no wallet balance.
+header is `true`. On a hit, `flow.cached` is `"true"`, which skips `QC-DeductBudget` and
+`LTQ-TokenCount` — so a cache hit costs no tokens and no wallet balance.
+
+`KVM-GetModelRates` and `JS-CalculateCost` **do** still run on a hit; they are gated on
+`response.status.code = 200` alone. That is what populates `x-gateway-cost-tier` on a cached
+response, which was previously empty. `CalculateCost.js` zeroes the cost itself on a hit rather
+than being skipped. A hit reports `x-gateway-budget-status: skipped_cached`.
 
 ### 6. 📡 `x-gateway-*` Trace Telemetry Contract
 
@@ -209,10 +221,30 @@ the live test suite all read it, so headers must not be renamed or dropped.
 | `x-gateway-prompt-tokens` | `flow.promptTokenCount` | Input tokens |
 | `x-gateway-completion-tokens` | `flow.candidatesTokenCount` | Output tokens |
 | `x-gateway-total-tokens` | `flow.totalTokenCount` | Total tokens, and the quota-counted figure |
+| `x-gateway-budget-status` | `flow.budget_status` | Budget accounting outcome — see below |
+| `x-gateway-budget-used-usd` | `flow.budget_used_usd` | Developer spend recorded this interval |
+| `x-gateway-budget-limit-usd` | `flow.budget_limit_usd` | Budget cap the counter is measured against |
 | `x-gateway-monetization-status` | `mint.limitscheck.status_message` | Monetization limit-check verdict |
 | `x-gateway-prepaid-balance` | `mint.limitscheck.prepaid_developer_balance` | Wallet balance at check time |
 | `x-gateway-prepaid-currency` | `mint.limitscheck.prepaid_developer_currency` | Wallet currency |
 | `x-gateway-balance-remaining` | `flow.prepaid_balance_remaining` | Balance after this request's deduction |
+
+`x-gateway-budget-status` exists because budget accounting is fail-open by design and every way
+it can break is otherwise silent — `QC-DeductBudget` swallows its own faults, and a
+`JS-CalculateCost` failure skips the step with no fault raised at all.
+[AuditBudgetAccounting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AuditBudgetAccounting.js)
+runs unconditionally after the deduction and names the outcome:
+
+| Value | Meaning |
+| :--- | :--- |
+| `ok` | Cost computed, counter incremented |
+| `skipped_cached` | Semantic cache hit — deliberately not charged |
+| `skipped_no_cost` | **Silent failure** — costing produced no weight |
+| `skipped_not_run` | Step condition matched nothing, or policy disabled |
+| `violation` | Quota raised, but the spend *was* recorded — cap now crossed |
+| `error` | **Silent failure** — quota faulted before counting; spend lost |
+
+The same values are logged to Cloud Logging as `budgetStatus`, which is the surface to alert on.
 
 The policy runs with `continueOnError="true"` and `<IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>`,
 so an unset variable yields an absent or empty header rather than a fault — clients must treat every

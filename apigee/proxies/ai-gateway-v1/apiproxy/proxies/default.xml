@@ -154,6 +154,17 @@
         <Name>QC-DeductBudget</Name>
         <Condition>flow.tx_cost_micros != null and flow.cached != "true"</Condition>
       </Step>
+      <!--
+        Deliberately UNCONDITIONAL, unlike the step above. Every failure mode of the budget
+        counter is silent: QC-DeductBudget is continueOnError="true" so a fault there is
+        swallowed, and its own condition means a JS-CalculateCost failure skips it with no
+        fault raised at all. A conditional audit would inherit exactly the blind spot it
+        exists to close, so this runs on every response and names the outcome in
+        flow.budget_status. It changes no failure behaviour.
+      -->
+      <Step>
+        <Name>JS-AuditBudgetAccounting</Name>
+      </Step>
       <Step>
         <Name>LTQ-TokenCount</Name>
         <Condition>response.status.code = 200 and flow.cached != "true"</Condition>

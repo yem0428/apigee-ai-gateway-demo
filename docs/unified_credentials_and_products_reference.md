@@ -462,8 +462,8 @@ if units > 0:
 | [DC-ModelAnalytics](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/policies/DC-ModelAnalytics.xml) | `DataCapture` | PostFlow response | Feeds analytics + the monetization rating engine |
 
 PostFlow order is `EV-ModelResponse` → `KVM-GetModelRates` → `JS-CalculateCost` →
-`QC-DeductBudget` → `LTQ-TokenCount` → `DC-ModelAnalytics` → `SCP-Semantic-Cache-Populate`
-→ `SMR-SanitizeModelResponse` → `AM-SetResponseHeaders`
+`QC-DeductBudget` → `JS-AuditBudgetAccounting` → `LTQ-TokenCount` → `DC-ModelAnalytics` →
+`SCP-Semantic-Cache-Populate` → `SMR-SanitizeModelResponse` → `AM-SetResponseHeaders`
 ([default.xml#L139-L174](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L139-L174)).
 
 `QC-EnforceBudgetLimit` and `QC-DeductBudget` share `SharedName` `developer-budget-counter`,
@@ -471,9 +471,19 @@ key off `verifyapikey.VA-VerifyAPIKey.developer.id`, and resolve
 `...apiproduct.developer.budget.{limit,interval,timeunit}` with fallbacks
 `100000000` / `1` / `month`. `QC-DeductBudget` applies `<Weight ref="flow.tx_cost_micros"/>`.
 
-> [!NOTE]
-> Both budget policies are `continueOnError="true"`. If the budget variables are not
-> populated on the product, these policies degrade silently rather than blocking traffic.
+> [!WARNING]
+> Both budget policies are `continueOnError="true"`, and **nothing reads
+> `ratelimit.QC-EnforceBudgetLimit.exceeded`**. Crossing the cap therefore raises a
+> `QuotaViolation` that is swallowed, and the request is served anyway. Treat
+> `developer-budget-counter` as accounting, not as a spend control. If the budget
+> variables are not populated on the product these policies also degrade silently.
+
+`JS-AuditBudgetAccounting` runs unconditionally after `QC-DeductBudget` and names the
+outcome in `flow.budget_status` (`ok`, `skipped_cached`, `skipped_no_cost`,
+`skipped_not_run`, `violation`, `error`). It is emitted as `x-gateway-budget-status` and
+logged to Cloud Logging as `budgetStatus`, alongside `budgetExceeded`, `budgetUsedUsd` and
+`budgetLimitUsd`. The two `skipped_no_cost` / `error` values are the previously invisible
+failure modes; everything else is normal operation.
 
 ### 6.3 The 403 fault payload
 
@@ -564,6 +574,9 @@ sets all of the following (unresolved variables are dropped):
 | `x-gateway-prompt-tokens` | `flow.promptTokenCount` |
 | `x-gateway-completion-tokens` | `flow.candidatesTokenCount` |
 | `x-gateway-total-tokens` | `flow.totalTokenCount` |
+| `x-gateway-budget-status` | `flow.budget_status` |
+| `x-gateway-budget-used-usd` | `flow.budget_used_usd` |
+| `x-gateway-budget-limit-usd` | `flow.budget_limit_usd` |
 | `x-gateway-monetization-status` | `mint.limitscheck.status_message` |
 | `x-gateway-prepaid-balance` | `mint.limitscheck.prepaid_developer_balance` |
 | `x-gateway-prepaid-currency` | `mint.limitscheck.prepaid_developer_currency` |
@@ -1005,4 +1018,6 @@ Admin, Sales and Loans personas alike.
 | `/models/auto` entitlement | **Resolved.** Dropped from both AI tiers. No product grants it and no flow routes it; `OAS-ValidateRequest` rejects it with 400. The UI always calls bare `/auto` |
 | Stale product `description` attributes | **Resolved.** All custom attributes (`description`, `tier`, `domain`) were removed from every product. The only attribute left is `access: private`, which Apigee itself interprets |
 | Leaked consumer key in git history | A literal consumer key was committed in `apigee/scripts/test_token_limit.sh` (commit `26e168b`). The working tree no longer contains it, but git history does — treat that key as compromised and rotate it |
-| Budget quota variables | `QC-EnforceBudgetLimit` / `QC-DeductBudget` read `...apiproduct.developer.budget.*`, which no committed product JSON defines; both are `continueOnError="true"` and fall back to `100000000` micro-dollars / month |
+| Budget quota variables | `QC-EnforceBudgetLimit` / `QC-DeductBudget` read `...apiproduct.developer.budget.*`, which no committed product JSON defines; both are `continueOnError="true"` and fall back to `100000000` micro-dollars / month. Confirmed live on dev: `x-gateway-budget-limit-usd` returns `100.000000` |
+| Budget cap is not enforced | Nothing inspects `ratelimit.QC-EnforceBudgetLimit.exceeded` and the policy is `continueOnError="true"`, so exceeding the counter does not reject the request. Now *visible* via `x-gateway-budget-status` / `flow.budget_exceeded`, but still not enforced — making it fail closed is a deliberate, unmade decision |
+| Enforcer double-counts | `QC-EnforceBudgetLimit` has neither `<Weight>` nor `<EnforceOnly>`, so it adds a flat 1 micro-dollar per request to the shared counter in addition to `QC-DeductBudget`'s real cost. Measured on dev: a `0.000001` call advanced the counter `0.000002` |

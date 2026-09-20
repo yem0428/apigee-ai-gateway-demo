@@ -235,6 +235,9 @@ Set by [AM-SetResponseHeaders](file:///Users/maloosatyam/Codebase/AI%20Code/apig
 | `x-gateway-prompt-tokens` | `flow.promptTokenCount` |
 | `x-gateway-completion-tokens` | `flow.candidatesTokenCount` |
 | `x-gateway-total-tokens` | `flow.totalTokenCount` |
+| `x-gateway-budget-status` | `flow.budget_status` |
+| `x-gateway-budget-used-usd` | `flow.budget_used_usd` |
+| `x-gateway-budget-limit-usd` | `flow.budget_limit_usd` |
 | `x-gateway-monetization-status` | `mint.limitscheck.status_message` |
 | `x-gateway-prepaid-balance` | `mint.limitscheck.prepaid_developer_balance` |
 | `x-gateway-prepaid-currency` | `mint.limitscheck.prepaid_developer_currency` |
@@ -753,7 +756,7 @@ Two client-side behaviours matter before a live demo:
 | `SUP-UserPrompt` | **SanitizeUserPrompt** (Model Armor) | Screens the prompt via template `apigee-sanitize-user-prompt` (`asia-southeast1`); blocks with HTTP 400 |
 | `VA-VerifyAPIKey` | VerifyAPIKey | Validates `x-apikey`; 401 on product mismatch |
 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | **HTTP 403 PERMISSION_DENIED** on exhausted prepaid balance |
-| `QC-EnforceBudgetLimit` | Quota | Monetary budget counter (`developer-budget-counter`), product-driven |
+| `QC-EnforceBudgetLimit` | Quota | Monetary budget **counter** (`developer-budget-counter`). `continueOnError="true"` with nothing reading `.exceeded`, so it does **not** reject over-budget traffic |
 | `AM-RemoveAuthorization` | AssignMessage | Strips the client `Authorization` header before upstream |
 | `AM-InitCacheStatus` | AssignMessage | Initialises cache flow variables |
 | `JS-AutoRouting` | Javascript | Heuristic model selection on `/auto*` |
@@ -771,6 +774,7 @@ Two client-side behaviours matter before a live demo:
 | `KVM-GetModelRates` | KeyValueMapOperations | Loads per-model USD rates |
 | `JS-CalculateCost` | Javascript | Computes `flow.tx_cost_micros` / `flow.tx_cost_usd` |
 | `QC-DeductBudget` | Quota | Deducts the transaction cost from the developer budget |
+| `JS-AuditBudgetAccounting` | Javascript | Unconditional audit of the deduction; sets `flow.budget_status` so the fail-open path is observable |
 | `LTQ-TokenCount` | **LLMTokenQuota** (`CountOnly`) | Counts consumed tokens into `common-counter` |
 | `DC-ModelAnalytics` | DataCapture | Emits analytics dimensions on the **success path** (response flow) |
 | `DC-FaultAnalytics` | DataCapture | `DefaultFaultRule` twin — emits `dc_user_email` + `dc_model_name` so **blocked** calls are attributed |

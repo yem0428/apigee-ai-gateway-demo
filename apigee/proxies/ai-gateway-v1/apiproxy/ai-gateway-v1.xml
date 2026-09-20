@@ -21,6 +21,7 @@
     <Policy>EV-ExtractBearerToken</Policy>
     <Policy>EV-ModelResponse</Policy>
     <Policy>EV-RequestDetails</Policy>
+    <Policy>JS-AuditBudgetAccounting</Policy>
     <Policy>JS-AutoRouting</Policy>
     <Policy>JS-CalculateCost</Policy>
     <Policy>JS-ClaudeRequestPrep</Policy>
