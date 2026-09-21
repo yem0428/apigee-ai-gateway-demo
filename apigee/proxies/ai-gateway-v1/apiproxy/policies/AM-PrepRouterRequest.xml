@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-PrepRouterRequest">
+  <DisplayName>AM-PrepRouterRequest</DisplayName>
+  <AssignTo createNew="true" transport="http" type="request">routerRequest</AssignTo>
+  <Set>
+    <Headers>
+      <Header name="Content-Type">application/json</Header>
+    </Headers>
+    <Verb>POST</Verb>
+    <Payload contentType="application/json">{flow.routerPayload}</Payload>
+  </Set>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</AssignMessage>

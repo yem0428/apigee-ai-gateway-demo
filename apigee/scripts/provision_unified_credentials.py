@@ -12,6 +12,13 @@ import subprocess
 from urllib.parse import quote
 
 def get_access_token():
+    # Try application-default first (avoids CBA mTLS issues on corporate laptops)
+    try:
+        token = subprocess.check_output(["gcloud", "auth", "application-default", "print-access-token"]).decode().strip()
+        if token:
+            return token
+    except Exception:
+        pass
     try:
         return subprocess.check_output(["gcloud", "auth", "print-access-token"]).decode().strip()
     except Exception as e:

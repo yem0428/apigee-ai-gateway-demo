@@ -6,6 +6,8 @@
       <Header name="x-gateway-model">{flow.target_model}</Header>
       <Header name="x-gateway-provider">{flow.target_provider}</Header>
       <Header name="x-auto-routed">{flow.autoRouted}</Header>
+      <Header name="x-gateway-category">{flow.routerCategory}</Header>
+      <Header name="x-gateway-router-category">{flow.routerCategory}</Header>
       <Header name="x-gateway-cost-tier">{flow.costTier}</Header>
       <Header name="x-gateway-cost-usd">{flow.tx_cost_usd}</Header>
       <Header name="x-gateway-currency">USD</Header>

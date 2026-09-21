@@ -89,8 +89,8 @@ Five product definitions exist in
 
 | File | `name` | Group type | `apiSource` | Attributes |
 | --- | --- | --- | --- | --- |
-| [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | Standard AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `access=private`, `developer.budget.limit=5000000` ($5/mo), `.interval=1`, `.timeunit=month` |
-| [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | Enterprise AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `access=private`, `developer.budget.limit=20000000` ($20/mo), `.interval=1`, `.timeunit=month` |
+| [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json) | Standard AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `access=private`, `developer.budget.limit=5000000` ($5/mo), `.interval=1`, `.timeunit=month`, `routing.model.{coding,deep_reasoning,general}=gemini-3-flash-preview`, `routing.model.simple=gemini-3.1-flash-lite` |
+| [enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json) | Enterprise AI Tier | `llmOperationGroup` | `ai-gateway-v1` | `access=private`, `developer.budget.limit=20000000` ($20/mo), `.interval=1`, `.timeunit=month`, `routing.model.coding=claude-opus-4-5@20251101`, `routing.model.deep_reasoning=gemini-3.1-pro-preview`, `routing.model.simple=gemini-3.1-flash-lite`, `routing.model.general=gemini-3-flash-preview` |
 | [sales_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/sales_tools_mcp.json) | Sales Tools MCP | `payloadOperationGroup` | `mcp` | `access=private` |
 | [loans_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/loans_tools_mcp.json) | Loans Tools MCP | `payloadOperationGroup` | `mcp` | `access=private` |
 | [enterprise_tools_mcp.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_tools_mcp.json) | Enterprise Tools MCP | `payloadOperationGroup` | `mcp` | `access=private` |
