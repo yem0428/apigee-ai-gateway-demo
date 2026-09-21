@@ -81,6 +81,6 @@ This repository is an enterprise demonstration and development platform for:
 15. **Branching, Dev Isolation, and Staging Review**:
     - **Always work on a dedicated branch**: Never commit directly to `main`. Create a new branch for every feature, bugfix, or experiment (`git checkout -b <branch-name>`).
     - **Never deploy directly to production (`prod`)**: Production (`prod` environment / live UI) is used by field teams for live customer demos and must remain unbroken and stable.
-    - **Test on `dev` first**: All proxy changes must be deployed to the development environment (`--env dev`) and validated before promotion.
-    - **Dev UI review**: Always verify changes against a dev UI instance (`TEST_ENV=dev` or dev Cloud Run instance) for visual and functional review before pushing or deploying to `prod`.
+    - **Deploy to `dev` only when there is a code change to test**: Do not deploy to the `dev` environment unless there are new code or configuration changes on the branch requiring integration testing.
+    - **Dev UI review**: Always verify changes against a dev UI instance (`TEST_ENV=dev` or dev Cloud Run instance) for visual and functional review before pushing or promoting to `prod`.
 
