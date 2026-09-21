@@ -161,6 +161,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
             <button
               type="button"
+              data-tour-id="tab-mcp-gateway"
               onClick={() => onTabChange('mcp-gateway')}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                 activeTab === 'mcp-gateway'
@@ -175,6 +176,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* 3rd Tab: Analytics & Cost */}
             <button
               type="button"
+              data-tour-id="tab-analytics"
               onClick={() => onTabChange('analytics')}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                 activeTab === 'analytics'
@@ -190,6 +192,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isAdminView && (
               <button
                 type="button"
+                data-tour-id="tab-monetization"
                 onClick={() => onTabChange('monetization')}
                 className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                   activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards'

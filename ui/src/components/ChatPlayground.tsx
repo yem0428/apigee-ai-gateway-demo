@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptTransactionRecord } from '../types';
 import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
+import { diffTelemetry } from '../services/telemetryDiff';
+import { TourActionId } from '../services/tourSteps';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
 import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES, MODEL_ARMOR_EXAMPLES } from '../services/defaultSettings';
-import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap, Workflow } from 'lucide-react';
+import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap, Workflow, ArrowRight } from 'lucide-react';
 import { ApigeeColorSymbol } from './ApigeeLogo';
 
 interface ChatPlaygroundProps {
@@ -16,6 +18,13 @@ interface ChatPlaygroundProps {
   onTransactionRecorded?: (tx: PromptTransactionRecord) => void;
   onResetChat?: () => void;
   onOpenRequestFlow?: (telemetry: GatewayTelemetry) => void;
+  /**
+   * A scenario the guided tour wants run. The tour narrates live responses rather than
+   * screenshots, so it reuses the exact handlers behind the demo chips - there is no
+   * second, tour-only code path that could drift from what the chips actually do.
+   */
+  tourAction?: TourActionId | null;
+  onTourActionHandled?: () => void;
 }
 
 export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
@@ -28,6 +37,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   onTransactionRecorded,
   onResetChat,
   onOpenRequestFlow,
+  tourAction,
+  onTourActionHandled,
 }) => {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -83,6 +94,21 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         messages
       );
 
+      /*
+        One object, two references - deliberately.
+
+        The inspector works out which call it is showing by comparing `activeTelemetry`
+        against each message's `telemetry` by identity, because two calls in a demo
+        routinely have byte-identical field values (replaying a prompt to show a cache
+        hit is exactly that). Cloning this into two equal-but-separate objects silently
+        breaks that: the inspector can never match a message, so the comparison band and
+        the historical-call banner never appear.
+      */
+      const callTelemetry: GatewayTelemetry = {
+        ...response.telemetry,
+        userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
+      };
+
       const agentMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'agent',
@@ -91,17 +117,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         model: response.telemetry.model,
         isError: !response.success,
         targetUrl: response.telemetry.targetUrl || targetUrl,
-        telemetry: {
-          ...response.telemetry,
-          userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
-        },
+        telemetry: callTelemetry,
       };
 
       setMessages((prev) => [...prev, agentMessage]);
-      setActiveTelemetry({
-        ...response.telemetry,
-        userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
-      });
+      setActiveTelemetry(callTelemetry);
 
       if (onTransactionRecorded) {
         onTransactionRecorded({
@@ -447,9 +467,84 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     }
   };
 
+  /*
+    Run whatever scenario the tour asked for, then immediately tell the parent it has
+    been consumed so the same request cannot re-fire on the next render.
+
+    Deliberately keyed on `tourAction` alone. The handlers it calls are redefined on
+    every render, so depending on them would re-run this effect - and therefore re-send
+    a real, billable gateway call - on every keystroke in the prompt box.
+  */
+  useEffect(() => {
+    if (!tourAction) return;
+    switch (tourAction) {
+      case 'auto-simple':
+        handleAutoRoutingStep(0);
+        break;
+      case 'auto-coding':
+        handleAutoRoutingStep(2);
+        break;
+      case 'cache-seed':
+        handleCacheStep(0);
+        break;
+      case 'cache-hit':
+        handleCacheStep(1);
+        break;
+    }
+    onTourActionHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourAction]);
+
   const activeUser = getUserInfo(settings.activeUser);
   const ssoUser = settings.ssoUser || DEFAULT_SSO_USER;
   const effectiveEmail = ssoUser.email || settings.userEmail || DEFAULT_SSO_USER.email;
+
+  /**
+   * For every agent message carrying telemetry, the telemetry of the call before it.
+   *
+   * Built once per render rather than scanning backwards inside the message map, which
+   * would be quadratic over a long demo session. Keyed by message id because indices
+   * shift as messages are appended.
+   *
+   * "Previous call" means the previous GATEWAY call, not the previous chat bubble - user
+   * messages are skipped, otherwise every comparison baseline would be undefined.
+   */
+  const baselineByMessageId = useMemo(() => {
+    const map = new Map<string, GatewayTelemetry>();
+    let previous: GatewayTelemetry | undefined;
+    for (const m of messages) {
+      if (m.sender !== 'agent' || !m.telemetry) continue;
+      if (previous) map.set(m.id, previous);
+      previous = m.telemetry;
+    }
+    return map;
+  }, [messages]);
+
+  /** The id of the message whose telemetry the inspector is currently showing. */
+  const selectedMessageId = useMemo(() => {
+    if (!activeTelemetry) return undefined;
+    // Compared by identity: telemetry objects are stored per message and never cloned,
+    // so this stays correct even when two calls have identical field values (which is
+    // exactly what happens when you replay the same prompt to demonstrate a cache hit).
+    return messages.find((m) => m.telemetry === activeTelemetry)?.id;
+  }, [messages, activeTelemetry]);
+
+  const latestTelemetryMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.sender === 'agent' && m.telemetry) return m.id;
+    }
+    return undefined;
+  }, [messages]);
+
+  const isViewingHistoricalCall =
+    !!selectedMessageId && !!latestTelemetryMessageId && selectedMessageId !== latestTelemetryMessageId;
+
+  const activeComparison = useMemo(
+    () => diffTelemetry(selectedMessageId ? baselineByMessageId.get(selectedMessageId) : undefined, activeTelemetry),
+    [baselineByMessageId, selectedMessageId, activeTelemetry]
+  );
+
 
   return (
     <div className="h-[calc(100vh-3.25rem)] flex flex-col md:flex-row overflow-hidden bg-slate-950">
@@ -494,7 +589,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         }`}
       >
         {/* Messages Feed */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <div data-tour-id="chat-messages" className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center p-4 sm:p-6 select-none max-w-3xl mx-auto my-auto">
               <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center mb-2.5">
@@ -721,16 +816,37 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                 </div>
               )}
 
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-xs transition ${
+              {/*
+                Agent responses that carry telemetry are selectable: clicking one loads that
+                call into the inspector on the right. This is how you look back at an earlier
+                call without re-running it, and it is what makes the "what changed" hints
+                below reachable for every call rather than only the most recent one.
+
+                The bubble stays a div, not a button, even though it is clickable: it
+                already contains a real button ("Request Flow"), and nesting interactive
+                content inside a button is invalid HTML and breaks it for assistive tech.
+                Keyboard and screen-reader users get the explicit "Telemetry" button in the
+                footer row instead, which does exactly the same thing.
+              */}
+              {(() => {
+                const selectable = msg.sender === 'agent' && !!msg.telemetry;
+                const isSelected = selectable && msg.id === selectedMessageId;
+                const bubbleClass = `max-w-[85%] rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-xs transition text-left ${
                   msg.sender === 'user'
                     ? 'bg-blue-600 text-white rounded-br-none'
                     : msg.isError
                     ? 'bg-rose-50/70 text-slate-900 border border-rose-200 rounded-bl-none'
                     : 'bg-white text-slate-900 border border-slate-200 rounded-bl-none'
-                }`}
-              >
-                <div className="whitespace-pre-wrap">{msg.text}</div>
+                } ${
+                  selectable ? 'cursor-pointer hover:border-blue-300 hover:shadow-sm' : ''
+                } ${
+                  isSelected ? 'ring-2 ring-blue-500/70 border-blue-300' : ''
+                }`;
+
+                const body = (
+                  <>
+                    <div className="whitespace-pre-wrap">{msg.text}</div>
+
 
                 {/* Inline Telemetry & Target URL Badge on Agent Messages */}
                 <div className="mt-2 pt-1.5 border-t border-slate-100 space-y-1 text-[10px] text-slate-500 font-mono">
@@ -743,19 +859,45 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                         <span className="text-slate-500 font-semibold shrink-0">Target URL:</span>
                         <span className="truncate text-blue-700 select-all font-medium">{msg.targetUrl}</span>
                       </div>
-                      {msg.telemetry && onOpenRequestFlow && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenRequestFlow(msg.telemetry!);
-                          }}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-sans font-semibold text-[10px] shrink-0 transition cursor-pointer shadow-2xs"
-                          title="View Exact Execution Flow Diagram for This Request"
-                        >
-                          <Workflow className="w-3 h-3 text-blue-600" />
-                          <span>Request Flow</span>
-                        </button>
+                      {msg.telemetry && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/*
+                            The keyboard path to what clicking the bubble does. Hidden from
+                            the accessibility tree would be wrong here - this is the only
+                            way to reach an earlier call's telemetry without a mouse.
+                          */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveTelemetry(msg.telemetry!);
+                            }}
+                            aria-pressed={msg.id === selectedMessageId}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-sans font-semibold text-[10px] transition cursor-pointer shadow-2xs border ${
+                              msg.id === selectedMessageId
+                                ? 'bg-slate-800 text-white border-slate-800'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                            title="Show this call's telemetry in the inspector"
+                          >
+                            <Activity className="w-3 h-3" />
+                            <span>Telemetry</span>
+                          </button>
+                          {onOpenRequestFlow && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenRequestFlow(msg.telemetry!);
+                              }}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-sans font-semibold text-[10px] transition cursor-pointer shadow-2xs"
+                              title="View Exact Execution Flow Diagram for This Request"
+                            >
+                              <Workflow className="w-3 h-3 text-blue-600" />
+                              <span>Request Flow</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -789,8 +931,58 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       <span className="ml-auto opacity-60 text-[9px]">{msg.timestamp}</span>
                     </div>
                   )}
+
+                  {/*
+                    "What changed" hints, relative to the PREVIOUS gateway call.
+                    Only headline changes appear here - a cache hit, a model switch, a cost
+                    or latency swing. The full list lives in the inspector; this is the
+                    at-a-glance cue that something is worth looking at, which is exactly
+                    what carries an auto-routing or cache demo from the chat pane.
+                  */}
+                  {(() => {
+                    const hints = diffTelemetry(baselineByMessageId.get(msg.id), msg.telemetry).filter(
+                      (c) => c.headline
+                    );
+                    if (hints.length === 0) return null;
+                    return (
+                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                        {hints.map((c) => (
+                          <span
+                            key={c.key}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-sans font-semibold text-[9px] ${
+                              c.kind === 'improved'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : c.kind === 'regressed'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-purple-50 text-purple-700 border-purple-200'
+                            }`}
+                            title={`${c.label}: ${c.from} → ${c.to}`}
+                          >
+                            <span className="uppercase tracking-wide opacity-70">{c.label}</span>
+                            <ArrowRight className="w-2.5 h-2.5" />
+                            <span className="font-mono">{c.to}</span>
+                            {c.detail && <span className="opacity-80">({c.detail})</span>}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
-              </div>
+                  </>
+                );
+
+                if (!selectable) {
+                  return <div className={bubbleClass}>{body}</div>;
+                }
+                return (
+                  <div
+                    onClick={() => setActiveTelemetry(msg.telemetry!)}
+                    className={bubbleClass}
+                  >
+                    {body}
+                  </div>
+                );
+              })()}
 
               {msg.sender === 'user' && (
                 <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 text-slate-700">
@@ -827,8 +1019,16 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
         {/* Input & Quick Chips */}
         <div className="p-3 sm:p-3.5 bg-white/90 border-t border-slate-200 shrink-0 backdrop-blur">
-          {/* All 6 Scenario Chips in Exact Required Order */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2.5 no-scrollbar w-full">
+          {/*
+            All 6 Scenario Chips in Exact Required Order.
+            The guided tour points here rather than at the empty-state card grid above,
+            because that grid unmounts as soon as the first message lands - and by the
+            time the tour is talking about scenarios, it usually has.
+          */}
+          <div
+            data-tour-id="scenario-presets"
+            className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2.5 no-scrollbar w-full"
+          >
             <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider shrink-0 mr-1">Scenarios:</span>
             {sampleChips.map((chip) => (
               <button
@@ -933,6 +1133,12 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         <GatewayTraceViewer
           telemetry={activeTelemetry}
           settings={settings}
+          comparison={activeComparison}
+          isHistorical={isViewingHistoricalCall}
+          onReturnToLatest={() => {
+            const latest = messages.find((m) => m.id === latestTelemetryMessageId);
+            if (latest?.telemetry) setActiveTelemetry(latest.telemetry);
+          }}
           onToggleCache={() =>
             setSettings((prev) => ({ ...prev, useCache: !prev.useCache }))
           }
