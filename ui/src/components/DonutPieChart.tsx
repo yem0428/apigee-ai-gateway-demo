@@ -60,7 +60,7 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
   totalFormatted,
   totalLabel,
   unitLabel,
-  centerBadgeColor = 'text-slate-900 dark:text-white',
+  centerBadgeColor = 'text-slate-900',
   borderless = false,
 }) => {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -89,16 +89,16 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
   const activeSlice = slicesWithAngles.find((s) => s.id === hoveredId);
 
   return (
-    <div className={borderless ? "w-full space-y-3" : "bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between"}>
+    <div className={borderless ? "w-full space-y-3" : "bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between"}>
       {/* Optional Header */}
       {title && (
         <div className="flex items-start justify-between mb-2">
           <div>
-            <div className="border-b-2 border-purple-500 inline-flex items-center gap-1.5 pb-0.5 font-bold text-sm text-slate-900 dark:text-white">
+            <div className="border-b-2 border-purple-500 inline-flex items-center gap-1.5 pb-0.5 font-bold text-sm text-slate-900">
               {icon}
               <span>{title}</span>
             </div>
-            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
           </div>
         </div>
       )}
@@ -115,7 +115,7 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
               r="70"
               fill="none"
               strokeWidth="24"
-              className="stroke-slate-100 dark:stroke-slate-800"
+              className="stroke-slate-100"
             />
 
             {/* Slices */}
@@ -132,7 +132,7 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
                   d={d}
                   fill={s.color}
                   strokeWidth="2"
-                  className="stroke-white dark:stroke-slate-900 transition-all duration-200 cursor-pointer"
+                  className="stroke-white transition-all duration-200 cursor-pointer"
                   style={{
                     filter: isHovered ? 'drop-shadow(0 0 8px rgba(0, 0, 0, 0.2))' : 'none',
                     opacity: hoveredId && !isHovered ? 0.4 : 1,
@@ -151,13 +151,13 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
               the label and share lines sit ~18px off-centre where the chord
               narrows to ~90px. Hence the two different max widths. */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-            <span className="max-w-[84px] truncate text-[10px] uppercase font-mono tracking-wider text-slate-500 dark:text-slate-400 font-semibold leading-none mb-1">
+            <span className="max-w-[84px] truncate text-[10px] uppercase font-mono tracking-wider text-slate-500 font-semibold leading-none mb-1">
               {activeSlice ? activeSlice.label : totalLabel}
             </span>
             <span className={`max-w-[98px] truncate text-sm sm:text-base font-bold font-mono tracking-tight leading-none ${centerBadgeColor}`}>
               {activeSlice ? activeSlice.formattedValue : totalFormatted}
             </span>
-            <span className="max-w-[84px] truncate text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-none mt-1">
+            <span className="max-w-[84px] truncate text-[10px] text-slate-500 font-medium leading-none mt-1">
               {activeSlice ? `${activeSlice.percentage.toFixed(1)}% Share` : unitLabel || 'Total'}
             </span>
           </div>
@@ -176,8 +176,8 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
                 onMouseLeave={() => setHoveredId(null)}
                 className={`flex items-center justify-between p-2 rounded-xl border transition cursor-pointer ${
                   isHovered
-                    ? 'bg-slate-50 dark:bg-slate-800/80 border-slate-300 dark:border-slate-600 shadow-sm'
-                    : 'bg-white dark:bg-slate-950/40 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    ? 'bg-slate-50 border-slate-300 shadow-sm'
+                    : 'bg-white border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 {/* 2-Letter Badge + Label */}
@@ -189,11 +189,11 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
                     {badgeText}
                   </span>
                   <div className="min-w-0">
-                    <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    <div className="font-mono text-xs font-semibold text-slate-800 truncate">
                       {item.label}
                     </div>
                     {item.sublabel && (
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                      <div className="text-[10px] text-slate-500 truncate">
                         {item.sublabel}
                       </div>
                     )}
@@ -202,10 +202,10 @@ export const DonutPieChart: React.FC<DonutPieChartProps> = ({
 
                 {/* Right Aligned Value + Percentage */}
                 <div className="text-right shrink-0 pl-3">
-                  <div className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                  <div className="font-mono font-bold text-slate-900">
                     {item.formattedValue}
                   </div>
-                  <div className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                  <div className="text-[10px] font-mono font-semibold text-emerald-600">
                     {item.percentage.toFixed(1)}%
                   </div>
                 </div>

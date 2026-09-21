@@ -1,7 +1,15 @@
 export type GatewayEnvironment = 'dev' | 'prod' | 'custom';
 export type UserPersona = 'admin' | 'sales_agent' | 'loans_agent';
 export type KeyTier = 'admin' | 'sales' | 'loans' | 'custom';
-export type AppTheme = 'midnight' | 'sunset' | 'cyber' | 'light';
+// Themes are CSS-only. Each entry here must have a matching
+// `html[data-theme="<name>"]` block in src/index.css, and that pairing is the
+// whole contract — there is no per-theme TypeScript.
+//
+// Selected via the `?theme=` query parameter; anything not in this list is
+// ignored and falls back to 'light', so a typo during a live demo cannot
+// strand the UI on a theme that has no stylesheet.
+export const AVAILABLE_THEMES = ['light'] as const;
+export type AppTheme = (typeof AVAILABLE_THEMES)[number];
 
 export interface SsoUser {
   name: string;

@@ -89,7 +89,7 @@ export const ApigeeLogo: React.FC<ApigeeLogoProps> = ({ className = 'h-7', showS
       <ApigeeColorSymbol className="w-7 h-7 shrink-0 drop-shadow-xs" />
 
       {showStudio && (
-        <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/80 dark:border-blue-800 tracking-wider uppercase font-mono">
+        <span className="text-[10px] font-semibold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-200/80 tracking-wider uppercase font-mono">
           Studio
         </span>
       )}
