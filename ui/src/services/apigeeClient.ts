@@ -216,6 +216,21 @@ export async function sendPromptToApigee(
       }
     }
 
+    // A semantic-cache hit that the gateway did not attribute to any model.
+    //
+    // SCL-Semantic-Cache-Lookup keys on {flow.userPrompt} ALONE - the model is
+    // deliberately not part of the key - and since the router chain lives in
+    // AutoRoutingFlow it is skipped entirely on a hit, so no x-gateway-model
+    // comes back. There is genuinely no model to name here: the cached bytes
+    // may have been produced by a different model than the one this request
+    // asked for, which is true of a direct model-path hit as much as an /auto one.
+    //
+    // So we do not fall back to `targetModel`. That would print the literal
+    // string "auto" for an /auto request, and would actively assert a false
+    // model for a direct one. Same rule the cost and intent fields above
+    // already follow: absent beats invented.
+    const cacheHitUnattributed = cacheStatus === 'HIT' && !headersReceived['x-gateway-model'];
+
     // Determine guardrail status
     let guardrailStatus: 'PASSED' | 'BLOCKED' | 'FLAGGED' | 'NONE' = 'NONE';
     let guardrailMessage: string | undefined = undefined;
@@ -252,7 +267,14 @@ export async function sendPromptToApigee(
     const effectivePromptTokens = promptTokens ?? (headersReceived['x-gateway-prompt-tokens'] ? parseInt(headersReceived['x-gateway-prompt-tokens'], 10) : undefined);
     const effectiveCandidatesTokens = candidatesTokens ?? (headersReceived['x-gateway-completion-tokens'] ? parseInt(headersReceived['x-gateway-completion-tokens'], 10) : undefined);
     const effectiveTotalTokens = totalTokens ?? (headersReceived['x-gateway-total-tokens'] ? parseInt(headersReceived['x-gateway-total-tokens'], 10) : undefined);
-    const effectiveProvider = headersReceived['x-gateway-provider'] || (targetModel.startsWith('claude') ? 'anthropic' : 'google');
+    const effectiveProvider = cacheHitUnattributed
+      ? undefined
+      : (headersReceived['x-gateway-provider'] || (targetModel.startsWith('claude') ? 'anthropic' : 'google'));
+    // See the cacheHitUnattributed comment above: undefined on a cache hit the
+    // gateway could not attribute, rather than a fabricated model name.
+    const effectiveModel: string | undefined = cacheHitUnattributed
+      ? undefined
+      : (headersReceived['x-gateway-model'] || targetModel);
     // Cost is NOT recomputed client-side. JS-CalculateCost in the gateway is the single
     // costing authority and derives both figures from the ai-model-rates KVM, on cache
     // hits too. The previous fallbacks invented a $0.20/1M blended rate and guessed the
@@ -306,9 +328,13 @@ export async function sendPromptToApigee(
       statusText: responseStatusText || (responseStatus === 200 ? 'OK' : 'Error'),
       endpointUrl,
       targetUrl: getGatewayTargetUrl(settings, targetModel),
-      model: headersReceived['x-gateway-model'] || targetModel,
+      model: effectiveModel,
       requestedModel: settings.model,
-      autoRouted: headersReceived['x-auto-routed'] === 'true' || isAuto,
+      // Not "Auto-Routed" on an unattributed cache hit. isAuto only says the
+      // client called /auto; the router never ran, so nothing was routed.
+      autoRouted: cacheHitUnattributed
+        ? false
+        : (headersReceived['x-auto-routed'] === 'true' || isAuto),
       intent: effectiveIntent,
       environment: settings.environment,
       user: userInfo.name,
@@ -329,9 +355,9 @@ export async function sendPromptToApigee(
       rawRequest: requestBody,
       rawResponse: rawResponseBody,
       // Backwards compatibility aliases
-      'x-gateway-model': headersReceived['x-gateway-model'] || targetModel,
+      'x-gateway-model': effectiveModel,
       'x-gateway-provider': effectiveProvider,
-      'x-auto-routed': headersReceived['x-auto-routed'] || (isAuto ? 'true' : 'false'),
+      'x-auto-routed': cacheHitUnattributed ? 'false' : (headersReceived['x-auto-routed'] || (isAuto ? 'true' : 'false')),
       'x-gateway-cost-usd': effectiveCostUsd,
       'x-gateway-cost-tier': effectiveCostTier,
       'x-prompt-tokens': effectivePromptTokens ? String(effectivePromptTokens) : undefined,

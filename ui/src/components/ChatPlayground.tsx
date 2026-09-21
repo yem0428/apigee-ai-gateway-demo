@@ -108,8 +108,14 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
           id: Date.now().toString(),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           userEmail: settingsToUse.userEmail || DEFAULT_SSO_USER.email,
-          model: response.telemetry.model,
-          provider: response.telemetry.provider || (response.telemetry.model?.startsWith('claude') ? 'anthropic' : 'google'),
+          // PromptTransactionRecord requires strings. An unattributed cache hit
+          // gets its own bucket rather than being credited to a model that may
+          // not have produced the cached bytes.
+          model: response.telemetry.model || 'served-from-cache',
+          provider: response.telemetry.provider
+            || (response.telemetry.model
+              ? (response.telemetry.model.startsWith('claude') ? 'anthropic' : 'google')
+              : 'cache'),
           promptTokens: response.telemetry.promptTokens || 0,
           candidatesTokens: response.telemetry.candidatesTokens || 0,
           totalTokens: response.telemetry.totalTokens || 0,
