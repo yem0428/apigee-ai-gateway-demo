@@ -286,8 +286,8 @@ export function App() {
             statusText: 'OK',
             // A real cache hit: the lookup keys on the prompt alone and the router
             // is skipped, so the gateway attributes no model, no category and no
-            // cost. Mirrors dev rev 43 (~1.7 s median, n=8).
-            latencyMs: 1729,
+            // cost. Measured on prod rev 44: 873 ms median, n=6.
+            latencyMs: 873,
             endpointUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1/auto',
             environment: 'prod',
             costUsd: '0.000000',
@@ -346,7 +346,7 @@ export function App() {
         // See the sample chat message above: a genuine cache hit carries no model,
         // no category, no cost tier and no auto-routing claim, because the router
         // is skipped and the cache keys on the prompt alone.
-        latencyMs: 1729,
+        latencyMs: 873,
         endpointUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1/auto',
         environment: 'prod',
         costUsd: '0.000000',
