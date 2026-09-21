@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Compass } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { ChatPlayground } from './components/ChatPlayground';
 import { McpPlayground } from './components/McpPlayground';
@@ -8,6 +8,8 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
 import { ArchitectureBlueprintModal } from './components/ArchitectureBlueprintModal';
 import { DeveloperOnboardingModal, DeveloperOnboardingResult } from './components/DeveloperOnboardingModal';
+import { GuidedTour } from './components/GuidedTour';
+import { TourActionId } from './services/tourSteps';
 import { GatewaySettings, ChatMessage, GatewayTelemetry, McpTelemetry, UserPersona, AppTab, AppTheme, AVAILABLE_THEMES } from './types';
 import { DEFAULT_SETTINGS, USERS, createSsoUserFromEmail } from './services/defaultSettings';
 import { isSessionExpiredResponse, recoverExpiredSession, markSessionHealthy } from './services/session';
@@ -26,6 +28,18 @@ export function App() {
     }
     return false;
   });
+  /**
+   * The guided tour. `?tour=open` exists so a presenter can put the tour on a bookmark
+   * or a slide link and land straight in it, the same way `?settings=open` works.
+   */
+  const [isTourOpen, setIsTourOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('tour') === 'open';
+    }
+    return false;
+  });
+  /** A scenario the current tour step wants run, consumed once by ChatPlayground. */
+  const [tourAction, setTourAction] = useState<TourActionId | null>(null);
   const [isArchitectureOpen, setIsArchitectureOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return new URLSearchParams(window.location.search).get('arch') === 'open';
@@ -474,6 +488,8 @@ export function App() {
             activeTelemetry={activeTelemetry}
             setActiveTelemetry={setActiveTelemetry}
             onResetChat={handleResetChat}
+            tourAction={tourAction}
+            onTourActionHandled={() => setTourAction(null)}
             onOpenRequestFlow={(telemetry) => {
               setActiveTelemetry(telemetry);
               setArchInitialTab('ai-gateway');
@@ -510,10 +526,26 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Bottom-Right Corner Control: Gateway Settings */}
+      {/* Floating Bottom-Right Corner Control: Guided Tour + Gateway Settings */}
       <div className="fixed bottom-3 right-4 z-40 flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-xl">
+        {/*
+          Labelled, not icon-only, unlike its neighbour. Whoever needs this button has
+          never seen the app before, so a bare compass glyph would be a riddle - and the
+          settings cog next to it is only decipherable because everyone already knows it.
+        */}
         <button
           type="button"
+          data-tour-id="guide-me"
+          onClick={() => setIsTourOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer shadow-xs text-xs font-semibold"
+          title="Take a guided walkthrough of the demo"
+        >
+          <Compass className="w-4 h-4" />
+          <span>Guide me</span>
+        </button>
+        <button
+          type="button"
+          data-tour-id="gateway-settings"
           onClick={() => setIsSettingsOpen(true)}
           className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-slate-600 hover:text-blue-600 transition cursor-pointer shadow-xs"
           title="Gateway Configuration Settings"
@@ -521,6 +553,15 @@ export function App() {
           <Settings2 className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Interactive Guided Demo */}
+      <GuidedTour
+        open={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        isAdmin={settings.activeUser === 'admin'}
+        onRequestTab={setActiveTab}
+        onRunAction={setTourAction}
+      />
 
       {/* Gateway Configuration Drawer / Modal */}
       <GatewaySettingsModal

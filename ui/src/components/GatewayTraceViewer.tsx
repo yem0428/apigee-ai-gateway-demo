@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GatewayTelemetry, GatewaySettings } from '../types';
+import { TelemetryChange } from '../services/telemetryDiff';
 import {
   Activity,
   Clock,
@@ -15,18 +16,29 @@ import {
   Send,
   Coins,
   Zap,
+  ArrowRight,
+  History,
+  GitCompareArrows,
 } from 'lucide-react';
 
 interface GatewayTraceViewerProps {
   telemetry?: GatewayTelemetry | null;
   settings: GatewaySettings;
   onToggleCache: () => void;
+  /** What changed versus the call before this one. Empty for the first call of a session. */
+  comparison?: TelemetryChange[];
+  /** True when the inspector is showing an earlier call rather than the most recent one. */
+  isHistorical?: boolean;
+  onReturnToLatest?: () => void;
 }
 
 export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
   telemetry,
   settings,
   onToggleCache,
+  comparison = [],
+  isHistorical = false,
+  onReturnToLatest,
 }) => {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -81,10 +93,85 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
         </span>
       </div>
 
+      {/*
+        Viewing an earlier call. Without this the inspector silently stops tracking new
+        responses after you click an old one, which reads as a bug rather than a mode.
+      */}
+      {isHistorical && (
+        <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800">
+            <History className="w-3 h-3" />
+            Viewing an earlier call
+          </span>
+          {onReturnToLatest && (
+            <button
+              type="button"
+              onClick={onReturnToLatest}
+              className="px-2 py-0.5 rounded-md bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 font-semibold text-[10px] transition cursor-pointer"
+            >
+              Back to latest
+            </button>
+          )}
+        </div>
+      )}
+
+      {/*
+        What changed versus the previous call.
+        This is the demo's punchline surface: replay a prompt with caching on and the band
+        reads "Cache MISS -> HIT" and "Cost -100%" without anyone having to squint at two
+        numbers and do the arithmetic out loud. Hidden entirely on the first call of a
+        session, where there is nothing to compare against.
+      */}
+      {comparison.length > 0 && (
+        <div
+          data-tour-id="telemetry-comparison"
+          className="px-3 py-2 bg-slate-50 border-b border-slate-200 space-y-1.5"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <GitCompareArrows className="w-3 h-3" />
+            Changed from previous call
+          </div>
+          <div className="space-y-1">
+            {comparison.map((c) => (
+              <div key={c.key} className="flex items-center gap-1.5 text-[10px]">
+                <span className="w-14 shrink-0 text-slate-500 font-semibold">{c.label}</span>
+                <span className="font-mono text-slate-400 line-through truncate max-w-[35%]">{c.from}</span>
+                <ArrowRight className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                <span
+                  className={`font-mono font-bold truncate ${
+                    c.kind === 'improved'
+                      ? 'text-emerald-700'
+                      : c.kind === 'regressed'
+                      ? 'text-amber-700'
+                      : 'text-purple-700'
+                  }`}
+                >
+                  {c.to}
+                </span>
+                {c.detail && (
+                  <span
+                    className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold font-sans ${
+                      c.kind === 'improved'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {c.detail}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Focused Telemetry Cards Container */}
       <div className="p-3 space-y-2">
         {/* 1. Model Routing */}
-        <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-1 shadow-2xs">
+        <div
+          data-tour-id="telemetry-model-routing"
+          className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-1 shadow-2xs"
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-purple-500" />
@@ -191,7 +278,10 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
         </div>
 
         {/* 3. Latency (renamed from Response Latency) */}
-        <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs">
+        <div
+          data-tour-id="telemetry-latency"
+          className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs"
+        >
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-blue-500" />

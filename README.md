@@ -424,6 +424,7 @@ record has an empty `model`, which is why `requestedModel` is logged and why the
 │   ├── apigee_ai_gateway_demo_design.md
 │   ├── best_practices_guide.md
 │   ├── cloud_run_iap_deployment_guide.md
+│   ├── demo_script.md                     # Presenter talk track for the live demo
 │   ├── proxy_architecture_design_plan.md
 │   ├── ui_semantic_cache_and_governance_spec.md
 │   └── unified_credentials_and_products_reference.md
