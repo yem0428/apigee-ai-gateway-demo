@@ -39,10 +39,10 @@ hand-written `ai-gateway-v1` bundle and has a different policy set. See
 
 | Kind | Files |
 | :--- | :--- |
-| Policies | **36** XML policies (see [Section 9](#9-policy-catalog-36-policies)) |
+| Policies | **42** XML policies (see [Section 9](#9-policy-catalog-42-policies)) |
 | Proxy endpoints | `default` (base path `/ai/v1`) |
 | Target endpoints | `gemini-vertex-target`, `claude-vertex-target` |
-| JavaScript resources | `AutoRouting.js`, `CalculateCost.js`, `ClaudeRequestPrep.js`, `ExtractPromptAndModel.js`, `FormatClaudeResponse.js` |
+| JavaScript resources | `AutoRouting.js`, `CalculateCost.js`, `ClaudeRequestPrep.js`, `ExtractPromptAndModel.js`, `FormatClaudeResponse.js`, `PrepRouterRequest.js` |
 | Other resources | [openapi.yaml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/oas/openapi.yaml), [model_rates.properties](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/properties/model_rates.properties) |
 
 ---
@@ -58,7 +58,7 @@ which `OAS-ValidateRequest` enforces.
 
 | Path suffix | Flow | Behaviour |
 | :--- | :--- | :--- |
-| `POST /auto`, `POST /auto:generateContent` | `AutoRoutingFlow` | `JS-AutoRouting` picks model + provider from prompt heuristics and product tier |
+| `POST /auto`, `POST /auto:generateContent` | `AutoRoutingFlow` | `SC-ModelRouter` classifies the prompt with `gemini-3.1-flash-lite`; `JS-AutoRouting` maps the category to a model via the product's `routing.model.*` attributes |
 | `POST /models/gemini-*` | `GeminiDirectFlow` | `AM-PrepGeminiDirect` pins `flow.target_provider = google` |
 | `POST /models/claude-haiku-4-5*` | `LLMTokenLimitFlow` (shadows the empty `AnthropicDirectFlow`) | Additionally runs `LTQ-TokenEnforce` — the token-limit demo path |
 | `POST /models/claude-*` | `AnthropicDirectFlow` | `AM-PrepClaudeDirect` pins `flow.target_provider = anthropic` |
@@ -98,11 +98,27 @@ condition. The extra conditions listed below are the per-step remainder.
 | 12 | `QC-EnforceBudgetLimit` | — |
 | 13 | `AM-RemoveAuthorization` | — |
 | 14 | `AM-InitCacheStatus` | — |
-| 15 | `JS-AutoRouting` | `proxy.pathsuffix MatchesPath "/auto*"` or `JavaRegex "^/auto.*"` |
-| 16 | `AM-PrepGeminiDirect` | `/models/gemini*` or `JavaRegex "^/models/gemini.*"` |
-| 17 | `AM-PrepClaudeDirect` | `/models/claude*` or `JavaRegex "^/models/claude.*"` |
-| 18 | `AM-SetCacheHitExpected` | `use-cache` **or** `x-use-cache` header is `true` |
-| 19 | `SCL-Semantic-Cache-Lookup` | same cache-header condition as #18 |
+| 15 | `JS-PrepRouterRequest` | `proxy.pathsuffix MatchesPath "/auto*"` or `JavaRegex "^/auto.*"` |
+| 16 | `AM-PrepRouterRequest` | same `/auto` condition **and** `flow.skipRouterCallout != "true"` |
+| 17 | `SC-ModelRouter` | same `/auto` condition **and** `flow.skipRouterCallout != "true"` |
+| 18 | `JS-AutoRouting` | `proxy.pathsuffix MatchesPath "/auto*"` or `JavaRegex "^/auto.*"` |
+| 19 | `AM-PrepGeminiDirect` | `/models/gemini*` or `JavaRegex "^/models/gemini.*"` |
+| 20 | `AM-PrepClaudeDirect` | `/models/claude*` or `JavaRegex "^/models/claude.*"` |
+| 21 | `AM-SetCacheHitExpected` | `use-cache` **or** `x-use-cache` header is `true` |
+| 22 | `SCL-Semantic-Cache-Lookup` | same cache-header condition as #21 |
+
+> [!NOTE]
+> Steps 15–18 are the `/auto` router chain and must stay in that order and in that
+> position. `JS-PrepRouterRequest` builds the classification payload,
+> `AM-PrepRouterRequest` wraps it into the `routerRequest` message, `SC-ModelRouter`
+> calls `gemini-3.1-flash-lite`, and `JS-AutoRouting` joins the returned category to
+> the product's `routing.model.*` attributes.
+>
+> The chain has to sit **after `VA-VerifyAPIKey` (step 9)**, because `JS-AutoRouting`
+> reads `verifyapikey.VA-VerifyAPIKey.apiproduct.*`; moved earlier, every category
+> would resolve to nothing. Steps 16–17 additionally carry
+> `flow.skipRouterCallout != "true"` so an empty prompt does not pay for a
+> classification round trip it cannot use.
 
 > [!IMPORTANT]
 > Two ordering facts are load-bearing:
@@ -784,44 +800,65 @@ All five live in
 [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js) ·
 invoked by `JS-AutoRouting` (`continueOnError="false"`).
 
-Reads `flow.userPrompt` and `verifyapikey.VA-VerifyAPIKey.apiproduct.name`. The
-routing tier is derived **solely from the API Product name**. The AI products
-carry **no custom attributes** — `tier`, `description` and `domain` were all
-removed, leaving only `access: private`, which Apigee itself interprets — so
-there is no `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` variable to read and
-the script does not attempt to.
+The policy no longer classifies anything and no longer knows any model names. It
+is the **join** between a classification produced upstream by a router model and
+a model map declared on the caller's API Product.
 
-Tier resolution **fails closed**
-([AutoRouting.js#L6-L19](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L6-L19)):
-a request is treated as *enterprise* only on a positive signal — the lowercased
-product name contains `"enterprise"`. Everything else, including a product name
-that does not resolve at all, falls to the constrained Standard branch rather
-than handing out the expensive models by default.
+Its inputs are `routerResponse.content` (the `SC-ModelRouter` callout body) and
+the `verifyapikey.VA-VerifyAPIKey.apiproduct.*` variables populated by
+`VA-VerifyAPIKey`. It deliberately **does not read `flow.userPrompt`**.
 
-Three heuristics drive the decision:
+**Stage 1 — read the classification.** `extractCategory` pulls
+`candidates[0].content.parts[0].text` out of the Vertex envelope and parses the
+JSON body, tolerating ` ```json ` fences, surrounding whitespace and mixed case.
+If `JSON.parse` fails it falls back to a regex for the `"category"` key, so a
+truncated body still yields a usable decision instead of silently demoting the
+request. The whole block is wrapped in `try/catch`: a failed, timed-out or absent
+callout leaves `category` as `null` rather than throwing.
 
-| Signal | Test (case-insensitive regex) |
-| :--- | :--- |
-| `isCoding` | code keywords — `def`, `class`, `function`, `import`, `const`, `let`, `var`, SQL verbs, fenced code blocks, `code`, `refactor`, `regex`, `async` |
-| `isDeepReasoning` | `compare`, `architect`, `deep`, `reasoning`, `evaluate`, `trade-off`, `multi-step`, `benchmark`, `optimize`, `root cause` |
-| `isSimple` | prompt length < 200 **and** not coding **and** not deep reasoning |
+**Stage 2 — resolve the model from the product.** The category indexes a custom
+attribute directly:
 
-Routing table as implemented
-([AutoRouting.js#L29-L53](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L29-L53)):
+```
+verifyapikey.VA-VerifyAPIKey.apiproduct.routing.model.<category>
+```
 
-| Tier | Signal | `flow.target_model` | Provider |
-| :--- | :--- | :--- | :--- |
-| Standard | simple | `gemini-3.1-flash-lite` | google |
-| Standard | anything else | `gemini-3-flash-preview` | google |
-| Enterprise | coding | `claude-opus-4-5@20251101` | anthropic |
-| Enterprise | deep reasoning | `gemini-3.1-pro-preview` | google |
-| Enterprise | simple | `gemini-3.1-flash-lite` | google |
-| Enterprise | anything else | `gemini-3-flash-preview` | google |
+| Router category | Enterprise AI Tier | Standard AI Tier |
+| :--- | :--- | :--- |
+| `coding` | `claude-opus-4-5@20251101` | `gemini-3-flash-preview` |
+| `deep_reasoning` | `gemini-3.1-pro-preview` | `gemini-3-flash-preview` |
+| `simple` | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` |
+| `general` | `gemini-3-flash-preview` | `gemini-3-flash-preview` |
 
-Sets `flow.target_model`, `flow.model`, `flow.target_provider`,
-`flow.autoRouted = "true"`, and `flow.routingTier` (`enterprise` / `standard`)
-so a downgrade caused by unresolved entitlement is visible in trace rather than
-silent.
+Those values live in
+[enterprise_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)
+and
+[standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json),
+**not** in the proxy. Retargeting a category is a product edit plus a
+`provision_unified_credentials.py` run; it needs no proxy revision.
+
+**Degradation.** An unresolved or unmapped category falls back to
+`routing.model.general`. If that attribute is absent too, `flow.target_model` is
+left **null** — deliberately. A product that grants `/auto` without declaring a
+routing map is a misconfiguration, and surfacing it is safer than serving a model
+the product may not entitle. `targetProvider` is guarded with a null check so
+this path cannot throw and turn the misconfiguration into a 500.
+
+Sets `flow.routerCategory`, `flow.target_model`, `flow.model`,
+`flow.target_provider` (derived: a resolved name containing `claude` →
+`anthropic`) and `flow.autoRouted = "true"`. `flow.routingTier`
+(`enterprise` / `standard`, from the product **name**) is still written, but it is
+now **trace metadata only** — it no longer participates in selecting a model.
+
+> [!IMPORTANT]
+> **The tier cap is now enforced by the product, not by the code.** Previously a
+> Standard caller was held to flash models by an `if (isStandard)` branch in this
+> file. That branch is gone: a Standard caller is capped because
+> `claude-opus-4-5@20251101` and `gemini-3.1-pro-preview` appear nowhere in the
+> Standard product's attributes. `ui/tests/autorouting.unit.test.mjs` asserts both
+> that no model literal survives in the policy and that every `routing.model.*`
+> value is a model the same product actually entitles — a mapping to an
+> unentitled model would route the call into a 401 at the downstream operation.
 
 > [!IMPORTANT]
 > **Routing selects a model. It does not do costing.** Each branch above used to
@@ -1035,7 +1072,7 @@ receive a Gemini-shaped response. It is also what makes
 
 ---
 
-## 9. Policy Catalog (36 Policies)
+## 9. Policy Catalog (42 Policies)
 
 Complete and exhaustive. Verified against both the policy directory and the
 `<Policies>` manifest in
@@ -1044,41 +1081,47 @@ Complete and exhaustive. Verified against both the policy directory and the
 | # | Policy | Type | Where it runs | Purpose |
 | ---: | :--- | :--- | :--- | :--- |
 | 1 | `AM-InitCacheStatus` | AssignMessage | PreFlow 14 | `flow.cached=false`, `flow.cacheStatus=DISABLED`, `flow.autoRouted=false` |
-| 2 | `AM-PrepClaudeDirect` | AssignMessage | PreFlow 17 | `target_provider=anthropic`, model from `flow.model`, adds `anthropic_version` |
-| 3 | `AM-PrepGeminiDirect` | AssignMessage | PreFlow 16 | `target_provider=google`, model from `flow.model` |
-| 4 | `AM-RemoveAuthorization` | AssignMessage | PreFlow 13 | Strips `x-apikey`, `Authorization`, `X-Identity-Token`, `X-User-Email` |
-| 5 | `AM-RouteClaudeTarget` | AssignMessage | Claude target PreFlow | Builds `:rawPredict` URL, sets `anthropic_version` |
-| 6 | `AM-RouteGeminiTarget` | AssignMessage | Gemini target PreFlow | Builds `:generateContent` URL |
-| 7 | `AM-SetCacheHitExpected` | AssignMessage | PreFlow 18 | `flow.cached=true`, `cacheStatus=HIT` (cache state only — no cost) |
-| 8 | `AM-SetCacheMiss` | AssignMessage | Both target PreFlows | `flow.cached=false`, `cacheStatus=MISS` |
-| 9 | `AM-SetResponseHeaders` | AssignMessage | PostFlow resp 9 | 15 `x-gateway-*` / `x-auto-routed` headers |
-| 10 | `AM-SetUserIdentity` | AssignMessage | PreFlow 6 | JWT `email` claim → `flow.emailId` |
-| 11 | `CORS-Headers` | CORS | PreFlow 1, PostFlow req, `OptionsPreFlight` | CORS + preflight generation |
-| 12 | `DC-FaultAnalytics` | DataCapture | `DefaultFaultRule` | `dc_user_email` + `dc_model_name` on blocked calls; no monetization scope |
-| 13 | `DC-ModelAnalytics` | DataCapture | PostFlow resp 6 | Analytics + monetization data collectors (success path only) |
-| 14 | `DJWT-ExtractUserIdentity` | DecodeJWT | PreFlow 5 | Decodes `flow.rawToken` (no signature check) |
-| 15 | `EV-ExtractBearerToken` | ExtractVariables | PreFlow 4 | `flow.rawToken` from `Authorization` / `X-Identity-Token` |
-| 16 | `EV-ModelResponse` | ExtractVariables | PostFlow resp 1 | Gemini + Anthropic token counts, `modelVersion` |
-| 17 | `EV-RequestDetails` | ExtractVariables | PreFlow 3 | `flow.model` from URI patterns, `flow.payloadModel` from `$.model` |
-| 18 | `JS-AutoRouting` | Javascript | PreFlow 15 | `AutoRouting.js` |
-| 19 | `JS-CalculateCost` | Javascript | PostFlow resp 3 | `CalculateCost.js` |
-| 20 | `JS-ClaudeRequestPrep` | Javascript | Claude target PreFlow | `ClaudeRequestPrep.js` |
-| 21 | `JS-ExtractPromptAndModel` | Javascript | PreFlow 8 | `ExtractPromptAndModel.js` |
-| 22 | `JS-FormatClaudeResponse` | Javascript | Claude target PreFlow resp | `FormatClaudeResponse.js` |
-| 23 | `KVM-GetModelRates` | KeyValueMapOperations | PostFlow resp 2 | KVM `ai-model-rates` key `rate_card` |
-| 24 | `LTQ-TokenCount` | LLMTokenQuota | PostFlow resp 5 | `CountOnly`, shares `common-counter` |
-| 25 | `LTQ-TokenEnforce` | LLMTokenQuota | `LLMTokenLimitFlow` | `EnforceOnly`, shares `common-counter` |
-| 26 | `ML-CloudLogging` | MessageLogging | PostClientFlow | Structured Cloud Logging record, incl. `prompt` / `response` / `cached`; fires on faults too |
-| 27 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | PreFlow 11 | 403 on rate-plan / prepaid-wallet exhaustion |
-| 28 | `OAS-ValidateRequest` | OASValidation | PreFlow 2 | Validates against `oas://openapi.yaml` |
-| 29 | `QC-DeductBudget` | Quota | PostFlow resp 4 | Deducts `flow.tx_cost_micros` |
-| 30 | `QC-EnforceBudgetLimit` | Quota | PreFlow 12 | Pre-call dollar budget check |
-| 31 | `RF-MissingUserEmail` | RaiseFault | PreFlow 7 | 401 `UNAUTHENTICATED` |
-| 32 | `SCL-Semantic-Cache-Lookup` | SemanticCacheLookup | PreFlow 19 | Vector Search lookup, threshold 0.95 |
-| 33 | `SCP-Semantic-Cache-Populate` | SemanticCachePopulate | PostFlow resp 7 | Upsert datapoints, TTL 600 s |
-| 34 | `SMR-SanitizeModelResponse` | SanitizeModelResponse | PostFlow resp 8 | Model Armor response inspection |
-| 35 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 10 | Model Armor prompt guardrails |
-| 36 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 9 | Validates `request.header.x-apikey` |
+| 2 | `AM-PrepClaudeDirect` | AssignMessage | PreFlow 20 | `target_provider=anthropic`, model from `flow.model`, adds `anthropic_version` |
+| 3 | `AM-PrepGeminiDirect` | AssignMessage | PreFlow 19 | `target_provider=google`, model from `flow.model` |
+| 4 | `AM-PrepRouterRequest` | AssignMessage | PreFlow 16 | Wraps `flow.routerPayload` into the `routerRequest` message for the callout |
+| 5 | `AM-RemoveAuthorization` | AssignMessage | PreFlow 13 | Strips `x-apikey`, `Authorization`, `X-Identity-Token`, `X-User-Email` |
+| 6 | `AM-RouteClaudeTarget` | AssignMessage | Claude target PreFlow | Builds `:rawPredict` URL, sets `anthropic_version` |
+| 7 | `AM-RouteGeminiTarget` | AssignMessage | Gemini target PreFlow | Builds `:generateContent` URL |
+| 8 | `AM-SetCacheHitExpected` | AssignMessage | PreFlow 21 | `flow.cached=true`, `cacheStatus=HIT` (cache state only — no cost) |
+| 9 | `AM-SetCacheMiss` | AssignMessage | Both target PreFlows | `flow.cached=false`, `cacheStatus=MISS` |
+| 10 | `AM-SetResponseHeaders` | AssignMessage | PostFlow resp 9 | 20 `x-gateway-*` / `x-auto-routed` headers, incl. `x-gateway-category` |
+| 11 | `AM-SetUserIdentity` | AssignMessage | PreFlow 6 | JWT `email` claim → `flow.emailId` |
+| 12 | `CORS-Headers` | CORS | PreFlow 1, PostFlow req, `OptionsPreFlight` | CORS + preflight generation |
+| 13 | `DC-FaultAnalytics` | DataCapture | `DefaultFaultRule` | `dc_user_email` + `dc_model_name` on blocked calls; no monetization scope |
+| 14 | `DC-ModelAnalytics` | DataCapture | PostFlow resp 6 | Analytics + monetization data collectors (success path only) |
+| 15 | `DJWT-ExtractUserIdentity` | DecodeJWT | PreFlow 5 | Decodes `flow.rawToken` (no signature check) |
+| 16 | `EV-ExtractBearerToken` | ExtractVariables | PreFlow 4 | `flow.rawToken` from `Authorization` / `X-Identity-Token` |
+| 17 | `EV-ModelResponse` | ExtractVariables | PostFlow resp 1 | Gemini + Anthropic token counts, `modelVersion` |
+| 18 | `EV-RequestDetails` | ExtractVariables | PreFlow 3 | `flow.model` from URI patterns, `flow.payloadModel` from `$.model` |
+| 19 | `JS-AuditBudgetAccounting` | Javascript | PostFlow resp (unconditional) | `AuditBudgetAccounting.js` — names the budget outcome in `flow.budget_status` |
+| 20 | `JS-AutoRouting` | Javascript | PreFlow 18 | `AutoRouting.js` — joins router category to the product's `routing.model.*` |
+| 21 | `JS-CalculateCost` | Javascript | PostFlow resp 3 | `CalculateCost.js` |
+| 22 | `JS-ClaudeRequestPrep` | Javascript | Claude target PreFlow | `ClaudeRequestPrep.js` |
+| 23 | `JS-ExtractPromptAndModel` | Javascript | PreFlow 8 | `ExtractPromptAndModel.js` |
+| 24 | `JS-FormatClaudeResponse` | Javascript | Claude target PreFlow resp | `FormatClaudeResponse.js` |
+| 25 | `JS-PrepRouterRequest` | Javascript | PreFlow 15 | `PrepRouterRequest.js` — builds the classification payload, sets `flow.skipRouterCallout` |
+| 26 | `KVM-GetModelRates` | KeyValueMapOperations | PostFlow resp 2 | KVM `ai-model-rates` key `rate_card` |
+| 27 | `LTQ-TokenCount` | LLMTokenQuota | PostFlow resp 5 | `CountOnly`, shares `common-counter` |
+| 28 | `LTQ-TokenEnforce` | LLMTokenQuota | `LLMTokenLimitFlow` | `EnforceOnly`, shares `common-counter` |
+| 29 | `ML-CloudLogging` | MessageLogging | PostClientFlow | Structured Cloud Logging record, incl. `prompt` / `response` / `cached`; fires on faults too |
+| 30 | `MLC-EnforceMonetizationLimits` | MonetizationLimitsCheck | PreFlow 11 | 403 on rate-plan / prepaid-wallet exhaustion |
+| 31 | `OAS-ValidateRequest` | OASValidation | PreFlow 2 | Validates against `oas://openapi.yaml` |
+| 32 | `QC-DeductBudget` | Quota | PostFlow resp 4 | Deducts `flow.tx_cost_micros` |
+| 33 | `QC-EnforceBudgetLimit` | Quota | PreFlow 12 | Pre-call dollar budget check |
+| 34 | `RF-BudgetExceeded` | RaiseFault | PreFlow (after `QC-EnforceBudgetLimit`) | 429 when the developer budget counter is exhausted |
+| 35 | `RF-MissingUserEmail` | RaiseFault | PreFlow 7 | 401 `UNAUTHENTICATED` |
+| 36 | `RF-StreamingNotSupported` | RaiseFault | PreFlow (after `VA-VerifyAPIKey`) | 501 `UNIMPLEMENTED` on `:streamGenerateContent` |
+| 37 | `SC-ModelRouter` | ServiceCallout | PreFlow 17 | Calls `gemini-3.1-flash-lite` on Vertex to classify the prompt; `continueOnError="true"`, 2.5s timeout |
+| 38 | `SCL-Semantic-Cache-Lookup` | SemanticCacheLookup | PreFlow 22 | Vector Search lookup, threshold 0.95 |
+| 39 | `SCP-Semantic-Cache-Populate` | SemanticCachePopulate | PostFlow resp 7 | Upsert datapoints, TTL 600 s |
+| 40 | `SMR-SanitizeModelResponse` | SanitizeModelResponse | PostFlow resp 8 | Model Armor response inspection |
+| 41 | `SUP-UserPrompt` | SanitizeUserPrompt | PreFlow 10 | Model Armor prompt guardrails |
+| 42 | `VA-VerifyAPIKey` | VerifyAPIKey | PreFlow 9 | Validates `request.header.x-apikey`; populates the `routing.model.*` product attributes |
 
 > [!WARNING]
 > The following policies were described in earlier revisions of this document

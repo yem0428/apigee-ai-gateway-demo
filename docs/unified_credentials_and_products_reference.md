@@ -392,7 +392,7 @@ a recorded live run. It states what the committed configuration authorises.
 | `gemini-3.1-pro-preview` | allowed, 10000 tok/min | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
 | `claude-opus-4-5@20251101` | allowed, 10000 tok/min | **not in product** → 401 | **not in product** → 401 | `VA-VerifyAPIKey` |
 | `gemini-3.1-ultra` | **not in any product** → 401 | **not in any product** → 401 | **not in any product** → 401 | `VA-VerifyAPIKey` |
-| `auto` (bare `/auto`) | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` + `JS-AutoRouting` |
+| `auto` (bare `/auto`) | allowed, 10000 tok/min | allowed, 2000 tok/min | allowed, 2000 tok/min | `VA-VerifyAPIKey` + `SC-ModelRouter` + `JS-AutoRouting` |
 | MCP `tools/list` | all 5 tools | 2 sales tools | 3 loan tools | `PP-MCP` + `VA-VerifyAPIKey` |
 | `listAllDiscounts` / `getDiscountForSku` | allowed | allowed | **not in product** | `PP-MCP` + `VA-VerifyAPIKey` |
 | `getLoanApplication` / `patchLoanApplication` / `submitLoanApplication` | allowed | **not in product** | allowed | `PP-MCP` + `VA-VerifyAPIKey` |
@@ -411,36 +411,40 @@ executes **before** `VA-VerifyAPIKey`
 
 ### Auto-routing decisions
 
-[AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L9-L21)
-derives the tier from `verifyapikey.VA-VerifyAPIKey.apiproduct.name`: any product whose
-name contains `"enterprise"` gets the premium routing branch.
+Auto-routing is two stages: **classify**, then **entitle**.
 
-> [!WARNING]
-> This section previously stated that the script reads
-> `verifyapikey.VA-VerifyAPIKey.apiproduct.tier` and falls back to a name match only when
-> that is empty. **It does not** — there is no `tier` read in the script and no product
-> defines a `tier` attribute, so the described primary path never existed. The name match
-> is the only mechanism.
+**Classify.** `SC-ModelRouter` calls `gemini-3.1-flash-lite` on Vertex AI with the payload
+built by
+[PrepRouterRequest.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/PrepRouterRequest.js)
+— a 500-character excerpt of the prompt, `temperature: 0`, and a `responseSchema` that
+constrains the answer to one of four enum values: `coding`, `deep_reasoning`, `simple`,
+`general`.
+
+**Entitle.**
+[AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
+reads that category and looks up the matching API product custom attribute
+`verifyapikey.VA-VerifyAPIKey.apiproduct.routing.model.<category>`. The product the key
+resolves to is therefore what decides the model — there is no tier branch in the script
+and no model name is hardcoded in it.
 
 > [!IMPORTANT]
-> Routing **fails closed**. Premium models (Pro / Opus) require a positive enterprise
-> signal; an unresolved tier downgrades to the constrained Standard branch rather than
-> handing out the expensive models. The decision is exposed as `flow.routingTier` for
-> tracing.
+> Routing **fails closed**. If no `routing.model.*` attribute resolves, `flow.target_model`
+> is left unset rather than defaulting to a premium model — a misconfigured product surfaces
+> as an error instead of silently handing out an unentitled model. The product name is still
+> read into `flow.routingTier`, but only for tracing; it no longer influences the selection.
 
-| Prompt shape | Standard tier | Enterprise tier |
+| Router category | Standard tier | Enterprise tier |
 | --- | --- | --- |
-| Coding indicators (`def `, `function `, `SELECT `, ```` ``` ````, `refactor`, …) | `gemini-3-flash-preview` | `claude-opus-4-5@20251101` (provider `anthropic`) |
-| Deep-reasoning keywords (`compare`, `architect`, `trade-off`, `benchmark`, …) | `gemini-3-flash-preview` | `gemini-3.1-pro-preview` |
-| Simple — **length < 200 chars**, no coding, no reasoning keywords | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` |
-| Anything else | `gemini-3-flash-preview` | `gemini-3-flash-preview` |
+| `coding` | `gemini-3-flash-preview` | `claude-opus-4-5@20251101` (provider `anthropic`) |
+| `deep_reasoning` | `gemini-3-flash-preview` | `gemini-3.1-pro-preview` |
+| `simple` | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` |
+| `general` | `gemini-3-flash-preview` | `gemini-3-flash-preview` |
 
-On the Enterprise branch the tests are evaluated in the order coding → deep reasoning →
-simple, so a short prompt containing a coding indicator still routes to Claude Opus.
+The Standard cap is expressed purely in that product's attribute values, not in code.
 Every model the router can select is entitled in the tier that can reach it.
 
-The script sets `flow.target_model`, `flow.model`, `flow.target_provider`,
-`flow.autoRouted=true` and `flow.routingTier`. Target selection then
+The script sets `flow.routerCategory`, `flow.target_model`, `flow.model`,
+`flow.target_provider`, `flow.autoRouted=true` and `flow.routingTier`. Target selection then
 happens via the proxy `RouteRule` on `flow.target_provider == "anthropic"` — there is
 **no** `AM-RouteModel` policy in the bundle.
 
@@ -983,8 +987,9 @@ All UI labels below are quoted exactly as they render today.
 4. Send the coding preset *"Write a Python function to validate JWT tokens and decode
    user claims."* → routed to `claude-opus-4-5@20251101` via the Anthropic `RouteRule`.
 5. Switch persona to **Sales** (still `auto`) and resend the deep-reasoning prompt.
-   `AutoRouting.js` resolves `tier=standard` and caps the selection at
-   `gemini-3-flash-preview` instead of failing.
+   The router still classifies it as `deep_reasoning`, but the Standard product's
+   `routing.model.deep_reasoning` attribute is `gemini-3-flash-preview`, so the call is
+   capped there instead of failing.
 6. Talking point: entitlement-aware routing with no client code change.
 
 ### Act 5 — Semantic caching
