@@ -13,6 +13,7 @@
     "test:cost": "node --test tests/calculatecost.unit.test.mjs",
     "docs:presets": "node scripts/generate_scenario_presets_doc.mjs",
     "test:live": "node --env-file=.env --test tests/gateway-live.test.mjs",
+    "test:live:prod": "TEST_ENV=prod TEST_ALLOW_PROD=1 node --env-file=.env --test tests/gateway-live.test.mjs",
     "test:all": "node --test tests/autorouting.unit.test.mjs tests/calculatecost.unit.test.mjs tests/intentlabel.unit.test.mjs tests/cachemodelattribution.unit.test.mjs && node --env-file=.env --test tests/gateway-live.test.mjs"
   },
   "dependencies": {
