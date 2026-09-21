@@ -7,9 +7,49 @@ let SALES_KEY = process.env.VITE_SALES_API_KEY || process.env.SALES_API_KEY || '
 let LOANS_KEY = process.env.VITE_LOANS_API_KEY || process.env.LOANS_API_KEY || '';
 const TEST_EMAIL = process.env.VITE_SSO_USER_EMAIL || process.env.SSO_USER_EMAIL || 'maloosatyam@google.com';
 const LOCAL_HOST = process.env.TEST_HOST || 'http://localhost:3000';
-const DIRECT_APIGEE_HOST = 'https://api.maloosatyam.demo.altostrat.com';
-// Which deployed environment the local reverse proxy should target: 'dev' or 'prod'.
-const TEST_ENV = process.env.TEST_ENV || 'prod';
+
+// Which deployed environment to exercise: 'dev' or 'prod'.
+//
+// Defaults to dev, deliberately. This suite is NOT read-only: it burns
+// LTQ-TokenEnforce token quota, debits the prepaid budget through
+// QC-DeductBudget, and seeds the shared semantic-cache index. Pointed at prod
+// it degrades the environment colleagues demo from, and the failure mode is a
+// quota exhaustion or a surprise cache hit in front of a customer.
+//
+// It used to default to 'prod' AND ui/.env pinned TEST_ENV=prod, so the plain
+// `npm run test:live` hit prod on the happy path. That also contradicted the
+// project's own rule in GEMINI.md: verify against dev before promoting.
+const TEST_ENV = process.env.TEST_ENV || 'dev';
+
+// Direct gateway hosts, used when there is no local server on :3000.
+//
+// Previously only the prod host existed here, so losing the local server
+// silently retargeted the whole suite at prod. Keying by TEST_ENV means the
+// fallback now follows the same target the rest of the run uses.
+const DIRECT_HOSTS = {
+  dev: 'https://bap.api.maloosatyam.demo.altostrat.com',
+  prod: 'https://api.maloosatyam.demo.altostrat.com',
+};
+
+if (!Object.hasOwn(DIRECT_HOSTS, TEST_ENV)) {
+  throw new Error(
+    `TEST_ENV must be one of ${Object.keys(DIRECT_HOSTS).join(' | ')}, got "${TEST_ENV}"`
+  );
+}
+
+// Single gate for prod, covering BOTH routes to it: the local reverse proxy
+// (/api/ai-prod) and the direct host. Hitting the live demo environment should
+// be a deliberate act, not the path of least resistance.
+if (TEST_ENV === 'prod' && process.env.TEST_ALLOW_PROD !== '1') {
+  throw new Error(
+    'Refusing to run live tests against PROD without an explicit opt-in.\n' +
+    '  This suite consumes token quota, debits the prepaid budget and seeds the\n' +
+    '  shared semantic cache, on the environment used for live demos.\n' +
+    '  Use `npm run test:live` for dev, or `npm run test:live:prod` if you mean it.'
+  );
+}
+
+const DIRECT_APIGEE_HOST = DIRECT_HOSTS[TEST_ENV];
 
 // The AI Gateway is JWT-only: `AM-SetUserEmailFromHeader` was removed, so `X-User-Email` is no
 // longer honoured there and a request carrying only that header gets a 401. These tests therefore
@@ -56,14 +96,16 @@ function randomSubjectPair() {
 let useLocalProxy = true;
 let vertexBaseUrl = '';
 let mcpBaseUrl = '';
+// Why the suite fell back to the direct host, surfaced in the banner below.
+let fallbackReason = '';
 
 import { execSync } from 'node:child_process';
 
 before(async () => {
   try {
     // /api/me mints a gcloud SSO token on a cold cache and can take well over 3s.
-    // Too short a timeout here silently flips the suite onto DIRECT_APIGEE_HOST,
-    // which quietly tests prod instead of the intended target.
+    // Too short a timeout here flips the suite onto the direct host, which skips
+    // 4 local-proxy tests while still reporting green.
     const meRes = await fetch(`${LOCAL_HOST}/api/me`, { signal: AbortSignal.timeout(15000) });
     if (meRes.ok) {
       useLocalProxy = true;
@@ -75,11 +117,20 @@ before(async () => {
       if (!LOANS_KEY && data.apiKeys?.loans_agent) LOANS_KEY = data.apiKeys.loans_agent;
     } else {
       useLocalProxy = false;
-      vertexBaseUrl = `${DIRECT_APIGEE_HOST}/ai/v1`;
-      mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
+      fallbackReason = `${LOCAL_HOST}/api/me returned HTTP ${meRes.status}`;
     }
-  } catch {
+  } catch (err) {
+    // Reported in the banner below rather than swallowed. This branch used to
+    // discard the error entirely, so a typo in TEST_HOST looked identical to a
+    // server that simply was not running.
     useLocalProxy = false;
+    fallbackReason = `${LOCAL_HOST}/api/me unreachable (${err?.name || 'error'})`;
+  }
+
+  if (!useLocalProxy) {
+    // Follows TEST_ENV, so losing the local server can no longer promote a dev
+    // run to prod. The prod gate at the top of this file already covers the
+    // case where TEST_ENV really is prod.
     vertexBaseUrl = `${DIRECT_APIGEE_HOST}/ai/v1`;
     mcpBaseUrl = `${DIRECT_APIGEE_HOST}/mcp`;
   }
@@ -157,6 +208,30 @@ before(async () => {
     }
   }
 
+  // State the run's provenance explicitly, BEFORE the key assertions below. Those
+  // asserts are the most common way this hook fails, and printing the banner after
+  // them meant a credential failure hid which environment was being targeted - the
+  // one fact you need to judge whether the failure was safe.
+  //
+  // Without a local server on :3000 the suite retargets AND skips 4 local-proxy tests
+  // while still reporting green, so the headline count alone does not say what was
+  // actually exercised. (3 unconditional local-only checks plus the SSO-token test,
+  // which cannot obtain a token without /api/me.)
+  const mode = useLocalProxy
+    ? `Local Proxy -> ${TEST_ENV.toUpperCase()} (${vertexBaseUrl})`
+    : `Direct ${TEST_ENV.toUpperCase()} Gateway (${DIRECT_APIGEE_HOST}) - local-proxy tests WILL BE SKIPPED`;
+  console.log([
+    '',
+    '>>> [Live Integration Tests]',
+    `      environment  : ${TEST_ENV.toUpperCase()}${TEST_ENV === 'prod' ? '   *** LIVE DEMO ENVIRONMENT (TEST_ALLOW_PROD=1) ***' : ''}`,
+    `      target       : ${mode}`,
+    ...(fallbackReason ? [`      fell back    : ${fallbackReason}`] : []),
+    `      identity     : ${TEST_EMAIL}  (JWT email -> LTQ token-quota counter)`,
+    `      admin key    : ${adminKeySource}`,
+    `      persona keys : ${personaKeySource}  (MCP only)`,
+    '',
+  ].join('\n'));
+
   // No hardcoded key fallback: this file is version controlled. Keys come
   // from the environment, /api/me, or dynamic gcloud discovery. Do not substitute
   // ADMIN_KEY for lower-privilege personas either - that would mask entitlement
@@ -164,22 +239,6 @@ before(async () => {
 
   assert.ok(SALES_KEY, 'SALES_KEY must be provided via env, /api/me, or gcloud for live gateway tests');
   assert.ok(ADMIN_KEY, 'ADMIN_KEY must be provided via env, /api/me, or gcloud for live gateway tests');
-  // State the run's provenance explicitly. Without a local server on :3000 the suite silently
-  // retargets AND skips 4 local-proxy tests while still reporting green, so the headline count
-  // alone does not say what was actually exercised. (3 unconditional local-only checks plus the
-  // SSO-token test, which cannot obtain a token without /api/me.)
-  const mode = useLocalProxy
-    ? `Local Proxy -> ${TEST_ENV} (${vertexBaseUrl})`
-    : `Direct Apigee Gateway (${DIRECT_APIGEE_HOST}) - local-proxy tests WILL BE SKIPPED`;
-  console.log([
-    '',
-    '>>> [Live Integration Tests]',
-    `      target       : ${mode}`,
-    `      identity     : ${TEST_EMAIL}  (JWT email -> LTQ token-quota counter)`,
-    `      admin key    : ${adminKeySource}`,
-    `      persona keys : ${personaKeySource}  (MCP only)`,
-    '',
-  ].join('\n'));
 
   // The AI Gateway attributes token quota to the JWT email but budget to the key's developer.
   // If those are different developers the suite still passes while measuring two different
@@ -630,7 +689,22 @@ describe('2. Apigee AI Gateway - Live Vertex AI (Gemini)', { concurrency: 1 }, (
   });
 });
 
-describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
+// The MCP demo is prod-only for now.
+//
+// dev and prod do NOT serve /mcp from the same proxy. prod runs `mcp` (the bundle in
+// apigee/proxies/mcp, rev 11 at time of writing); dev runs a separate `mcp-dev` proxy
+// that has no source in this repo and has drifted - it exposes getIncidentByNumber and
+// omits the three loan tools these scenarios exercise.
+//
+// Rather than weaken the assertions to span both surfaces, the suite skips on dev and
+// keeps asserting the real prod tool set. This became visible only once TEST_ENV stopped
+// defaulting to prod; before that the suite always ran against the one environment where
+// it happened to pass.
+//
+// To exercise it: npm run test:live:prod
+const describeMcp = TEST_ENV === 'prod' ? describe : describe.skip;
+
+describeMcp('3. Apigee Tools Gateway - Live MCP Backend (prod only)', () => {
   it('🔧 Scenario: MCP tools/list returns available backend tool definitions', async () => {
     const res = await fetch(mcpBaseUrl, {
       method: 'POST',
@@ -654,9 +728,9 @@ describe('3. Apigee Tools Gateway - Live MCP Backend', () => {
     assert.ok(data.result.tools.length >= 3, `Expected at least 3 tools, got ${data.result.tools.length}`);
 
     const toolNames = data.result.tools.map((t) => t.name);
-    assert.ok(toolNames.includes('listAllDiscounts'), 'Should include listAllDiscounts');
-    assert.ok(toolNames.includes('getDiscountForSku'), 'Should include getDiscountForSku');
-    assert.ok(toolNames.includes('getLoanApplication'), 'Should include getLoanApplication');
+    assert.ok(toolNames.includes('listAllDiscounts'), `Should include listAllDiscounts, got: ${toolNames.join(', ')}`);
+    assert.ok(toolNames.includes('getDiscountForSku'), `Should include getDiscountForSku, got: ${toolNames.join(', ')}`);
+    assert.ok(toolNames.includes('getLoanApplication'), `Should include getLoanApplication, got: ${toolNames.join(', ')}`);
   });
 
   it('🛠️ Scenario: MCP tools/call executes listAllDiscounts tool successfully', async () => {
