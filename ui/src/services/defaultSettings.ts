@@ -265,10 +265,14 @@ export const AUTO_ROUTING_EXAMPLES = [
   {
     step: 1,
     id: 'auto-general',
-    title: 'Auto: Quick / General Query',
-    tag: 'General / Fast',
-    prompt: 'What are 3 benefits of an API gateway? Give a brief summary.',
-    description: 'Short query (<200 chars) routed to Gemini Flash Lite.',
+    title: 'Auto: Simple Lookup',
+    tag: 'Simple / Fast',
+    // The router classifies on semantic complexity, not prompt length. This must
+    // stay a trivial factual lookup: anything that asks for an explanation or a
+    // list of considerations classifies as `general` and routes to
+    // gemini-3-flash-preview instead. Verified `simple` 3/3 against prod.
+    prompt: 'What does the acronym API stand for?',
+    description: 'Trivial factual lookup routed to Gemini Flash Lite.',
     expectedModel: 'gemini-3.1-flash-lite',
   },
   {

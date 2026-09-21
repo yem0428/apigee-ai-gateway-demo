@@ -978,8 +978,8 @@ All UI labels below are quoted exactly as they render today.
 
 1. Click the **Auto Routing** chip (badge `Intelligent`). It forces
    `model: 'auto'`, `activeUser: 'admin'`.
-2. As **Admin**, send the short preset prompt *"What are 3 benefits of an API gateway?
-   Give a brief summary."* (< 200 chars) → routed to `gemini-3.1-flash-lite`.
+2. As **Admin**, send the simple-lookup preset prompt *"What does the acronym API
+   stand for?"* → the router classifies it `simple`, routed to `gemini-3.1-flash-lite`.
    Confirm via the `x-auto-routed: true` and `x-gateway-model` response headers.
 3. Send the deep-reasoning preset *"Evaluate the architectural trade-offs and benchmark
    performance between asynchronous event streaming versus synchronous gRPC

@@ -105,13 +105,13 @@ Generated from 6 preset cards.
 
 **Sub-buttons** (from `AUTO_ROUTING_EXAMPLES`):
 
-1. **General / Fast** — Auto: Quick / General Query
+1. **Simple / Fast** — Auto: Simple Lookup
    - Expected route: `gemini-3.1-flash-lite`
-   - Short query (<200 chars) routed to Gemini Flash Lite.
+   - Trivial factual lookup routed to Gemini Flash Lite.
    - Prompt:
 
      ```text
-     What are 3 benefits of an API gateway? Give a brief summary.
+     What does the acronym API stand for?
      ```
 
 2. **Deep Reasoning** — Auto: Deep Reasoning
