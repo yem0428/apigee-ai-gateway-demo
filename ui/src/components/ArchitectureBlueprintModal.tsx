@@ -209,14 +209,17 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
       icon: <Cpu className="w-4 h-4 text-amber-600" />,
       policies: [
-        { name: 'JS-AutoRouting', type: 'JavaScript', purpose: 'Classifies prompt intent (Coding, Deep Reasoning, Simple, General) & selects model based on API Product tier.' },
+        { name: 'JS-PrepRouterRequest', type: 'JavaScript', purpose: 'Builds the classifier payload: prompt excerpt, temperature 0, and a response schema constraining the answer to coding | deep_reasoning | simple | general.' },
+        { name: 'SC-ModelRouter', type: 'ServiceCallout', purpose: 'Calls a small, fast router model (gemini-3.1-flash-lite) to classify the prompt. 2.5s timeout and continue-on-error, so a router blip degrades to the product default instead of failing the request.' },
+        { name: 'JS-AutoRouting', type: 'JavaScript', purpose: 'Maps the returned category to a concrete model using the API Product’s routing.model.* custom attributes. Holds no model names of its own.' },
         { name: 'AM-RouteGeminiTarget', type: 'AssignMessage', purpose: 'Routes request to Vertex AI Gemini endpoint (gemini-3.1-flash-lite, gemini-3-flash-preview, or gemini-3.1-pro-preview).' },
         { name: 'AM-RouteClaudeTarget', type: 'AssignMessage', purpose: 'Routes coding prompts on Enterprise tier to Anthropic Claude on Vertex (claude-opus-4-5@20251101).' },
       ],
       talkingPoints: [
         'Developers call a single logical endpoint (/ai/v1/auto) without hardcoding model versions.',
         'Tier-aware routing: Standard tier is capped at gemini-3-flash-preview; Enterprise tier unlocks Gemini 3.1 Pro & Claude Opus 4.5.',
-        'Coding heuristics automatically route Enterprise developers to Claude Opus 4.5, while simple prompts route to low-cost Flash-Lite.',
+        'A small router model classifies each prompt on intent, so coding work lands on Claude Opus 4.5 and trivial lookups on low-cost Flash-Lite — no keyword or length rules to maintain.',
+        'The category-to-model map lives on the API Product as custom attributes, so entitlements and model choices change without redeploying the proxy.',
       ],
       liveStatus: aiTelemetry
         ? {

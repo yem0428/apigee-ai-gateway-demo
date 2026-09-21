@@ -292,15 +292,27 @@ them today, though both appear in the raw headers accordion.
 
 | Header | Read at | Actual effect |
 | --- | --- | --- |
-| `x-gateway-category` | [apigeeClient.ts#L263](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L263) | Always `undefined`. First term of `effectiveCategory`. |
-| `x-gateway-intent` | [apigeeClient.ts#L263](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L263) | Always `undefined`. Second term of the same expression, so `effectiveCategory` is always `undefined` too. |
-| `x-gateway-quota-remaining` | [ArchitectureBlueprintModal.tsx#L84](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx#L84) | Always `undefined`; falls through to `x-ratelimit-remaining`, which the gateway does not set either, so `remainingTokens` is permanently empty. |
+| `x-gateway-intent` | [apigeeClient.ts#L235](file:///Users/maloosatyam/Codebase/apigee-ai-gateway-demo/ui/src/services/apigeeClient.ts#L235) | Always `undefined`. Second term of `effectiveCategory`; the gateway never sets this name. |
+| `x-gateway-quota-remaining` | [ArchitectureBlueprintModal.tsx#L84](file:///Users/maloosatyam/Codebase/apigee-ai-gateway-demo/ui/src/components/ArchitectureBlueprintModal.tsx#L84) | Always `undefined`; falls through to `x-ratelimit-remaining`, which the gateway does not set either, so `remainingTokens` is permanently empty. |
 
-Because both intent headers are dead, the `Model Routing` card's intent label is **always** produced
-by the client-side heuristic at
-[apigeeClient.ts#L264-L275](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/services/apigeeClient.ts#L264-L275):
-when the request was auto-routed, the model name is string-matched to yield `General / Fast`
-(`flash`), `Deep Reasoning` (`pro`), or `Coding` (`claude` / `opus`), defaulting to `General / Fast`.
+> [!NOTE]
+> `x-gateway-category` **used to** be dead and was previously listed here. The LLM-router
+> work added it to `AM-SetResponseHeaders`, and it is now emitted on every `/auto` call
+> (verified against prod: `x-gateway-category: simple`), alongside
+> `x-gateway-router-category`.
+
+Because `x-gateway-category` is now populated, the `Model Routing` card's intent label is
+taken straight from the gateway's own classification. The client-side fallback at
+[apigeeClient.ts#L237-L247](file:///Users/maloosatyam/Codebase/apigee-ai-gateway-demo/ui/src/services/apigeeClient.ts#L237-L247)
+— which string-matches the model name to yield `General / Fast` (`flash`), `Deep Reasoning`
+(`pro`) or `Coding` (`claude` / `opus`) — only runs if that header is ever absent.
+
+> [!WARNING]
+> That fallback cannot distinguish `gemini-3.1-flash-lite` (`simple`) from
+> `gemini-3-flash-preview` (`general`), since both match `flash`, and it has no `simple`
+> case at all. It is unreachable today, but it would silently mislabel `simple` traffic as
+> `General / Fast` if `x-gateway-category` ever stopped being emitted.
+
 When the request was *not* auto-routed, `intent` stays `undefined`.
 
 ### 5.1 `GatewayTelemetry` type contract
