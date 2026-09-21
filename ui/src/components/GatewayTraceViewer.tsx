@@ -103,10 +103,16 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
           <div className="flex items-center justify-between gap-2 pt-0.5">
             <div className="min-w-0">
               <div className="text-xs font-bold text-slate-900 font-mono truncate">
-                {telemetry.model}
+                {telemetry.model || 'Served from cache'}
               </div>
               <div className="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-                <span>{telemetry.provider || (telemetry.model?.startsWith('claude') ? 'Anthropic' : 'Google')}</span>
+                {telemetry.model ? (
+                  <span>{telemetry.provider || (telemetry.model.startsWith('claude') ? 'Anthropic' : 'Google')}</span>
+                ) : (
+                  // The cache keys on the prompt alone and the router is skipped on a
+                  // hit, so the gateway names no model and neither do we.
+                  <span>No model invoked &middot; semantic cache</span>
+                )}
                 {telemetry.costTier && (
                   <>
                     <span>•</span>

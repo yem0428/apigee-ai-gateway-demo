@@ -18,10 +18,17 @@ const clientCode = fs.readFileSync(clientPath, "utf8");
  * against executable code only: the replacement comment deliberately quotes the old
  * "General / Fast" behaviour to explain why it was removed, and a guard that trips on its
  * own documentation is a guard someone deletes.
+ *
+ * Line comments are stripped BEFORE block comments, and the order matters. A prose line
+ * comment mentioning a glob such as a models path ending in a star contains the
+ * characters that open a block comment, and stripping blocks first makes that stray
+ * opener match forward to the next real close, deleting live code from this string. The
+ * guards would then pass against a hole rather than against the source. Observed for
+ * real while adding the cache-attribution guards.
  */
 const clientExecutable = clientCode
-  .replace(/\/\*[\s\S]*?\*\//g, "")
-  .replace(/^\s*\/\/.*$/gm, "");
+  .replace(/^\s*\/\/.*$/gm, "")
+  .replace(/\/\*[\s\S]*?\*\//g, "");
 
 /**
  * `formatRouterCategory` lifted out of the TypeScript module and made runnable.

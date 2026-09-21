@@ -49,7 +49,11 @@ export interface GatewayTelemetry {
   status: number;
   statusText: string;
   endpointUrl: string;
-  model: string;
+  // Optional because a semantic-cache hit has no model to attribute. The cache
+  // keys on the prompt alone, and the router is skipped on a hit, so the gateway
+  // emits no x-gateway-model. The trace viewer renders "Served from cache" when
+  // this is absent.
+  model?: string;
   requestedModel?: string;
   autoRouted?: boolean;
   environment: GatewayEnvironment;
