@@ -8,7 +8,15 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, 'dist');
 
-// Load environment variables from .env if present
+// Load environment variables from .env if present.
+//
+// This file is also read by `node --env-file=.env` (see the test:live and
+// test:all scripts in package.json), so this parser MUST agree with Node's
+// own. Node treats a matching pair of surrounding quotes as delimiters and
+// strips them; without the same handling here, SSO_USER_EMAIL="a@b.com" was
+// read literally as `"a@b.com"` quotes and all. That propagated into the JWT
+// and the Apigee developer lookup, which 404'd and pushed an already
+// provisioned developer into the first-time onboarding modal.
 const envPath = path.join(__dirname, '.env');
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, 'utf8');
@@ -17,7 +25,15 @@ if (fs.existsSync(envPath)) {
     if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
       const idx = trimmed.indexOf('=');
       const key = trimmed.substring(0, idx).trim();
-      const val = trimmed.substring(idx + 1).trim();
+      let val = trimmed.substring(idx + 1).trim();
+      const quote = val[0];
+      if (
+        val.length >= 2 &&
+        (quote === '"' || quote === "'" || quote === '`') &&
+        val[val.length - 1] === quote
+      ) {
+        val = val.slice(1, -1);
+      }
       if (key && !process.env[key]) {
         process.env[key] = val;
       }
