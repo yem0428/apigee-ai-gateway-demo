@@ -447,7 +447,7 @@ record has an empty `model`, which is why `requestedModel` is logged and why the
         │   ├── DonutPieChart.tsx          GatewaySettingsModal.tsx
         │   ├── GatewayTraceViewer.tsx     McpPlayground.tsx     McpTraceViewer.tsx
         │   ├── ModelRateCardView.tsx      MonetizationManager.tsx
-        │   └── Navbar.tsx  ScenarioPresets.tsx  ThemeSelector.tsx
+        │   └── Navbar.tsx  ScenarioPresets.tsx
         └── services/
             ├── api.ts                     # Management/identity client (/api/me, /api/monetization/*)
             ├── apigeeClient.ts            # AI Gateway REST client

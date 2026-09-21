@@ -54,7 +54,6 @@
 | [MonetizationManager.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/MonetizationManager.tsx) | Wallets, rate cards, rate plans | Yes — `monetization` tab |
 | [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) | Header, tabs, quick config | Yes — App |
 | [ScenarioPresets.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ScenarioPresets.tsx) | Grid renderer for `SCENARIO_PRESETS` | **No — not imported anywhere** |
-| [ThemeSelector.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ThemeSelector.tsx) | Theme switcher | Yes — App |
 
 > [!NOTE]
 > `ModelRateCardView.tsx` and `ScenarioPresets.tsx` compile but are never rendered. Rate cards
@@ -78,7 +77,6 @@ flowchart TD
     Modal["GatewaySettingsModal.tsx"]
     Blueprint["ArchitectureBlueprintModal.tsx (policy inspector)"]
     Onboard["DeveloperOnboardingModal.tsx (first-run name gate)"]
-    Theme["ThemeSelector.tsx"]
 
     App --> Navbar
     App --> Chat

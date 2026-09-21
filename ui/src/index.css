@@ -25,33 +25,22 @@ code {
    as the same material, or a demo audience cannot tell the product from the
    instrumentation.
 
-   Both are declared per theme here rather than as Tailwind `bg-slate-*`
-   utilities, because the theme blocks below rewrite those utilities with
-   `!important` and would flatten the two panes back together.
+   Declared as tokens rather than Tailwind `bg-slate-*` utilities, because the
+   theme block below rewrites those utilities with `!important` and would
+   flatten the two panes back together.
 
    Constraint when retuning these: the telemetry tray must stay *darker* than
-   the cards inside it (`bg-white` in light, `slate-900/80` in the dark
-   themes), otherwise the cards lose their edge and the panel goes flat.
+   the cards inside it (`bg-white`), otherwise the cards lose their edge and
+   the panel goes flat.
+
+   A customer-branded theme overrides these two under its own
+   `html[data-theme="<name>"]` selector — see AVAILABLE_THEMES in
+   src/types/index.ts.
    ========================================================================== */
 
 html {
   --surface-flow: #ffffff;
   --surface-telemetry: #e7ecf6;
-}
-
-html[data-theme="midnight"] {
-  --surface-flow: #0c1322;
-  --surface-telemetry: #010207;
-}
-
-html[data-theme="sunset"] {
-  --surface-flow: #1b1715;
-  --surface-telemetry: #070504;
-}
-
-html[data-theme="cyber"] {
-  --surface-flow: #040a12;
-  --surface-telemetry: #000000;
 }
 
 .surface-flow {
@@ -63,10 +52,19 @@ html[data-theme="cyber"] {
 }
 
 /* ==========================================================================
-   THEME STYLES (Light, Apigee Sunset, Cyber Matrix)
+   THEME: Cloud Light
+   --------------------------------------------------------------------------
+   The components are authored dark-first with Tailwind `dark:` variants, and
+   this block is the override layer that turns them light. That is why the
+   rules need `!important` — they are outranking the base utilities, not
+   cascading with them. The `dark` class is never applied to <html>.
+
+   To add a customer-branded theme: copy this block under a new
+   `html[data-theme="<name>"]` selector, override the surface tokens above,
+   and register the name in AVAILABLE_THEMES (src/types/index.ts).
    ========================================================================== */
 
-/* 1. Cloud Light Theme */
+/* Cloud Light */
 html[data-theme="light"] {
   color-scheme: light;
 }
@@ -272,63 +270,3 @@ html[data-theme="light"] select {
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
 }
-
-/* 2. Apigee Sunset Theme */
-html[data-theme="sunset"] body {
-  background-color: #0c0a09 !important;
-}
-
-html[data-theme="sunset"] .bg-slate-950 {
-  background-color: #0c0a09 !important;
-}
-
-html[data-theme="sunset"] .bg-slate-900 {
-  background-color: #1c1917 !important;
-}
-
-html[data-theme="sunset"] .bg-slate-900\/90,
-html[data-theme="sunset"] .bg-slate-900\/80,
-html[data-theme="sunset"] .bg-slate-900\/60 {
-  background-color: rgba(28, 25, 23, 0.95) !important;
-}
-
-html[data-theme="sunset"] .bg-slate-800,
-html[data-theme="sunset"] .bg-slate-850 {
-  background-color: #292524 !important;
-}
-
-html[data-theme="sunset"] .border-slate-800,
-html[data-theme="sunset"] .border-slate-800\/80 {
-  border-color: #292524 !important;
-}
-
-html[data-theme="sunset"] .border-slate-700 {
-  border-color: #44403c !important;
-}
-
-/* 3. Cyber Matrix Theme */
-html[data-theme="cyber"] body {
-  background-color: #000000 !important;
-}
-
-html[data-theme="cyber"] .bg-slate-950 {
-  background-color: #000000 !important;
-}
-
-html[data-theme="cyber"] .bg-slate-900 {
-  background-color: #040810 !important;
-}
-
-html[data-theme="cyber"] .bg-slate-900\/90,
-html[data-theme="cyber"] .bg-slate-900\/80 {
-  background-color: rgba(4, 8, 16, 0.95) !important;
-}
-
-html[data-theme="cyber"] .border-slate-800 {
-  border-color: #064e3b !important;
-}
-
-html[data-theme="cyber"] .border-slate-700 {
-  border-color: #047857 !important;
-}
-

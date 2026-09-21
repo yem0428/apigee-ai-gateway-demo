@@ -8,8 +8,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
 import { ArchitectureBlueprintModal } from './components/ArchitectureBlueprintModal';
 import { DeveloperOnboardingModal, DeveloperOnboardingResult } from './components/DeveloperOnboardingModal';
-import { ThemeSelector } from './components/ThemeSelector';
-import { GatewaySettings, ChatMessage, GatewayTelemetry, McpTelemetry, UserPersona, AppTab, AppTheme } from './types';
+import { GatewaySettings, ChatMessage, GatewayTelemetry, McpTelemetry, UserPersona, AppTab, AppTheme, AVAILABLE_THEMES } from './types';
 import { DEFAULT_SETTINGS, USERS, createSsoUserFromEmail } from './services/defaultSettings';
 import { isSessionExpiredResponse, recoverExpiredSession, markSessionHealthy } from './services/session';
 
@@ -47,25 +46,22 @@ export function App() {
     }
     return 'full-blueprint';
   });
-  const [theme, setTheme] = useState<AppTheme>(() => {
-    if (typeof window !== 'undefined') {
-      const urlParam = new URLSearchParams(window.location.search).get('theme') as AppTheme;
-      if (urlParam && ['midnight', 'sunset', 'cyber', 'light'].includes(urlParam)) {
-        return urlParam;
-      }
-    }
-    return (localStorage.getItem('apigee_ui_theme') as AppTheme) || 'light';
-  });
-
+  // Theme is resolved once from the URL and never changes at runtime, so it is
+  // deliberately not state. `light` is the only stylesheet that exists today;
+  // customer-branded themes are added to AVAILABLE_THEMES plus a matching
+  // `html[data-theme="…"]` block in index.css, then demoed via `?theme=<name>`.
+  //
+  // The `dark` class is never applied. The design is authored with Tailwind
+  // `dark:` variants that the light theme overrides, so adding it would undo
+  // the theme rather than enable one.
   useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('theme');
+    const theme: AppTheme = (AVAILABLE_THEMES as readonly string[]).includes(requested ?? '')
+      ? (requested as AppTheme)
+      : 'light';
     document.documentElement.setAttribute('data-theme', theme);
-    if (theme === 'light') {
-      document.documentElement.classList.remove('dark');
-    } else {
-      document.documentElement.classList.add('dark');
-    }
-    localStorage.setItem('apigee_ui_theme', theme);
-  }, [theme]);
+    document.documentElement.classList.remove('dark');
+  }, []);
 
   // Initialize settings with localStorage persistence and sanitization
   const [settings, setSettings] = useState<GatewaySettings>(() => {
@@ -436,8 +432,6 @@ export function App() {
           setIsArchitectureOpen(true);
         }}
         onResetChat={handleResetChat}
-        theme={theme}
-        onThemeChange={setTheme}
         onEditProfileName={(email, currentFullName) => {
           const parts = (currentFullName || '').split(/\s+/).filter(Boolean);
           const firstName = parts[0] || '';
@@ -519,9 +513,8 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Bottom-Right Corner Controls: Themes & Gateway Settings */}
+      {/* Floating Bottom-Right Corner Control: Gateway Settings */}
       <div className="fixed bottom-3 right-4 z-40 flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl">
-        <ThemeSelector theme={theme} onThemeChange={setTheme} direction="up" />
         <button
           type="button"
           onClick={() => setIsSettingsOpen(true)}

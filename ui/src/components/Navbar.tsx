@@ -20,7 +20,7 @@ import {
   Layers,
   Pencil,
 } from 'lucide-react';
-import { GatewaySettings, UserPersona, AppTab, AppTheme } from '../types';
+import { GatewaySettings, UserPersona, AppTab } from '../types';
 import { USERS, AVAILABLE_MODELS, DEFAULT_SSO_USER } from '../services/defaultSettings';
 import { ApigeeLogo } from './ApigeeLogo';
 
@@ -44,8 +44,6 @@ interface NavbarProps {
   onOpenSettings?: () => void;
   onOpenArchitecture?: () => void;
   onResetChat?: () => void;
-  theme?: AppTheme;
-  onThemeChange?: (theme: AppTheme) => void;
   onEditProfileName?: (email: string, currentName: string) => void;
   analyticsControls?: AnalyticsNavControls;
 }

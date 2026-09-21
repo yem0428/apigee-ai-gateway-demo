@@ -870,8 +870,7 @@ ui/src/components/
 ├── ModelRateCardView.tsx       # KVM-backed model rate cards
 ├── MonetizationManager.tsx     # Prepaid wallets, rate plans, subscriptions
 ├── Navbar.tsx                  # Tabs, MCP-only persona pills, model dropdown, SSO chip
-├── ScenarioPresets.tsx         # "AI Demo Presets" grid above the chat input
-└── ThemeSelector.tsx           # Theme picker
+└── ScenarioPresets.tsx         # "AI Demo Presets" grid above the chat input
 ```
 
 > [!CAUTION]
@@ -905,7 +904,6 @@ graph TD
     Chat --> Presets["ScenarioPresets.tsx"]
     Analytics --> Donut["DonutPieChart.tsx"]
     Money -.-> Rates["ModelRateCardView.tsx (on disk, never mounted)"]
-    Navbar --> Theme["ThemeSelector.tsx"]
     Navbar --> Logo["ApigeeLogo.tsx"]
 ```
 
@@ -948,7 +946,7 @@ logo symbol is retained. Strings that render today:
 | MCP panel | `Native MCP Server`, `Refresh Tools`, `Discovered Tools (n)` |
 | MCP headers tab | `Headers Received from Gateway` / `Headers Sent by Client` |
 | Presets strip | `AI Demo Presets:` |
-| Themes | `Cloud Light`, `Sunset`, `Cyber Matrix`, `Midnight Dark` |
+| Themes | `Cloud Light` only. Selected by `?theme=`; see `AVAILABLE_THEMES` |
 | Fault bubbles | `⚠️ **Gateway Notification (<status>)**`, `[Gateway Policy Fault]: <faultstring>` |
 
 Code identifiers (`ApigeeLogo`, `apigeeClient.ts`, `sendPromptToApigee`) intentionally keep
