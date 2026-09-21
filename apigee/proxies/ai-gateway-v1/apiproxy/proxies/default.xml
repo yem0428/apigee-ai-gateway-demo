@@ -78,22 +78,6 @@
         <Condition>request.verb != "OPTIONS"</Condition>
       </Step>
       <Step>
-        <Name>JS-PrepRouterRequest</Name>
-        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*"))</Condition>
-      </Step>
-      <Step>
-        <Name>AM-PrepRouterRequest</Name>
-        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")) and flow.skipRouterCallout != "true"</Condition>
-      </Step>
-      <Step>
-        <Name>SC-ModelRouter</Name>
-        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")) and flow.skipRouterCallout != "true"</Condition>
-      </Step>
-      <Step>
-        <Name>JS-AutoRouting</Name>
-        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*"))</Condition>
-      </Step>
-      <Step>
         <Name>AM-PrepGeminiDirect</Name>
         <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/models/gemini*") or (proxy.pathsuffix JavaRegex "^/models/gemini.*"))</Condition>
       </Step>
@@ -137,11 +121,58 @@
            @date suffix so a future revision of the same model still matches. -->
       <Condition>(proxy.pathsuffix MatchesPath "/models/claude-haiku-4-5@20251001:generateContent") or (flow.model == "claude-haiku-4-5@20251001") or (proxy.pathsuffix JavaRegex "^/models/claude-haiku-4-5.*")</Condition>
     </Flow>
+    <!--
+      The /auto router chain.
+
+      It lives here rather than in the PreFlow for two reasons.
+
+      1. Ordering. Conditional flows run after the whole PreFlow, so the chain lands
+         after SCL-Semantic-Cache-Lookup. The cache keys on {flow.userPrompt} alone -
+         the model is not part of the key - so the router's verdict is not an input to
+         the lookup, and classifying before it bought nothing on a hit while costing the
+         full round trip (~926 ms, roughly half of a "$0 instant cache hit"). On a hit
+         the lookup short-circuits and this flow does not run; on a miss it runs and
+         selects the target.
+
+      2. One condition instead of four. The path test used to be repeated verbatim on
+         every step, so the four could drift apart silently. The flow owns it now.
+
+      Do NOT reintroduce a flow.cached guard on these steps. AM-SetCacheHitExpected sets
+      flow.cached="true" OPTIMISTICALLY before the lookup, and it is only corrected to
+      "false" by AM-SetCacheMiss in the TARGET PreFlow, which runs later than this flow.
+      The variable therefore reads "true" on a miss as well as on a hit, and such a guard
+      suppresses routing on every cache-enabled request, leaving flow.target_model unset
+      and producing a 404 from the target with an empty model in the URL. Observed 5/5 on
+      dev rev 41.
+
+      This flow must stay after VA-VerifyAPIKey (PreFlow), because JS-AutoRouting reads
+      verifyapikey.VA-VerifyAPIKey.apiproduct.routing.model.<category>. Being a
+      conditional flow guarantees that.
+
+      It must also stay below LLMTokenLimitFlow: Apigee executes only the first matching
+      conditional flow, and that one matches on flow.model, which for an /auto request is
+      still "auto" at selection time rather than the router's output.
+    -->
     <Flow name="AutoRoutingFlow">
       <Description>Dedicated intelligent auto-routing flow</Description>
-      <Request/>
+      <Request>
+        <Step>
+          <Name>JS-PrepRouterRequest</Name>
+        </Step>
+        <Step>
+          <Name>AM-PrepRouterRequest</Name>
+          <Condition>flow.skipRouterCallout != "true"</Condition>
+        </Step>
+        <Step>
+          <Name>SC-ModelRouter</Name>
+          <Condition>flow.skipRouterCallout != "true"</Condition>
+        </Step>
+        <Step>
+          <Name>JS-AutoRouting</Name>
+        </Step>
+      </Request>
       <Response/>
-      <Condition>(proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")</Condition>
+      <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*"))</Condition>
     </Flow>
     <Flow name="GeminiDirectFlow">
       <Description>Direct Google Gemini routing flow</Description>
