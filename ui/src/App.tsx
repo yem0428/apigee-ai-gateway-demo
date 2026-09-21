@@ -51,9 +51,9 @@ export function App() {
   // customer-branded themes are added to AVAILABLE_THEMES plus a matching
   // `html[data-theme="…"]` block in index.css, then demoed via `?theme=<name>`.
   //
-  // The `dark` class is never applied. The design is authored with Tailwind
-  // `dark:` variants that the light theme overrides, so adding it would undo
-  // the theme rather than enable one.
+  // The `dark` class is never applied. Tailwind's `dark:` variants have been
+  // stripped from the components; the light theme is an override layer over
+  // dark-toned base classes, so toggling `dark` would not produce a dark UI.
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('theme');
     const theme: AppTheme = (AVAILABLE_THEMES as readonly string[]).includes(requested ?? '')
@@ -514,11 +514,11 @@ export function App() {
       </main>
 
       {/* Floating Bottom-Right Corner Control: Gateway Settings */}
-      <div className="fixed bottom-3 right-4 z-40 flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl">
+      <div className="fixed bottom-3 right-4 z-40 flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-xl">
         <button
           type="button"
           onClick={() => setIsSettingsOpen(true)}
-          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer shadow-xs"
+          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-slate-600 hover:text-blue-600 transition cursor-pointer shadow-xs"
           title="Gateway Configuration Settings"
         >
           <Settings2 className="w-4 h-4" />

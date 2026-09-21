@@ -54,10 +54,15 @@ html {
 /* ==========================================================================
    THEME: Cloud Light
    --------------------------------------------------------------------------
-   The components are authored dark-first with Tailwind `dark:` variants, and
-   this block is the override layer that turns them light. That is why the
-   rules need `!important` — they are outranking the base utilities, not
-   cascading with them. The `dark` class is never applied to <html>.
+   The components were originally authored dark-first, and this block is the
+   override layer that turns them light. That is why the rules need
+   `!important` — they are outranking base Tailwind utilities such as
+   `bg-slate-950`, not cascading with them.
+
+   The matching Tailwind `dark:` variants have been removed from the
+   components, so only the dark-toned *base* classes still need patching here.
+   Retiring this layer entirely means restyling those base classes light-first
+   across every component — a separate change.
 
    To add a customer-branded theme: copy this block under a new
    `html[data-theme="<name>"]` selector, override the surface tokens above,
@@ -78,15 +83,9 @@ html[data-theme="light"] .bg-slate-950 {
   background-color: #f8fafc !important;
 }
 
-html[data-theme="light"] .bg-slate-950\/95,
-html[data-theme="light"] .bg-slate-950\/90,
 html[data-theme="light"] .bg-slate-950\/80,
 html[data-theme="light"] .bg-slate-950\/70,
-html[data-theme="light"] .bg-slate-950\/60,
-html[data-theme="light"] .bg-slate-950\/50,
-html[data-theme="light"] .bg-slate-950\/40,
-html[data-theme="light"] .bg-slate-950\/30,
-html[data-theme="light"] .bg-slate-950\/20 {
+html[data-theme="light"] .bg-slate-950\/60 {
   background-color: #f8fafc !important;
 }
 
@@ -103,10 +102,7 @@ html[data-theme="light"] .bg-slate-900\/60 {
 }
 
 html[data-theme="light"] .bg-slate-850,
-html[data-theme="light"] .bg-slate-850\/90,
-html[data-theme="light"] .bg-slate-850\/50,
 html[data-theme="light"] .hover\:bg-slate-850:hover,
-html[data-theme="light"] .hover\:bg-slate-850\/50:hover,
 html[data-theme="light"] .hover\:bg-slate-850\/40:hover {
   background-color: #f1f5f9 !important;
 }
@@ -116,25 +112,16 @@ html[data-theme="light"] .bg-slate-800 {
 }
 
 html[data-theme="light"] .hover\:bg-slate-800:hover,
-html[data-theme="light"] .hover\:bg-slate-800\/80:hover,
-html[data-theme="light"] .hover\:bg-slate-800\/60:hover,
-html[data-theme="light"] .hover\:bg-slate-800\/40:hover {
+html[data-theme="light"] .hover\:bg-slate-800\/60:hover {
   background-color: #e2e8f0 !important;
 }
 
 html[data-theme="light"] .border-slate-800,
-html[data-theme="light"] .border-slate-800\/90,
-html[data-theme="light"] .border-slate-800\/80,
-html[data-theme="light"] .border-slate-800\/60,
-html[data-theme="light"] .border-slate-850,
-html[data-theme="light"] .border-slate-750,
-html[data-theme="light"] .border-slate-650 {
+html[data-theme="light"] .border-slate-800\/80 {
   border-color: #e2e8f0 !important;
 }
 
-html[data-theme="light"] .border-slate-700,
-html[data-theme="light"] .border-slate-700\/80,
-html[data-theme="light"] .border-slate-700\/60 {
+html[data-theme="light"] .border-slate-700 {
   border-color: #cbd5e1 !important;
 }
 
@@ -178,23 +165,13 @@ html[data-theme="light"] .text-slate-500 {
   color: #64748b !important;
 }
 
-/* Ensure dark tint pill backgrounds convert to elegant accessible pastels in light mode */
+/* Dark tint pill backgrounds become accessible pastels. Only the tints the
+   components still use are listed; indigo/purple/amber/orange/blue variants
+   existed solely as `dark:` classes and went with them. */
 html[data-theme="light"] [class*="bg-emerald-950"] {
   background-color: #ecfdf5 !important;
   color: #047857 !important;
   border-color: #a7f3d0 !important;
-}
-
-html[data-theme="light"] [class*="bg-indigo-950"] {
-  background-color: #eef2ff !important;
-  color: #4338ca !important;
-  border-color: #c7d2fe !important;
-}
-
-html[data-theme="light"] [class*="bg-purple-950"] {
-  background-color: #faf5ff !important;
-  color: #7e22ce !important;
-  border-color: #e9d5ff !important;
 }
 
 html[data-theme="light"] [class*="bg-rose-950"] {
@@ -203,63 +180,32 @@ html[data-theme="light"] [class*="bg-rose-950"] {
   border-color: #fecdd3 !important;
 }
 
-html[data-theme="light"] [class*="bg-amber-950"] {
-  background-color: #fffbeb !important;
-  color: #b45309 !important;
-  border-color: #fde68a !important;
-}
-
-html[data-theme="light"] [class*="bg-orange-950"] {
-  background-color: #fff7ed !important;
-  color: #c2410c !important;
-  border-color: #fed7aa !important;
-}
-
-html[data-theme="light"] [class*="bg-blue-950"] {
-  background-color: #eff6ff !important;
-  color: #1d4ed8 !important;
-  border-color: #bfdbfe !important;
-}
-
-html[data-theme="light"] pre,
-html[data-theme="light"] .code-editor-dark,
-html[data-theme="light"] pre.code-editor-dark {
+html[data-theme="light"] pre {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   border-color: #e2e8f0 !important;
 }
 
-/* Ensure JSON syntax highlight spans inside code blocks are crisp and accessible in light mode */
-html[data-theme="light"] pre .text-cyan-400,
-html[data-theme="light"] .code-editor-dark .text-cyan-400 {
-  color: #0e7490 !important;
-}
-html[data-theme="light"] pre .text-emerald-400,
-html[data-theme="light"] .code-editor-dark .text-emerald-400 {
+/* JSON syntax-highlight spans inside <pre> code blocks. The `.code-editor-dark`
+   class these also used to target no longer exists in any component. */
+html[data-theme="light"] pre .text-emerald-400 {
   color: #047857 !important;
 }
-html[data-theme="light"] pre .text-amber-400,
-html[data-theme="light"] .code-editor-dark .text-amber-400 {
+html[data-theme="light"] pre .text-amber-400 {
   color: #b45309 !important;
 }
-html[data-theme="light"] pre .text-purple-400,
-html[data-theme="light"] .code-editor-dark .text-purple-400 {
+html[data-theme="light"] pre .text-purple-400 {
   color: #7e22ce !important;
 }
-html[data-theme="light"] pre .text-rose-400,
-html[data-theme="light"] .code-editor-dark .text-rose-400 {
+html[data-theme="light"] pre .text-rose-400 {
   color: #be123c !important;
 }
 html[data-theme="light"] pre .text-slate-100,
 html[data-theme="light"] pre .text-slate-200,
-html[data-theme="light"] pre .text-slate-300,
-html[data-theme="light"] .code-editor-dark .text-slate-100,
-html[data-theme="light"] .code-editor-dark .text-slate-200,
-html[data-theme="light"] .code-editor-dark .text-slate-300 {
+html[data-theme="light"] pre .text-slate-300 {
   color: #0f172a !important;
 }
-html[data-theme="light"] pre .text-slate-400,
-html[data-theme="light"] .code-editor-dark .text-slate-400 {
+html[data-theme="light"] pre .text-slate-400 {
   color: #475569 !important;
 }
 

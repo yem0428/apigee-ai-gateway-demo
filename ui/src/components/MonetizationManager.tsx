@@ -454,9 +454,9 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   }, [liveAttributions, selectedDeveloper, defaultEmail, walletBalance, isSimulatingExhaustedWallet, userAttributionSearch]);
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-y-auto">
+    <div className="h-full flex flex-col bg-slate-50 text-slate-900 overflow-y-auto">
       {/* Top Banner & Main Header */}
-      <div className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 px-4 sm:px-6 py-4 backdrop-blur">
+      <div className="border-b border-slate-200 bg-white/95 px-4 sm:px-6 py-4 backdrop-blur">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0 text-white">
@@ -464,19 +464,19 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                <h1 className="text-lg font-bold text-slate-900 tracking-tight">
                   Monetization & Pricing Manager
                 </h1>
-                <span className="text-[10px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-mono font-semibold px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-800 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                <span className="text-[10px] bg-teal-50 text-teal-700 font-mono font-semibold px-2 py-0.5 rounded-md border border-teal-200 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-teal-600" />
                   Native Rating Engine
                 </span>
-                <span className="text-[10px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-mono font-semibold px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-                  <Database className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                <span className="text-[10px] bg-amber-50 text-amber-700 font-mono font-semibold px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
+                  <Database className="w-3 h-3 text-amber-600" />
                   ai-model-rates KVM
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Manage developer prepaid wallets, token pricing rate cards, and published rate plans enforced by gateway monetization policies.
               </p>
             </div>
@@ -485,17 +485,17 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
           {/* Quick Header Actions: Developer Selector, Active Wallet Chip & Refresh */}
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Developer Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs shadow-xs">
-              <User className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="text-slate-500 dark:text-slate-400 mr-1 text-[11px] font-semibold">Developer:</span>
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs shadow-xs">
+              <User className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span className="text-slate-500 mr-1 text-[11px] font-semibold">Developer:</span>
               <select
                 value={selectedDeveloper}
                 onChange={(e) => setSelectedDeveloper(e.target.value)}
-                className="bg-transparent text-slate-800 dark:text-slate-200 font-mono text-xs focus:outline-none cursor-pointer max-w-[190px] sm:max-w-[220px] truncate"
+                className="bg-transparent text-slate-800 font-mono text-xs focus:outline-none cursor-pointer max-w-[190px] sm:max-w-[220px] truncate"
                 title="Select Developer Account to Inspect & Manage"
               >
                 {availableDevelopers.map((d) => (
-                  <option key={d.email} value={d.email} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                  <option key={d.email} value={d.email} className="bg-white text-slate-900">
                     {d.email} ({d.badge})
                   </option>
                 ))}
@@ -504,16 +504,16 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
             {/* Live Wallet Chip */}
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs shadow-xs"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs shadow-xs"
               title={`Exact balance: $${rawWalletAmountExact} USD`}
             >
-              <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-slate-500 dark:text-slate-400 text-[11px] font-semibold">Selected Wallet:</span>
-              <span className={`font-mono font-bold ${isSimulatingExhaustedWallet ? 'text-rose-600 dark:text-rose-400 line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                ${displayWalletAmount} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
+              <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-slate-500 text-[11px] font-semibold">Selected Wallet:</span>
+              <span className={`font-mono font-bold ${isSimulatingExhaustedWallet ? 'text-rose-600 line-through' : 'text-emerald-600'}`}>
+                ${displayWalletAmount} <span className="text-[10px] font-normal text-slate-500 font-sans">USD</span>
               </span>
               {isSimulatingExhaustedWallet && (
-                <span className="text-[9px] bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800 font-semibold">
+                <span className="text-[9px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200 font-semibold">
                   Exhausted (403)
                 </span>
               )}
@@ -524,7 +524,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               type="button"
               onClick={() => handleRefreshAll(true)}
               disabled={walletLoading || ratesLoading || plansLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
               title="Synchronize all data from Management API"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${walletLoading || ratesLoading || plansLoading ? 'animate-spin text-emerald-500' : 'text-slate-500'}`} />
@@ -534,18 +534,18 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         </div>
 
         {/* Sub-Tab Navigation Strip: Sleek Segmented Control */}
-        <div className="max-w-7xl mx-auto mt-3.5 flex items-center border-t border-slate-200 dark:border-slate-800/80 pt-3 overflow-x-auto">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs shadow-xs">
+        <div className="max-w-7xl mx-auto mt-3.5 flex items-center border-t border-slate-200 pt-3 overflow-x-auto">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs shadow-xs">
             <button
               type="button"
               onClick={() => setActiveSubTab('wallets')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeSubTab === 'wallets'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/80 dark:border-slate-700'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <Wallet className="w-3.5 h-3.5 text-emerald-600" />
               <span>Developer Wallets & Credits</span>
             </button>
 
@@ -554,11 +554,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               onClick={() => setActiveSubTab('rate-cards')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeSubTab === 'rate-cards'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/80 dark:border-slate-700'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Coins className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <Coins className="w-3.5 h-3.5 text-amber-600" />
               <span>Model Rate Cards (KVM)</span>
               {hasRateChanges && (
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
@@ -570,11 +570,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               onClick={() => setActiveSubTab('rate-plans')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeSubTab === 'rate-plans'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/80 dark:border-slate-700'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600" />
               <span>Product Rate Plans & Subscriptions</span>
             </button>
           </div>
@@ -585,24 +585,24 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6 flex-1">
         {/* Status Alerts */}
         {error && (
-          <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between animate-in fade-in duration-150">
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between animate-in fade-in duration-150">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
               <span>{error}</span>
             </div>
-            <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700 dark:hover:text-white cursor-pointer">
+            <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700 cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {successMessage && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs flex items-center justify-between animate-in fade-in duration-150">
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center justify-between animate-in fade-in duration-150">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>{successMessage}</span>
             </div>
-            <button onClick={() => setSuccessMessage(null)} className="text-emerald-500 hover:text-emerald-700 dark:hover:text-white cursor-pointer">
+            <button onClick={() => setSuccessMessage(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -613,69 +613,69 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
           <div className="space-y-6">
             {/* Fleet Overview KPI Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                     Registered Accounts
                   </span>
-                  <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-1">
+                  <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
                     {userAttributions.length}
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <div className="text-[11px] text-slate-500 mt-0.5">
                     Enterprise callers & developer personas
                   </div>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 flex items-center justify-center shrink-0">
-                  <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 text-purple-600" />
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                     Total Fleet Token Spend
                   </span>
-                  <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">
+                  <div className="text-2xl font-bold font-mono text-amber-600 mt-1">
                     ${userAttributions.reduce((acc, u) => acc + (u.totalConsumedUsd || 0), 0).toFixed(2)}{' '}
-                    <span className="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">USD</span>
+                    <span className="text-xs font-sans text-slate-500 font-normal">USD</span>
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <div className="text-[11px] text-slate-500 mt-0.5">
                     {userAttributions.reduce((acc, u) => acc + (u.totalCalls || 0), 0).toLocaleString()} calls • {(() => {
                       const tot = userAttributions.reduce((acc, u) => acc + (u.totalTokens || 0), 0);
                       return tot >= 1_000_000 ? `${(tot / 1e6).toFixed(2)}M tokens` : tot >= 1_000 ? `${(tot / 1e3).toFixed(1)}k tokens` : `${tot} tokens`;
                     })()}
                   </div>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shrink-0">
-                  <Coins className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+                  <Coins className="w-5 h-5 text-amber-600" />
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                     Available Prepaid Pool
                   </span>
-                  <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                  <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">
                     ${userAttributions.reduce((acc, u) => acc + (u.currentBalanceUsd || 0), 0).toFixed(2)}{' '}
-                    <span className="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">USD</span>
+                    <span className="text-xs font-sans text-slate-500 font-normal">USD</span>
                   </div>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center shrink-0">
-                  <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                  <Wallet className="w-5 h-5 text-emerald-600" />
                 </div>
               </div>
             </div>
 
             {/* Enterprise User & Persona Attribution: Consumed vs Balance */}
-            <div className="rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-5 space-y-4 shadow-xs">
+            <div className="rounded-2xl bg-white border border-slate-200 p-5 space-y-4 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>Enterprise User & Persona Attribution (Consumed vs Balance)</span>
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Centralized administrator ledger linking caller identities to token spend, active prepaid wallet balances, and credit quotas
                   </p>
                 </div>
@@ -688,7 +688,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       value={userAttributionSearch}
                       onChange={(e) => setUserAttributionSearch(e.target.value)}
                       placeholder="Filter user or persona..."
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-200 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400"
                     />
                   </div>
                 </div>
@@ -698,7 +698,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-sans">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider font-semibold">
+                    <tr className="border-b border-slate-200 text-slate-500 uppercase text-[10px] tracking-wider font-semibold">
                       <th className="pb-3">User & Persona</th>
                       <th className="pb-3">Entitlement Tier</th>
                       <th className="pb-3">Billing Mode</th>
@@ -708,7 +708,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       <th className="pb-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-xs">
+                  <tbody className="divide-y divide-slate-100 font-mono text-xs">
                     {userAttributions.map((user) => {
                       const isSelected = user.userEmail.toLowerCase() === selectedDeveloper.toLowerCase();
                       const isPrepaid = user.billingType === 'PREPAID';
@@ -725,8 +725,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           onClick={() => setSelectedDeveloper(user.userEmail)}
                           className={`cursor-pointer transition group ${
                             isSelected
-                              ? 'bg-emerald-50/70 dark:bg-slate-850/90'
-                              : 'hover:bg-slate-50 dark:hover:bg-slate-850/40'
+                              ? 'bg-emerald-50/70'
+                              : 'hover:bg-slate-50'
                           }`}
                         >
                           {/* User & Persona */}
@@ -744,15 +744,15 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                 }`}
                               />
                               <div>
-                                <div className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white flex items-center gap-1.5">
+                                <div className="font-semibold text-slate-900 group-hover:text-slate-900 flex items-center gap-1.5">
                                   <span>{user.name}</span>
                                   {isSelected && (
-                                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">
+                                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
                                       ACTIVE
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                <div className="text-[10px] text-slate-500 font-mono">
                                   {user.userEmail}
                                 </div>
                               </div>
@@ -763,8 +763,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           <td className="py-3 font-sans">
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
                               user.badge === 'Enterprise AI' || user.badge === 'SSO Caller' || user.tier?.includes('Enterprise')
-                                ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : 'bg-slate-100 text-slate-700 border border-slate-200'
                             }`}>
                               {user.badge || user.tier || 'Developer'}
                             </span>
@@ -774,8 +774,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           <td className="py-3">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                               isPrepaid
-                                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
-                                : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-blue-50 text-blue-700 border border-blue-200'
                             }`}>
                               {user.billingType}
                             </span>
@@ -784,13 +784,13 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           {/* Consumed (Sum) */}
                           <td className="py-3">
                             <div
-                              className="font-bold text-slate-900 dark:text-slate-100"
+                              className="font-bold text-slate-900"
                               title={`Exact consumed: $${Number(user.totalConsumedUsd || 0).toFixed(6)} USD`}
                             >
                               ${Number(user.totalConsumedUsd || 0).toFixed(2)}{' '}
-                              <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
+                              <span className="text-[10px] font-normal text-slate-500 font-sans">USD</span>
                             </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
+                            <div className="text-[10px] text-slate-500 font-sans">
                               {(user.totalCalls || 0).toLocaleString()} calls • {(() => {
                                 const tot = user.totalTokens || 0;
                                 return tot >= 1_000_000 ? `${(tot / 1e6).toFixed(2)}M tokens` : tot >= 1_000 ? `${(tot / 1e3).toFixed(1)}k tokens` : `${tot} tokens`;
@@ -803,22 +803,22 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                             {isPrepaid ? (
                               <>
                                 <div
-                                  className={`font-bold ${isDepleted ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                                  className={`font-bold ${isDepleted ? 'text-rose-600' : 'text-emerald-600'}`}
                                   title={`Exact balance: $${Number(user.currentBalanceUsd || 0).toFixed(6)} USD`}
                                 >
                                   ${Number(user.currentBalanceUsd || 0).toFixed(2)}{' '}
-                                  <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">USD</span>
+                                  <span className="text-[10px] font-normal text-slate-500 font-sans">USD</span>
                                 </div>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
+                                <div className="text-[10px] text-slate-500 font-sans">
                                   {isDepleted ? 'Depleted (403 Blocked)' : 'Prepaid Available'}
                                 </div>
                               </>
                             ) : (
                               <>
-                                <div className="font-bold text-slate-600 dark:text-slate-300">
-                                  N/A <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-sans">(Invoiced)</span>
+                                <div className="font-bold text-slate-600">
+                                  N/A <span className="text-[10px] font-normal text-slate-500 font-sans">(Invoiced)</span>
                                 </div>
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
+                                <div className="text-[10px] text-slate-500 font-sans">
                                   Postpaid Monthly
                                 </div>
                               </>
@@ -831,19 +831,19 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                               <div className="flex items-center justify-between text-[10px]">
                                 {isPrepaid ? (
                                   <>
-                                    <span className="text-slate-500 dark:text-slate-400 font-mono">{consumedPct}% Used</span>
-                                    <span className={`font-mono font-semibold ${isDepleted ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                    <span className="text-slate-500 font-mono">{consumedPct}% Used</span>
+                                    <span className={`font-mono font-semibold ${isDepleted ? 'text-rose-600' : 'text-emerald-600'}`}>
                                       {isDepleted ? 'DEPLETED' : 'HEALTHY'}
                                     </span>
                                   </>
                                 ) : (
                                   <>
-                                    <span className="text-slate-500 dark:text-slate-400 font-mono">Invoiced</span>
-                                    <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">POSTPAID</span>
+                                    <span className="text-slate-500 font-mono">Invoiced</span>
+                                    <span className="font-mono font-semibold text-blue-600">POSTPAID</span>
                                   </>
                                 )}
                               </div>
-                              <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                                 {isPrepaid ? (
                                   <div
                                     className={`h-full rounded-full ${
@@ -857,7 +857,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                   />
                                 ) : (
                                   <div
-                                    className="h-full rounded-full bg-blue-400 dark:bg-blue-500"
+                                    className="h-full rounded-full bg-blue-400"
                                     style={{ width: '100%' }}
                                   />
                                 )}
@@ -877,7 +877,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                 className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                                   isSelected
                                     ? 'bg-emerald-600 text-white shadow-xs'
-                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                                 }`}
                                 title="Focus this developer wallet in management console"
                               >
@@ -890,7 +890,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                   setSelectedDeveloper(user.userEmail);
                                   setShowCustomTopUpModal(true);
                                 }}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 transition cursor-pointer flex items-center gap-1 shadow-xs"
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 transition cursor-pointer flex items-center gap-1 shadow-xs"
                                 title="Top up prepaid wallet credits for this user"
                               >
                                 <Plus className="w-3 h-3" />
@@ -911,7 +911,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         {/* SUB-TAB 2: KVM MODEL RATE CARDS */}
         {activeSubTab === 'rate-cards' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
               <div className="relative flex-1 w-full">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -919,17 +919,17 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter by model ID (e.g., gemini-3.1, claude-opus, flash)..."
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
                 />
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
                   <button
                     type="button"
                     onClick={() => setFilterProvider('all')}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
-                      filterProvider === 'all' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      filterProvider === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     All
@@ -938,7 +938,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     type="button"
                     onClick={() => setFilterProvider('google')}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
-                      filterProvider === 'google' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      filterProvider === 'google' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     Google
@@ -947,7 +947,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     type="button"
                     onClick={() => setFilterProvider('anthropic')}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
-                      filterProvider === 'anthropic' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      filterProvider === 'anthropic' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     Anthropic
@@ -959,7 +959,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     type="button"
                     onClick={() => setRates(JSON.parse(JSON.stringify(initialRates)))}
                     disabled={ratesSaving}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition cursor-pointer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Revert</span>
@@ -969,7 +969,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 text-amber-500" />
                   <span>Add Model</span>
@@ -982,7 +982,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
                     hasRateChanges
                       ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white ring-2 ring-amber-400/40'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/50 cursor-not-allowed'
+                      : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                   }`}
                 >
                   <Save className={`w-3.5 h-3.5 ${ratesSaving ? 'animate-spin' : ''}`} />
@@ -991,10 +991,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-xs">
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800 font-bold">
+                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-200 font-bold">
                     <tr>
                       <th className="py-3 px-4">Model Identifier</th>
                       <th className="py-3 px-4">Provider</th>
@@ -1005,7 +1005,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
+                  <tbody className="divide-y divide-slate-100 font-mono">
                     {ratesLoading ? (
                       <tr>
                         <td colSpan={7} className="py-12 text-center text-slate-500">
@@ -1025,13 +1025,13 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                         const isDefault = modelId === 'default';
 
                         return (
-                          <tr key={modelId} className="hover:bg-slate-50 dark:hover:bg-slate-850/40 transition">
-                            <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                              <span className={isDefault ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-800 dark:text-slate-200'}>
+                          <tr key={modelId} className="hover:bg-slate-50 transition">
+                            <td className="py-3 px-4 font-medium text-slate-900 flex items-center gap-2">
+                              <span className={isDefault ? 'text-amber-600 font-bold' : 'text-slate-800'}>
                                 {modelId}
                               </span>
                               {isDefault && (
-                                <span className="text-[9px] bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-500/30">
+                                <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300">
                                   Default Fallback
                                 </span>
                               )}
@@ -1039,11 +1039,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
                             <td className="py-3 px-4 font-sans">
                               {item.provider === 'anthropic' ? (
-                                <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30 px-2 py-0.5 rounded-md">
+                                <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md">
                                   Anthropic Vertex
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 px-2 py-0.5 rounded-md">
+                                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
                                   Google Gemini
                                 </span>
                               )}
@@ -1053,7 +1053,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                               <select
                                 value={item.tier || 'medium'}
                                 onChange={(e) => handleTierChange(modelId, e.target.value)}
-                                className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md px-2 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                                className="bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-[11px] font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
                               >
                                 <option value="low">Low (Flash)</option>
                                 <option value="medium">Medium</option>
@@ -1063,33 +1063,33 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-slate-400 dark:text-slate-500">$</span>
+                                <span className="text-slate-400">$</span>
                                 <input
                                   type="number"
                                   step="0.001"
                                   min="0"
                                   value={item.input}
                                   onChange={(e) => handleRateChange(modelId, 'input', e.target.value)}
-                                  className="w-24 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-xs"
+                                  className="w-24 bg-white border border-slate-300 hover:border-slate-400 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-xs"
                                 />
                               </div>
                             </td>
 
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-slate-400 dark:text-slate-500 font-mono text-xs">$</span>
+                                <span className="text-slate-400 font-mono text-xs">$</span>
                                 <input
                                   type="number"
                                   step="0.001"
                                   min="0"
                                   value={item.output}
                                   onChange={(e) => handleRateChange(modelId, 'output', e.target.value)}
-                                  className="w-24 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-xs"
+                                  className="w-24 bg-white border border-slate-300 hover:border-slate-400 focus:border-amber-500 rounded-lg px-2.5 py-1 text-slate-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-xs"
                                 />
                               </div>
                             </td>
 
-                            <td className="py-3 px-4 font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                            <td className="py-3 px-4 font-mono text-emerald-600 font-semibold">
                               ${sampleCallCost}
                             </td>
 
@@ -1098,7 +1098,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteModel(modelId)}
-                                  className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                  className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
                                   title={`Delete ${modelId}`}
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1115,28 +1115,28 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             </div>
 
             {/* Interactive Cost & Budget Simulator */}
-            <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs space-y-4">
+            <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calculator className="w-4 h-4 text-amber-500" />
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">
                     Interactive Cost & Wallet Deduction Simulator
                   </h2>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                  Simulates <span className="text-emerald-600 dark:text-emerald-400 font-semibold">CalculateCost.js</span> rating logic
+                <span className="text-[10px] text-slate-500 font-mono">
+                  Simulates <span className="text-emerald-600 font-semibold">CalculateCost.js</span> rating logic
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                 <div>
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1.5">
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1.5">
                     Target Model
                   </label>
                   <select
                     value={calcModel}
                     onChange={(e) => setCalcModel(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-xs"
                   >
                     {Object.keys(rates).map((m) => (
                       <option key={m} value={m}>
@@ -1148,8 +1148,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Prompt Tokens</label>
-                    <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">{calcPromptTokens.toLocaleString()}</span>
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Prompt Tokens</label>
+                    <span className="font-mono text-amber-600 font-bold">{calcPromptTokens.toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -1164,8 +1164,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Output Tokens</label>
-                    <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{calcOutputTokens.toLocaleString()}</span>
+                    <label className="text-[10px] uppercase font-bold text-slate-500">Output Tokens</label>
+                    <span className="font-mono text-emerald-600 font-bold">{calcOutputTokens.toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -1178,13 +1178,13 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   />
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col justify-center">
-                  <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Calculated Cost</div>
-                  <div className="text-lg font-bold text-amber-600 dark:text-amber-400 font-mono mt-0.5">
-                    ${calculatedCost.total.toFixed(6)} <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">USD</span>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-center">
+                  <div className="text-[10px] uppercase font-bold text-slate-500">Calculated Cost</div>
+                  <div className="text-lg font-bold text-amber-600 font-mono mt-0.5">
+                    ${calculatedCost.total.toFixed(6)} <span className="text-xs text-slate-500 font-normal">USD</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-                    Wallet Deduction: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{calculatedCost.micros}</span> micro-dollars
+                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                    Wallet Deduction: <span className="text-emerald-600 font-bold">{calculatedCost.micros}</span> micro-dollars
                   </div>
                 </div>
               </div>
@@ -1195,14 +1195,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         {/* SUB-TAB 3: PRODUCT RATE PLANS & SUBSCRIPTIONS */}
         {activeSubTab === 'rate-plans' && (
           <div className="space-y-6">
-            <div className="rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-5 space-y-4 shadow-xs">
+            <div className="rounded-2xl bg-white border border-slate-200 p-5 space-y-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-purple-600" />
                     <span>Published Product Rate Plans</span>
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Native Monetization rate plans attached to API Products for consumption rating
                   </p>
                 </div>
@@ -1224,44 +1224,44 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     return (
                       <div
                         key={plan.name}
-                        className="rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 p-4 space-y-3 relative overflow-hidden"
+                        className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3 relative overflow-hidden"
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <span className="text-[10px] uppercase font-bold text-purple-600 dark:text-purple-400 tracking-wider">
+                            <span className="text-[10px] uppercase font-bold text-purple-600 tracking-wider">
                               {plan.apiproduct}
                             </span>
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                            <h4 className="text-sm font-bold text-slate-900 mt-0.5">
                               {plan.displayName || plan.name}
                             </h4>
                           </div>
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
                               isPublished
-                                ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-slate-100 text-slate-500 border-slate-200'
                             }`}
                           >
                             {plan.state}
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800/80 text-xs font-mono">
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-xs font-mono">
                           <div>
                             <div className="text-[10px] text-slate-500 uppercase font-sans">Billing Cycle</div>
-                            <div className="text-slate-800 dark:text-slate-200 mt-0.5">{plan.billingPeriod}</div>
+                            <div className="text-slate-800 mt-0.5">{plan.billingPeriod}</div>
                           </div>
                           <div>
                             <div className="text-[10px] text-slate-500 uppercase font-sans">Currency</div>
-                            <div className="text-emerald-600 dark:text-emerald-400 mt-0.5 font-bold">{plan.currencyCode}</div>
+                            <div className="text-emerald-600 mt-0.5 font-bold">{plan.currencyCode}</div>
                           </div>
                           <div>
                             <div className="text-[10px] text-slate-500 uppercase font-sans">Pricing Model</div>
-                            <div className="text-slate-800 dark:text-slate-200 mt-0.5 truncate">{plan.consumptionPricingType}</div>
+                            <div className="text-slate-800 mt-0.5 truncate">{plan.consumptionPricingType}</div>
                           </div>
                         </div>
 
-                        <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate pt-1 border-t border-slate-200 dark:border-slate-850">
+                        <div className="text-[10px] font-mono text-slate-400 truncate pt-1 border-t border-slate-200">
                           ID: {plan.name}
                         </div>
                       </div>
@@ -1272,14 +1272,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             </div>
 
             {/* Developer Active Subscriptions */}
-            <div className="rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-5 space-y-4 shadow-xs">
+            <div className="rounded-2xl bg-white border border-slate-200 p-5 space-y-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-600" />
                     <span>Active Developer Subscriptions for {selectedDeveloper}</span>
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Developers must hold an active subscription to access the model endpoints under that tier
                   </p>
                 </div>
@@ -1291,20 +1291,20 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   return (
                     <div
                       key={prod}
-                      className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 flex items-center justify-between"
+                      className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between"
                     >
                       <div className="space-y-1">
-                        <div className="text-sm font-bold text-slate-900 dark:text-slate-200">{prod}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <div className="text-sm font-bold text-slate-900">{prod}</div>
+                        <div className="text-xs text-slate-500 flex items-center gap-1.5">
                           {isSubscribed ? (
                             <>
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">Active Subscription</span>
+                              <span className="text-emerald-600 font-medium">Active Subscription</span>
                             </>
                           ) : (
                             <>
                               <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                              <span className="text-rose-600 dark:text-rose-400 font-medium">Not Subscribed (403 Blocked)</span>
+                              <span className="text-rose-600 font-medium">Not Subscribed (403 Blocked)</span>
                             </>
                           )}
                         </div>
@@ -1332,15 +1332,15 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       {/* Custom Top-Up Modal */}
       {showCustomTopUpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-emerald-500" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Top-Up Prepaid Wallet</h3>
+                <h3 className="font-bold text-slate-900 text-base">Top-Up Prepaid Wallet</h3>
               </div>
               <button
                 onClick={() => setShowCustomTopUpModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1348,27 +1348,27 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Developer Account
                 </label>
                 <input
                   type="text"
                   disabled
                   value={selectedDeveloper}
-                  className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 font-mono"
+                  className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-slate-500 font-mono"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                 <div>
                   <div className="text-[10px] text-slate-500 uppercase font-bold">Billing Mode</div>
-                  <div className="text-xs font-bold font-mono text-slate-900 dark:text-slate-100">{monetizationConfig.billingType}</div>
+                  <div className="text-xs font-bold font-mono text-slate-900">{monetizationConfig.billingType}</div>
                 </div>
                 <button
                   type="button"
                   onClick={handleToggleBillingType}
                   disabled={configSaving}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium transition cursor-pointer disabled:opacity-50"
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium transition cursor-pointer disabled:opacity-50"
                   title="Switch between PREPAID (enforced limits) and POSTPAID"
                 >
                   {configSaving ? 'Updating...' : `Switch to ${monetizationConfig.billingType === 'PREPAID' ? 'POSTPAID' : 'PREPAID'}`}
@@ -1377,13 +1377,13 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  <label className="block text-[11px] font-semibold text-slate-700">
                     Credit Amount (USD)
                   </label>
                   <span className="text-[10px] text-slate-400 font-mono">Instant Credit</span>
                 </div>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-mono text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">$</span>
                   <input
                     type="number"
                     min="1"
@@ -1391,7 +1391,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     required
                     value={customTopUpAmount}
                     onChange={(e) => setCustomTopUpAmount(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl pl-8 pr-3 py-2 text-slate-900 dark:text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 shadow-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl pl-8 pr-3 py-2 text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 shadow-xs"
                   />
                 </div>
                 <div className="flex items-center gap-1.5 pt-2">
@@ -1403,7 +1403,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       className={`flex-1 py-1 rounded-lg text-xs font-mono font-semibold transition cursor-pointer ${
                         customTopUpAmount === amt
                           ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                       }`}
                     >
                       +${amt}
@@ -1412,11 +1412,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCustomTopUpModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1437,15 +1437,15 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       {/* Add Model Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <Plus className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Add Model Rate Card</h3>
+                <h3 className="font-bold text-slate-900 text-base">Add Model Rate Card</h3>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1453,7 +1453,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
             <form onSubmit={handleAddModel} className="space-y-4 text-xs">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Model ID / Name (exact or prefix)
                 </label>
                 <input
@@ -1462,17 +1462,17 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   placeholder="e.g., gemini-3.1-pro-preview, claude-opus-4-5@20251101"
                   value={newModelId}
                   onChange={(e) => setNewModelId(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Provider</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Provider</label>
                   <select
                     value={newProvider}
                     onChange={(e) => setNewProvider(e.target.value as any)}
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer shadow-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer shadow-xs"
                   >
                     <option value="google">Google Gemini</option>
                     <option value="anthropic">Anthropic Vertex</option>
@@ -1480,11 +1480,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Cost Tier</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Cost Tier</label>
                   <select
                     value={newTier}
                     onChange={(e) => setNewTier(e.target.value as any)}
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer shadow-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer shadow-xs"
                   >
                     <option value="low">Low (Flash)</option>
                     <option value="medium">Medium</option>
@@ -1495,7 +1495,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Input Rate ($/1M tokens)
                   </label>
                   <input
@@ -1505,12 +1505,12 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     required
                     value={newInputRate}
                     onChange={(e) => setNewInputRate(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Output Rate ($/1M tokens)
                   </label>
                   <input
@@ -1520,16 +1520,16 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     required
                     value={newOutputRate}
                     onChange={(e) => setNewOutputRate(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer"
                 >
                   Cancel
                 </button>

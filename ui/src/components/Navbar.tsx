@@ -129,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="bg-white/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 backdrop-blur w-full">
+    <header className="bg-white/95 border-b border-slate-200 sticky top-0 z-40 backdrop-blur w-full">
       {/* Primary Bar - Full viewport width */}
       <div className="w-full px-3 sm:px-6 py-2 flex items-center justify-between gap-2 sm:gap-3">
         {/* Left: Official Apigee Brand & Gateway Tabs */}
@@ -137,7 +137,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={handleLogoHome}
-            className="flex items-center rounded-lg cursor-pointer transition hover:opacity-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+            className="flex items-center rounded-lg cursor-pointer transition hover:opacity-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             aria-label="Go to home"
             title="Go to home"
           >
@@ -145,14 +145,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {/* Primary Gateway Tabs Switcher - Analytics is 3rd Tab */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
             <button
               type="button"
               onClick={() => onTabChange('ai-gateway')}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                 activeTab === 'ai-gateway'
                   ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
               title="AI Gateway: Access Control, Model Armor, Cache, Model Routing & Tokenomics"
             >
@@ -165,7 +165,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                 activeTab === 'mcp-gateway'
                   ? 'bg-cyan-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
               title="Native MCP Tools Server (/mcp)"
             >
@@ -179,7 +179,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                 activeTab === 'analytics'
                   ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
               title="Enterprise Model Consumption & Cost Tracking Dashboard"
             >
@@ -194,7 +194,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
                   activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards'
                     ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
                 title="Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
               >
@@ -209,10 +209,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={onOpenArchitecture}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 font-semibold text-xs transition cursor-pointer shadow-2xs shrink-0"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-xs transition cursor-pointer shadow-2xs shrink-0"
               title="Open Interactive AI Gateway & MCP Tools Gateway Architecture Blueprint"
             >
-              <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
               <span className="hidden sm:inline">Architecture</span>
             </button>
           )}
@@ -222,11 +222,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex lg:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-855 shrink-0"
+          className="flex lg:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium cursor-pointer hover:bg-slate-200 shrink-0"
           title="Toggle Gateway Controls"
         >
           <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
-          <span className="font-mono text-[11px] text-slate-700 dark:text-slate-200">
+          <span className="font-mono text-[11px] text-slate-700">
             {activeTab === 'analytics' ? (analyticsControls?.viewMode === 'admin' ? 'Admin View' : 'User View') : activeUser.badge}
           </span>
           {mobileMenuOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -237,14 +237,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {activeTab === 'analytics' && analyticsControls ? (
             <>
               {/* Analytics View Mode Toggle (Admin Fleet vs My User View) */}
-              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-300 dark:border-slate-700 shrink-0 shadow-xs">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300 shrink-0 shadow-xs">
                 <button
                   type="button"
                   onClick={() => analyticsControls.setViewMode('admin')}
                   className={`px-2.5 py-1 rounded text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                     analyticsControls.viewMode === 'admin'
                       ? 'bg-purple-600 text-white shadow-xs'
-                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                      : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
                   title="Admin Fleet View (Enterprise overview across all models & users)"
                 >
@@ -257,7 +257,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className={`px-2.5 py-1 rounded text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                     analyticsControls.viewMode === 'user'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                      : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
                   title="My User View (Filter consumption records to active authenticated email)"
                 >
@@ -267,7 +267,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
 
               {/* Time Range Selector (24H, 7D, 30D) - Ultra crisp contrast in light & dark */}
-              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-300 dark:border-slate-700 shrink-0 shadow-xs">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-300 shrink-0 shadow-xs">
                 {(['24h', '7d', '30d'] as const).map((r) => (
                   <button
                     key={r}
@@ -276,7 +276,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     className={`px-2.5 py-1 rounded transition cursor-pointer uppercase text-[11px] font-bold ${
                       analyticsControls.timeRange === r
                         ? 'bg-purple-600 text-white shadow-xs'
-                        : 'text-slate-700 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/70'
+                        : 'text-slate-700 hover:text-slate-950 hover:bg-slate-200/70'
                     }`}
                   >
                     {r}
@@ -289,7 +289,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={analyticsControls.onRefresh}
                 disabled={analyticsControls.loading}
-                className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-purple-600 transition cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
+                className="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 hover:text-purple-600 transition cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
                 title="Refresh live metrics from Management API"
               >
                 {analyticsControls.loading ? (
@@ -302,8 +302,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
             /* Monetization is strictly Admin View */
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
                 Admin Console
               </span>
             </div>
@@ -316,14 +316,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   API key sent on AI Gateway calls -- it is simply not switchable
                   from that tab. */}
               {activeTab === 'mcp-gateway' && (
-                <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shrink-0">
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
                   <button
                     type="button"
                     onClick={() => handleUserChange('admin')}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
                       settings.activeUser === 'admin'
-                        ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs font-semibold'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-white text-purple-700 shadow-xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Admin Persona (Enterprise Tier: All Models + All MCP Tools)"
                   >
@@ -335,8 +335,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onClick={() => handleUserChange('sales_agent')}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
                       settings.activeUser === 'sales_agent'
-                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-semibold'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-white text-blue-700 shadow-xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Sales Agent Persona (Standard Tier: Flash Models + Sales MCP Tools)"
                   >
@@ -348,8 +348,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onClick={() => handleUserChange('loans_agent')}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1.5 ${
                       settings.activeUser === 'loans_agent'
-                        ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs font-semibold'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-white text-emerald-700 shadow-xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Loans Agent Persona (Standard Tier: Flash Models + Loans MCP Tools)"
                   >
@@ -361,18 +361,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Model Selector */}
               {activeTab === 'ai-gateway' && (
-                <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
-                  <div className="flex items-center gap-1.5 pl-2.5 pr-1.5 text-slate-600 dark:text-slate-400 text-xs font-medium">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+                  <div className="flex items-center gap-1.5 pl-2.5 pr-1.5 text-slate-600 text-xs font-medium">
                     <Sparkles className="w-3.5 h-3.5 text-purple-500" />
                     <span className="font-semibold">Model:</span>
                   </div>
                   <select
                     value={settings.model}
                     onChange={(e) => handleModelChange(e.target.value)}
-                    className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-semibold rounded-lg px-2.5 py-1 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer shadow-xs min-w-[210px] max-w-[260px]"
+                    className="bg-white text-slate-900 text-xs font-semibold rounded-lg px-2.5 py-1 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer shadow-xs min-w-[210px] max-w-[260px]"
                   >
                     {AVAILABLE_MODELS.map((m) => (
-                      <option key={m.id} value={m.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                      <option key={m.id} value={m.id} className="bg-white text-slate-900">
                         {m.id === 'auto' ? 'Auto (Intelligent Routing)' : `${m.name} (${m.tag})`}
                       </option>
                     ))}
@@ -391,7 +391,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={() => setSsoPopoverOpen(!ssoPopoverOpen)}
-            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200/80 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer text-left group shadow-xs shrink-0"
+            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 hover:border-slate-300 transition cursor-pointer text-left group shadow-xs shrink-0"
             title={`Logged in via Google Cloud Identity SSO: ${effectiveEmail}`}
           >
             {/* Avatar Circle with Status Indicator */}
@@ -399,20 +399,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
                 {ssoUser.avatarText || 'SSO'}
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
             </div>
 
             {/* User Identity Info */}
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white whitespace-nowrap">
+              <span className="text-xs font-semibold text-slate-800 group-hover:text-slate-900 whitespace-nowrap">
                 {ssoUser.name || 'SSO User'}
               </span>
-              <span className="text-[9px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-mono font-bold px-1 rounded border border-blue-200 dark:border-blue-800 shrink-0">
+              <span className="text-[9px] bg-blue-50 text-blue-700 font-mono font-bold px-1 rounded border border-blue-200 shrink-0">
                 SSO
               </span>
             </div>
 
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition shrink-0 ml-1" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition shrink-0 ml-1" />
           </button>
 
             {/* SSO Profile Popover.

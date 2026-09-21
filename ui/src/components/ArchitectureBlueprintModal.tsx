@@ -136,8 +136,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Access Control',
       subtitle: 'Model & Tool Access by User / Agent Permission',
       badge: 'Security & RBAC',
-      badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800',
-      icon: <Key className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
+      badgeColor: 'bg-blue-100 text-blue-700 border-blue-300',
+      icon: <Key className="w-4 h-4 text-blue-600" />,
       policies: [
         { name: 'DJWT-ExtractUserIdentity', type: 'DecodeJWT', purpose: 'Extracts user email identity from Cloud IAP / Bearer token for per-user attribution.' },
         { name: 'VA-VerifyAPIKey', type: 'VerifyAPIKey', purpose: 'Validates consumer key & loads API Product metadata (Standard vs Enterprise AI Tier).' },
@@ -160,8 +160,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Model Armor',
       subtitle: 'Prompt Injection, Jailbreak & PII Defense',
       badge: 'Safety Perimeter',
-      badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
-      icon: <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />,
+      badgeColor: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+      icon: <ShieldCheck className="w-4 h-4 text-emerald-600" />,
       policies: [
         { name: 'SUP-UserPrompt', type: 'SanitizeUserPrompt', purpose: 'Scans incoming prompt against Google Cloud Model Armor template before any LLM invocation.' },
         { name: 'SMR-SanitizeModelResponse', type: 'SanitizeModelResponse', purpose: 'Inspects LLM output in the response flow to redact sensitive PII or unsafe completions.' },
@@ -183,8 +183,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Cache',
       subtitle: 'Semantic Vector Similarity Matching (<100ms)',
       badge: 'Latency & Cost Saver',
-      badgeColor: 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800',
-      icon: <Database className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
+      badgeColor: 'bg-purple-100 text-purple-700 border-purple-300',
+      icon: <Database className="w-4 h-4 text-purple-600" />,
       policies: [
         { name: 'SCL-Semantic-Cache-Lookup', type: 'SemanticCacheLookup', purpose: 'Computes embeddings for incoming prompt and queries vector cache store for high-similarity matches.' },
         { name: 'SCP-Semantic-Cache-Populate', type: 'SemanticCachePopulate', purpose: 'Stores downstream LLM responses in cache on cache miss for subsequent similar queries.' },
@@ -206,8 +206,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Model Routing',
       subtitle: 'Dynamic Routing Across Providers & Private Models (/auto)',
       badge: 'Intelligent Routing',
-      badgeColor: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-      icon: <Cpu className="w-4 h-4 text-amber-600 dark:text-amber-400" />,
+      badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      icon: <Cpu className="w-4 h-4 text-amber-600" />,
       policies: [
         { name: 'JS-AutoRouting', type: 'JavaScript', purpose: 'Classifies prompt intent (Coding, Deep Reasoning, Simple, General) & selects model based on API Product tier.' },
         { name: 'AM-RouteGeminiTarget', type: 'AssignMessage', purpose: 'Routes request to Vertex AI Gemini endpoint (gemini-3.1-flash-lite, gemini-3-flash-preview, or gemini-3.1-pro-preview).' },
@@ -232,8 +232,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Tokenomics',
       subtitle: 'Product-Driven Token Limits & Per-Minute Budgets',
       badge: 'FinOps Governance',
-      badgeColor: 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800',
-      icon: <Coins className="w-4 h-4 text-rose-600 dark:text-rose-400" />,
+      badgeColor: 'bg-rose-100 text-rose-700 border-rose-300',
+      icon: <Coins className="w-4 h-4 text-rose-600" />,
       policies: [
         { name: 'LTQ-TokenEnforce', type: 'LLMTokenQuota (PreFlow)', purpose: 'Checks accumulated token consumption against verifyapikey.VA-VerifyAPIKey.apiproduct.developer.llmQuota.limit.' },
         { name: 'LTQ-TokenCount', type: 'LLMTokenQuota (PostFlow)', purpose: 'Extracts exact totalTokenCount from LLM response and increments the distributed token counter.' },
@@ -260,8 +260,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Multi-Model Upstream & Cost Attribution',
       subtitle: 'Vertex AI Gemini & Anthropic Claude + KVM Rate Card',
       badge: 'Multi-Cloud AI',
-      badgeColor: 'bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800',
-      icon: <Server className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />,
+      badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+      icon: <Server className="w-4 h-4 text-cyan-600" />,
       policies: [
         { name: 'KVM-GetModelRates', type: 'KeyValueMapOperations', purpose: 'Reads live input/output per-1k token rates from the ai-model-rates KVM.' },
         { name: 'JS-CalculateCost', type: 'JavaScript', purpose: 'Computes exact USD cost for the request and debits prepaid developer wallet if applicable.' },
@@ -290,8 +290,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'MCP Client & ADK Agent Layer',
       subtitle: 'JSON-RPC 2.0 over HTTP POST (/mcp)',
       badge: 'Model Context Protocol',
-      badgeColor: 'bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800',
-      icon: <Terminal className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />,
+      badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+      icon: <Terminal className="w-4 h-4 text-cyan-600" />,
       policies: [
         { name: 'PP-MCP', type: 'MCP Protocol Policy', purpose: 'Parses incoming JSON-RPC 2.0 envelope (jsonrpc, id, method, params) for tools/list and tools/call.' },
         { name: 'CORS-Allow', type: 'CORS', purpose: 'Enables cross-origin browser & web-agent inspection.' },
@@ -315,8 +315,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Tokenomics',
       subtitle: 'Agent Key Verification & Granular Tool Call Rate Limits',
       badge: 'Traffic Control',
-      badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800',
-      icon: <Lock className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
+      badgeColor: 'bg-blue-100 text-blue-700 border-blue-300',
+      icon: <Lock className="w-4 h-4 text-blue-600" />,
       policies: [
         { name: 'VA-VerifyAPIKey', type: 'VerifyAPIKey', purpose: 'Verifies agent consumer key against Enterprise Tools MCP product.' },
         { name: 'Q-Limit', type: 'Quota', purpose: 'Enforces per-app request rate limits to protect downstream core banking & inventory systems.' },
@@ -338,8 +338,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Access Control',
       subtitle: 'Persona-Based Tool Visibility & Execution Authorization',
       badge: 'Zero-Trust RBAC',
-      badgeColor: 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800',
-      icon: <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
+      badgeColor: 'bg-purple-100 text-purple-700 border-purple-300',
+      icon: <ShieldCheck className="w-4 h-4 text-purple-600" />,
       policies: [
         { name: 'PP-MCP', type: 'MCP Governance', purpose: 'Filters tools/list response and authorizes tools/call based on API Product tool entitlements.' },
       ],
@@ -360,8 +360,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Native MCP Server',
       subtitle: 'Existing REST APIs Served as MCP Tools — No New Infrastructure',
       badge: 'Protocol Bridge',
-      badgeColor: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-      icon: <Workflow className="w-4 h-4 text-amber-600 dark:text-amber-400" />,
+      badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      icon: <Workflow className="w-4 h-4 text-amber-600" />,
       policies: [
         { name: 'PP-MCP', type: 'Protocol Bridge', purpose: 'Maps MCP tool name & JSON arguments to target microservice URL, HTTP verb, and query/path parameters.' },
       ],
@@ -379,8 +379,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
       title: 'Enterprise Backend Microservices',
       subtitle: 'Sales & Inventory Service + Loans & Banking Core',
       badge: 'Systems of Record',
-      badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
-      icon: <Server className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />,
+      badgeColor: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+      icon: <Server className="w-4 h-4 text-emerald-600" />,
       policies: [
         { name: 'ML-CloudLogging', type: 'MessageLogging', purpose: 'Streams structured MCP tool execution audit logs to Google Cloud Logging.' },
       ],
@@ -489,30 +489,30 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
   const getStatusBadgeClasses = (status: 'pass' | 'hit' | 'warn' | 'block' | 'neutral') => {
     switch (status) {
       case 'hit':
-        return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
+        return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
       case 'pass':
-        return 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30';
+        return 'bg-blue-500/15 text-blue-700 border-blue-500/30';
       case 'warn':
-        return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
+        return 'bg-amber-500/15 text-amber-700 border-amber-500/30';
       case 'block':
-        return 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/40 font-bold';
+        return 'bg-rose-500/20 text-rose-700 border-rose-500/40 font-bold';
       default:
-        return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
+        return 'bg-slate-500/15 text-slate-700 border-slate-500/30';
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Top Modal Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 dark:bg-slate-900/60">
+        <div className="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600/10 dark:bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-600">
               <Layers className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">
                   {viewMode === 'request-flow'
                     ? 'Live Request Execution Trace Flow'
                     : 'Enterprise AI & Tools Gateway Architecture Blueprint'}
@@ -521,9 +521,9 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${
                     viewMode === 'request-flow'
                       ? terminationInfo?.type === 'blocked-security' || terminationInfo?.type === 'blocked-quota'
-                        ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800'
-                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                      : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                        ? 'bg-rose-100 text-rose-700 border-rose-300'
+                        : 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                      : 'bg-blue-100 text-blue-700 border-blue-300'
                   }`}
                 >
                   {viewMode === 'request-flow'
@@ -533,7 +533,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                     : 'Interactive Demo Reference'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500">
                 {viewMode === 'request-flow'
                   ? 'Showing the exact policies executed for the tested request. Downstream policies after a block or cache hit are omitted.'
                   : 'Click any stage in the pipeline to inspect active XML policies, governance controls, and demo talking points.'}
@@ -545,14 +545,14 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Toggle between Actual Request Flow vs Full Blueprint */}
             {activeFlow !== 'dual-pattern' && (
-              <div className="flex items-center bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl border border-slate-300/80 dark:border-slate-800 text-xs">
+              <div className="flex items-center bg-slate-200/70 p-1 rounded-xl border border-slate-300/80 text-xs">
                 <button
                   type="button"
                   onClick={() => setViewMode('request-flow')}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
                     viewMode === 'request-flow'
                       ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                   title="Show only the policies that executed for the last tested request"
                 >
@@ -564,8 +564,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   onClick={() => setViewMode('full-blueprint')}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
                     viewMode === 'full-blueprint'
-                      ? 'bg-slate-800 dark:bg-slate-700 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      ? 'bg-slate-800 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                   title="Show all architecture stages in the reference blueprint"
                 >
@@ -576,7 +576,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
             )}
 
             {/* Gateway Switcher */}
-            <div className="flex items-center bg-slate-200/70 dark:bg-slate-900 p-1 rounded-xl border border-slate-300/80 dark:border-slate-800 text-xs">
+            <div className="flex items-center bg-slate-200/70 p-1 rounded-xl border border-slate-300/80 text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -586,7 +586,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
                   activeFlow === 'ai-gateway'
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -601,7 +601,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
                   activeFlow === 'mcp-gateway'
                     ? 'bg-cyan-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Terminal className="w-3.5 h-3.5" />
@@ -613,7 +613,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
                   activeFlow === 'dual-pattern'
                     ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Workflow className="w-3.5 h-3.5" />
@@ -624,7 +624,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition cursor-pointer"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition cursor-pointer"
               title="Close Blueprint"
             >
               <X className="w-5 h-5" />
@@ -637,12 +637,12 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
           {activeFlow === 'dual-pattern' ? (
             /* Dual-Pattern ADK Architecture View */
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-300/60 dark:border-purple-800/60 rounded-2xl p-5">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
-                  <Workflow className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <div className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-300/60 rounded-2xl p-5">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
+                  <Workflow className="w-4 h-4 text-purple-600" />
                   Google ADK (Agent Development Kit) — Enterprise Dual-Pattern Architecture
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Enterprise AI agents require strict governance over both <strong>Reasoning (LLM calls)</strong> and <strong>Action (Tool executions)</strong>. Instead of hardcoding direct Vertex AI or microservice credentials inside agent code, the ADK Agent routes all model calls through the <strong>AI Gateway</strong> and all tool calls through the <strong>MCP Tools Gateway</strong>.
                 </p>
               </div>
@@ -650,33 +650,33 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               {/* Dual-Pattern Visual Diagram Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
                 {/* Left Column: Agent Microservice */}
-                <div className="bg-slate-50 dark:bg-slate-900/90 border-2 border-purple-500/40 rounded-2xl p-5 flex flex-col justify-between">
+                <div className="bg-slate-50 border-2 border-purple-500/40 rounded-2xl p-5 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                      <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-purple-100 text-purple-700 border border-purple-300">
                         Cloud Run Microservice
                       </span>
                       <span className="text-xs font-mono text-slate-400">Python FastAPI</span>
                     </div>
-                    <h4 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+                    <h4 className="text-base font-bold text-slate-900 mb-1">
                       Google ADK Agent Runtime
                     </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    <p className="text-xs text-slate-500 mb-4">
                       Orchestrates multi-step reasoning loops, state management, and tool invocation using unified developer credentials.
                     </p>
                     <div className="space-y-2.5 text-xs">
-                      <div className="p-3 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                        <div className="font-semibold text-slate-800 dark:text-slate-200 mb-0.5">1. Northbound Ingress</div>
-                        <div className="text-slate-500 dark:text-slate-400 text-[11px]">Fronted by Enterprise API Gateway for client authentication & rate limiting.</div>
+                      <div className="p-3 rounded-xl bg-white border border-slate-200">
+                        <div className="font-semibold text-slate-800 mb-0.5">1. Northbound Ingress</div>
+                        <div className="text-slate-500 text-[11px]">Fronted by Enterprise API Gateway for client authentication & rate limiting.</div>
                       </div>
-                      <div className="p-3 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                        <div className="font-semibold text-slate-800 dark:text-slate-200 mb-0.5">2. Zero Hardcoded Keys</div>
-                        <div className="text-slate-500 dark:text-slate-400 text-[11px]">Uses persona-scoped API Keys (Admin, Sales Agent, Loans Agent) injected at runtime.</div>
+                      <div className="p-3 rounded-xl bg-white border border-slate-200">
+                        <div className="font-semibold text-slate-800 mb-0.5">2. Zero Hardcoded Keys</div>
+                        <div className="text-slate-500 text-[11px]">Uses persona-scoped API Keys (Admin, Sales Agent, Loans Agent) injected at runtime.</div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
+                  <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-purple-600 font-semibold">
                     <span>Dual Outbound Channels</span>
                     <ArrowRight className="w-4 h-4" />
                   </div>
@@ -687,98 +687,98 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   {/* Pattern A: AI Gateway */}
                   <div
                     onClick={() => setActiveFlow('ai-gateway')}
-                    className="bg-blue-50/50 dark:bg-blue-950/20 border-2 border-blue-500/40 hover:border-blue-500 rounded-2xl p-4 cursor-pointer transition group"
+                    className="bg-blue-50/50 border-2 border-blue-500/40 hover:border-blue-500 rounded-2xl p-4 cursor-pointer transition group"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-blue-600 text-white">
                         Channel 1: Model Calls
                       </span>
-                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 group-hover:underline flex items-center gap-1">
+                      <span className="text-[11px] font-semibold text-blue-600 group-hover:underline flex items-center gap-1">
                         Inspect Pipeline <ArrowRight className="w-3 h-3" />
                       </span>
                     </div>
-                    <h5 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 mb-1">
+                    <h5 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mb-1">
                       <Sparkles className="w-4 h-4 text-blue-500" />
                       AI Gateway (ai-gateway-v1)
                     </h5>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                    <p className="text-xs text-slate-600 mb-2">
                       Intercepts agent LLM prompts for safety, caching, smart routing, and token quota governance.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">Model Armor</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">Semantic Cache</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">Auto-Router</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">Token Quotas</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Model Armor</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Semantic Cache</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Auto-Router</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Token Quotas</span>
                     </div>
                   </div>
 
                   {/* Pattern B: MCP Gateway */}
                   <div
                     onClick={() => setActiveFlow('mcp-gateway')}
-                    className="bg-cyan-50/50 dark:bg-cyan-950/20 border-2 border-cyan-500/40 hover:border-cyan-500 rounded-2xl p-4 cursor-pointer transition group"
+                    className="bg-cyan-50/50 border-2 border-cyan-500/40 hover:border-cyan-500 rounded-2xl p-4 cursor-pointer transition group"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-cyan-600 text-white">
                         Channel 2: Tool Execution
                       </span>
-                      <span className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 group-hover:underline flex items-center gap-1">
+                      <span className="text-[11px] font-semibold text-cyan-600 group-hover:underline flex items-center gap-1">
                         Inspect Pipeline <ArrowRight className="w-3 h-3" />
                       </span>
                     </div>
-                    <h5 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 mb-1">
+                    <h5 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mb-1">
                       <Terminal className="w-4 h-4 text-cyan-500" />
                       MCP Tools Gateway (/mcp)
                     </h5>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                    <p className="text-xs text-slate-600 mb-2">
                       Serves native JSON-RPC 2.0 MCP tools with persona-based RBAC catalog filtering and REST bridging.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">JSON-RPC 2.0</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">Persona RBAC</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">REST Bridge</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">Rate Limiting</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">JSON-RPC 2.0</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Persona RBAC</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">REST Bridge</span>
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Rate Limiting</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Column: Upstream Providers & Enterprise Systems */}
                 <div className="space-y-4 flex flex-col justify-between">
-                  <div className="bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                     <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Upstream Foundation Models</div>
                     <div className="space-y-2">
-                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
                         <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Vertex AI Gemini 2.5</div>
+                          <div className="text-xs font-bold text-slate-800">Vertex AI Gemini 2.5</div>
                           <div className="text-[11px] text-slate-500">Flash, Flash-Lite & Pro</div>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">Google Cloud</span>
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">Google Cloud</span>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
                         <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Anthropic Claude 4.5</div>
+                          <div className="text-xs font-bold text-slate-800">Anthropic Claude 4.5</div>
                           <div className="text-[11px] text-slate-500">Haiku & Sonnet via Vertex</div>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">Anthropic</span>
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800">Anthropic</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                     <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Enterprise Backend Systems</div>
                     <div className="space-y-2">
-                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
                         <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Sales & Inventory API</div>
+                          <div className="text-xs font-bold text-slate-800">Sales & Inventory API</div>
                           <div className="text-[11px] text-slate-500">Discounts & SKU Catalog</div>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">REST / JSON</span>
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 text-emerald-700">REST / JSON</span>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
                         <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Loans & Banking Core</div>
+                          <div className="text-xs font-bold text-slate-800">Loans & Banking Core</div>
                           <div className="text-[11px] text-slate-500">Underwriting & Loan Status</div>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">Core Banking</span>
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-purple-100 text-purple-700">Core Banking</span>
                       </div>
                     </div>
                   </div>
@@ -792,7 +792,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               <div>
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                       {viewMode === 'request-flow'
                         ? `Executed Pipeline Path (${visibleStages.length} of ${allCurrentStages.length} Stages Executed)`
                         : activeFlow === 'ai-gateway'
@@ -800,7 +800,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                           : 'MCP Tools Gateway Proxy Pipeline (JSON-RPC 2.0 Ingress ➔ RBAC ➔ Backend)'}
                     </span>
                   </div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <span className="text-xs text-slate-500">
                     Click any executed step below to inspect its XML policies & telemetry
                   </span>
                 </div>
@@ -832,12 +832,12 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                           onClick={() => setSelectedStageId(stage.id)}
                           className={`relative rounded-xl p-3.5 border transition cursor-pointer flex flex-col justify-between ${
                             isBlockingStep
-                              ? 'bg-rose-50/90 dark:bg-rose-950/50 border-2 border-rose-600 dark:border-rose-500 ring-4 ring-rose-500/20 shadow-lg'
+                              ? 'bg-rose-50/90 border-2 border-rose-600 ring-4 ring-rose-500/20 shadow-lg'
                               : isCacheHitStep
-                                ? 'bg-emerald-50/90 dark:bg-emerald-950/50 border-2 border-emerald-600 dark:border-emerald-500 ring-4 ring-emerald-500/20 shadow-lg'
+                                ? 'bg-emerald-50/90 border-2 border-emerald-600 ring-4 ring-emerald-500/20 shadow-lg'
                                 : isSelected
-                                  ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-md'
-                                  : 'bg-slate-50/80 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                                  ? 'bg-blue-50/80 border-blue-600 ring-2 ring-blue-500/20 shadow-md'
+                                  : 'bg-slate-50/80 border-slate-200 hover:border-slate-300'
                           }`}
                         >
                           <div>
@@ -846,10 +846,10 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                               <span
                                 className={`text-[11px] font-mono font-bold ${
                                   isBlockingStep
-                                    ? 'text-rose-600 dark:text-rose-400'
+                                    ? 'text-rose-600'
                                     : isCacheHitStep
-                                      ? 'text-emerald-600 dark:text-emerald-400'
-                                      : 'text-slate-400 dark:text-slate-500'
+                                      ? 'text-emerald-600'
+                                      : 'text-slate-400'
                                 }`}
                               >
                                 STEP {stage.step}
@@ -860,7 +860,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                                     ? 'bg-rose-600 text-white border-rose-700'
                                     : isCacheHitStep
                                       ? 'bg-emerald-600 text-white border-emerald-700'
-                                      : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700'
+                                      : 'bg-white border-slate-200/80'
                                 }`}
                               >
                                 {isBlockingStep ? (
@@ -888,8 +888,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                             <h4
                               className={`text-xs font-bold leading-snug mb-1 ${
                                 isBlockingStep
-                                  ? 'text-rose-950 dark:text-rose-100'
-                                  : 'text-slate-900 dark:text-white'
+                                  ? 'text-rose-950'
+                                  : 'text-slate-900'
                               }`}
                             >
                               {stage.title}
@@ -897,8 +897,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                             <p
                               className={`text-[11px] leading-tight ${
                                 isBlockingStep
-                                  ? 'text-rose-700 dark:text-rose-300 font-medium'
-                                  : 'text-slate-500 dark:text-slate-400'
+                                  ? 'text-rose-700 font-medium'
+                                  : 'text-slate-500'
                               }`}
                             >
                               {stage.subtitle}
@@ -907,7 +907,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
 
                           {/* Live Telemetry Badge if available */}
                           {stage.liveStatus && (
-                            <div className="mt-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                            <div className="mt-3 pt-2 border-t border-slate-200/80">
                               <div
                                 className={`px-2 py-1 rounded text-[10px] font-bold border flex items-center justify-between ${getStatusBadgeClasses(
                                   stage.liveStatus.status
@@ -925,7 +925,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
 
                           {/* Connector arrow indicator on desktop */}
                           {idx < visibleStages.length - 1 && (
-                            <div className="hidden lg:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 items-center justify-center text-slate-400 shadow-2xs">
+                            <div className="hidden lg:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-5 h-5 rounded-full bg-white border border-slate-300 items-center justify-center text-slate-400 shadow-2xs">
                               <ArrowRight className="w-3 h-3" />
                             </div>
                           )}
@@ -939,8 +939,8 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                     <div
                       className={`flex-1 rounded-2xl p-4 sm:p-5 border-2 flex flex-col justify-between ${
                         terminationInfo.type === 'cache-hit'
-                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-500/60 text-emerald-950 dark:text-emerald-100'
-                          : 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-500/60 text-rose-950 dark:text-rose-100'
+                          ? 'bg-emerald-50/70 border-emerald-500/60 text-emerald-950'
+                          : 'bg-rose-50/70 border-rose-500/60 text-rose-950'
                       }`}
                     >
                       <div>
@@ -961,9 +961,9 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
 
                         <h4 className="text-sm font-bold mb-1.5 flex items-center gap-2">
                           {terminationInfo.type === 'cache-hit' ? (
-                            <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
                           ) : (
-                            <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                            <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
                           )}
                           <span>{terminationInfo.reasonTitle}</span>
                         </h4>
@@ -974,7 +974,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                       </div>
 
                       {/* List of Omitted Downstream Policies */}
-                      <div className="pt-3 border-t border-rose-200/60 dark:border-rose-800/40">
+                      <div className="pt-3 border-t border-rose-200/60">
                         <div className="text-[10px] font-bold uppercase tracking-wider opacity-70 mb-1.5">
                           Policies & Stages Bypassed / Not Executed:
                         </div>
@@ -982,7 +982,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                           {terminationInfo.skippedStages.map((skipped) => (
                             <span
                               key={skipped}
-                              className="px-2 py-0.5 rounded-md text-[10px] font-mono line-through opacity-75 bg-white/80 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                              className="px-2 py-0.5 rounded-md text-[10px] font-mono line-through opacity-75 bg-white/80 border border-slate-300 text-slate-600"
                             >
                               {skipped}
                             </span>
@@ -995,43 +995,43 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               </div>
 
               {/* Selected Stage Detailed Inspector Panel */}
-              <div className="bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   {/* Left 7 Cols: Executed Policies Table */}
                   <div className="lg:col-span-7 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <FileCode2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                        <FileCode2 className="w-4 h-4 text-blue-600" />
+                        <h3 className="text-sm font-bold text-slate-900">
                           Stage {activeStage.step}: {activeStage.title} — Active Gateway Policies
                         </h3>
                       </div>
-                      <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                      <span className="text-xs font-mono text-slate-500">
                         {activeFlow === 'ai-gateway' ? 'apiproxy/policies/' : 'mcp/apiproxy/policies/'}
                       </span>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+                          <tr className="border-b border-slate-200 bg-slate-100/70 text-[11px] font-bold uppercase text-slate-500">
                             <th className="py-2.5 px-3.5">Policy Name (XML)</th>
                             <th className="py-2.5 px-3">Policy Type</th>
                             <th className="py-2.5 px-3.5">Execution Role</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+                        <tbody className="divide-y divide-slate-200 text-xs">
                           {activeStage.policies.map((pol) => (
-                            <tr key={pol.name} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40">
-                              <td className="py-2.5 px-3.5 font-mono font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                            <tr key={pol.name} className="hover:bg-slate-50/80">
+                              <td className="py-2.5 px-3.5 font-mono font-semibold text-blue-600 whitespace-nowrap">
                                 {pol.name}.xml
                               </td>
                               <td className="py-2.5 px-3 whitespace-nowrap">
-                                <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-700 border border-slate-200">
                                   {pol.type}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3.5 text-slate-600 dark:text-slate-300 leading-relaxed">
+                              <td className="py-2.5 px-3.5 text-slate-600 leading-relaxed">
                                 {pol.purpose}
                               </td>
                             </tr>
@@ -1045,16 +1045,16 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                        <MessageSquare className="w-4 h-4 text-emerald-600" />
+                        <h4 className="text-sm font-bold text-slate-900">
                           Customer Demo Talking Points
                         </h4>
                       </div>
 
-                      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-2.5">
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2.5">
                         {activeStage.talkingPoints.map((point, i) => (
-                          <div key={i} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                            <div className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
+                          <div key={i} className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed">
+                            <div className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
                               {i + 1}
                             </div>
                             <span>{point}</span>
@@ -1065,12 +1065,12 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
 
                     {/* Live Telemetry Correlation Box */}
                     {activeStage.liveStatus && (
-                      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
                         <div>
                           <div className="text-[10px] font-bold uppercase text-slate-400">
                             Last Playground Request Status
                           </div>
-                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                          <div className="text-xs font-semibold text-slate-800 mt-0.5">
                             {activeStage.liveStatus.detail}
                           </div>
                         </div>
@@ -1087,7 +1087,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
         </div>
 
         {/* Modal Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <Zap className="w-3.5 h-3.5 text-amber-500" />
             <span>

@@ -483,7 +483,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
       {/* Left Column: Chat Area */}
       <div
-        className={`flex-1 flex flex-col surface-flow border-r border-slate-200 dark:border-slate-800/80 h-full overflow-hidden ${
+        className={`flex-1 flex flex-col surface-flow border-r border-slate-200 h-full overflow-hidden ${
           mobileTab === 'chat' ? 'flex' : 'hidden md:flex'
         }`}
       >
@@ -491,11 +491,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center p-4 sm:p-6 select-none max-w-3xl mx-auto my-auto">
-              <div className="w-11 h-11 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-center mb-2.5">
+              <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center mb-2.5">
                 <ApigeeColorSymbol className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">AI Gateway</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-5 text-center">
+              <h3 className="text-base font-bold text-slate-900">AI Gateway</h3>
+              <p className="text-xs text-slate-500 mt-0.5 mb-5 text-center">
                 Select a live capability scenario below or enter a custom prompt to inspect gateway governance:
               </p>
 
@@ -514,35 +514,35 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       key={chip.promptId}
                       type="button"
                       onClick={() => handleChipClick(chip)}
-                      className="p-3 bg-white dark:bg-slate-900/90 hover:bg-slate-50 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700 rounded-xl text-left transition group cursor-pointer flex flex-col justify-between gap-2 shadow-xs hover:shadow-sm"
+                      className="p-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-blue-400 rounded-xl text-left transition group cursor-pointer flex flex-col justify-between gap-2 shadow-xs hover:shadow-sm"
                     >
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <Icon className={`w-4 h-4 shrink-0 ${chip.iconColor || 'text-blue-500'}`} />
-                            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-300 transition">
+                            <span className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 transition">
                               {preset?.title || chip.label}
                             </span>
                           </div>
                           {preset?.badgeText && (
-                            <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 shrink-0 font-medium">
+                            <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 shrink-0 font-medium">
                               {preset.badgeText}
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
                           {preset?.description || chip.title}
                         </p>
                       </div>
 
                       {chip.promptId === 'unauthorized-toggle' && (
-                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
+                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleAuthStep(0, e)}
                             className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               authStep === 0
-                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
+                                ? 'bg-rose-500/20 text-rose-600 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -553,7 +553,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             onClick={(e) => handleAuthStep(1, e)}
                             className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               authStep === 1
-                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
+                                ? 'bg-rose-500/20 text-rose-600 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -563,13 +563,13 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       )}
 
                       {chip.promptId === 'model-armor-toggle' && (
-                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
+                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-100 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleArmorStep(0, e)}
                             className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               armorStep === 0
-                                ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
+                                ? 'bg-red-500/20 text-red-600 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -580,7 +580,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             onClick={(e) => handleArmorStep(1, e)}
                             className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               armorStep === 1
-                                ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
+                                ? 'bg-red-500/20 text-red-600 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -591,7 +591,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             onClick={(e) => handleArmorStep(2, e)}
                             className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               armorStep === 2
-                                ? 'bg-red-500/20 text-red-600 dark:text-red-300 font-bold border border-red-500/30'
+                                ? 'bg-red-500/20 text-red-600 font-bold border border-red-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -601,13 +601,13 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       )}
 
                       {chip.promptId === 'auto-routing' && (
-                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
+                        <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-100 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleAutoRoutingStep(0, e)}
                             className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               autoStep === 0
-                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
+                                ? 'bg-purple-500/20 text-purple-600 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -618,7 +618,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             onClick={(e) => handleAutoRoutingStep(1, e)}
                             className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               autoStep === 1
-                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
+                                ? 'bg-purple-500/20 text-purple-600 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -629,7 +629,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             onClick={(e) => handleAutoRoutingStep(2, e)}
                             className={`w-full text-center text-[8.5px] px-0.5 py-0.5 rounded font-mono tracking-tight transition cursor-pointer whitespace-nowrap ${
                               autoStep === 2
-                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold border border-purple-500/30'
+                                ? 'bg-purple-500/20 text-purple-600 font-bold border border-purple-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -639,13 +639,13 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       )}
 
                       {chip.promptId === 'cache-toggle' && (
-                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
+                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleCacheStep(0, e)}
                             className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               cacheStep === 0
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
+                                ? 'bg-emerald-500/20 text-emerald-600 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -656,7 +656,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             onClick={(e) => handleCacheStep(1, e)}
                             className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               cacheStep === 1
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
+                                ? 'bg-emerald-500/20 text-emerald-600 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -666,13 +666,13 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       )}
 
                       {chip.promptId === 'token-limit-toggle' && (
-                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full">
+                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 w-full">
                           <button
                             type="button"
                             onClick={(e) => handleTokenStep(0, e)}
                             className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               tokenStep === 0
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold border border-emerald-500/30'
+                                ? 'bg-emerald-500/20 text-emerald-600 font-bold border border-emerald-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -683,7 +683,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             onClick={(e) => handleTokenStep(1, e)}
                             className={`w-full text-center text-[9px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
                               tokenStep === 1
-                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 font-bold border border-rose-500/30'
+                                ? 'bg-rose-500/20 text-rose-600 font-bold border border-rose-500/30'
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
@@ -707,8 +707,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
                     msg.isError
-                      ? 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30'
-                      : 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-600/20 dark:text-blue-400 dark:border-blue-500/30'
+                      ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                      : 'bg-blue-50 text-blue-600 border border-blue-200'
                   }`}
                 >
                   {msg.isError ? <ShieldAlert className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
@@ -720,22 +720,22 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                   msg.sender === 'user'
                     ? 'bg-blue-600 text-white rounded-br-none'
                     : msg.isError
-                    ? 'bg-rose-50/70 text-slate-900 border border-rose-200 dark:bg-slate-900 dark:text-slate-200 dark:border-rose-500/40 rounded-bl-none'
-                    : 'bg-white text-slate-900 border border-slate-200 dark:bg-slate-900/90 dark:text-slate-100 dark:border-slate-800 rounded-bl-none'
+                    ? 'bg-rose-50/70 text-slate-900 border border-rose-200 rounded-bl-none'
+                    : 'bg-white text-slate-900 border border-slate-200 rounded-bl-none'
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.text}</div>
 
                 {/* Inline Telemetry & Target URL Badge on Agent Messages */}
-                <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/60 space-y-1 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                <div className="mt-2 pt-1.5 border-t border-slate-100 space-y-1 text-[10px] text-slate-500 font-mono">
                   {msg.targetUrl && (
                     <div className="flex items-center justify-between gap-2 overflow-hidden">
                       <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 font-bold text-[9px] shrink-0">
+                        <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-700 font-bold text-[9px] shrink-0">
                           POST
                         </span>
                         <span className="text-slate-500 font-semibold shrink-0">Target URL:</span>
-                        <span className="truncate text-blue-700 dark:text-blue-400 select-all font-medium">{msg.targetUrl}</span>
+                        <span className="truncate text-blue-700 select-all font-medium">{msg.targetUrl}</span>
                       </div>
                       {msg.telemetry && onOpenRequestFlow && (
                         <button
@@ -744,10 +744,10 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                             e.stopPropagation();
                             onOpenRequestFlow(msg.telemetry!);
                           }}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/80 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 font-sans font-semibold text-[10px] shrink-0 transition cursor-pointer shadow-2xs"
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-sans font-semibold text-[10px] shrink-0 transition cursor-pointer shadow-2xs"
                           title="View Exact Execution Flow Diagram for This Request"
                         >
-                          <Workflow className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                          <Workflow className="w-3 h-3 text-blue-600" />
                           <span>Request Flow</span>
                         </button>
                       )}
@@ -758,8 +758,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       <span
                         className={`font-semibold ${
                           msg.telemetry.guardrailStatus === 'BLOCKED'
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-emerald-600 dark:text-emerald-400'
+                            ? 'text-rose-600'
+                            : 'text-emerald-600'
                         }`}
                       >
                         {msg.telemetry.guardrailStatus === 'BLOCKED'
@@ -777,7 +777,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       {msg.telemetry.cacheStatus === 'HIT' && (
                         <>
                           <span>•</span>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Vector Cache Hit</span>
+                          <span className="text-emerald-600 font-bold">Vector Cache Hit</span>
                         </>
                       )}
                       <span className="ml-auto opacity-60 text-[9px]">{msg.timestamp}</span>
@@ -787,7 +787,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
               </div>
 
               {msg.sender === 'user' && (
-                <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 mt-0.5 text-slate-700 dark:text-slate-300">
+                <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 text-slate-700">
                   <User className="w-3.5 h-3.5" />
                 </div>
               )}
@@ -796,20 +796,20 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
           {/* Prominent Loading / Sending Indicator with Target URL */}
           {loading && (
-            <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/30 text-xs space-y-2 animate-pulse shadow-xs">
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs space-y-2 animate-pulse shadow-xs">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-semibold">
+                <div className="flex items-center gap-2 text-blue-700 font-semibold">
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping" />
                   <span>Sending prompt to AI Gateway ({settings.environment.toUpperCase()})...</span>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 uppercase font-bold">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 uppercase font-bold">
                   POST
                 </span>
               </div>
-              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-2 rounded-lg border border-blue-200/80 dark:border-slate-800 font-mono text-[11px] text-slate-800 dark:text-slate-200 break-all select-all">
-                <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                <span className="text-blue-700 dark:text-blue-400 font-semibold shrink-0">Request URL:</span>
-                <span className="truncate text-slate-900 dark:text-slate-200 font-medium">
+              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-blue-200/80 font-mono text-[11px] text-slate-800 break-all select-all">
+                <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="text-blue-700 font-semibold shrink-0">Request URL:</span>
+                <span className="truncate text-slate-900 font-medium">
                   {activeSendingUrl || getGatewayTargetUrl(settings, settings.model)}
                 </span>
               </div>
@@ -820,16 +820,16 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         </div>
 
         {/* Input & Quick Chips */}
-        <div className="p-3 sm:p-3.5 bg-white/90 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800/80 shrink-0 backdrop-blur">
+        <div className="p-3 sm:p-3.5 bg-white/90 border-t border-slate-200 shrink-0 backdrop-blur">
           {/* All 6 Scenario Chips in Exact Required Order */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2.5 no-scrollbar w-full">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider shrink-0 mr-1">Scenarios:</span>
+            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider shrink-0 mr-1">Scenarios:</span>
             {sampleChips.map((chip) => (
               <button
                 key={chip.promptId}
                 type="button"
                 onClick={() => handleChipClick(chip)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap transition cursor-pointer min-h-[32px] hover:bg-slate-200/70 dark:hover:bg-slate-800 shrink-0 ${chip.color}`}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-medium bg-slate-100 border border-slate-200 text-slate-700 whitespace-nowrap transition cursor-pointer min-h-[32px] hover:bg-slate-200/70 shrink-0 ${chip.color}`}
                 title={chip.title}
               >
                 {chip.label}
@@ -845,14 +845,14 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Enter your prompt or select a quick scenario chip above..."
-              className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 min-h-[44px]"
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 min-h-[44px]"
             />
 
             {/* Send Button */}
             <button
               type="submit"
               disabled={loading || !inputText.trim()}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 text-white rounded-xl font-medium shadow-xs transition flex items-center justify-center gap-1.5 text-xs sm:text-sm shrink-0 min-h-[44px] cursor-pointer"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-medium shadow-xs transition flex items-center justify-center gap-1.5 text-xs sm:text-sm shrink-0 min-h-[44px] cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
               <span>Send</span>
@@ -862,7 +862,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
             <button
               type="button"
               onClick={handleReset}
-              className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl font-medium shadow-xs transition flex items-center justify-center gap-1.5 text-xs sm:text-sm shrink-0 min-h-[44px] cursor-pointer"
+              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 hover:text-slate-900 rounded-xl font-medium shadow-xs transition flex items-center justify-center gap-1.5 text-xs sm:text-sm shrink-0 min-h-[44px] cursor-pointer"
               title="Clear Chat & Reset Session"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -871,24 +871,24 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
           </form>
 
           {/* Active Status Footer */}
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-2 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-2 text-[10px] text-slate-500 font-mono">
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <span>Gateway: <strong className="text-blue-600 dark:text-blue-400 uppercase font-semibold">{settings.environment}</strong></span>
+              <span>Gateway: <strong className="text-blue-600 uppercase font-semibold">{settings.environment}</strong></span>
               <span>•</span>
-              <span>SSO: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{ssoUser.name}</strong> <span className="text-slate-400">({effectiveEmail})</span></span>
+              <span>SSO: <strong className="text-slate-700 font-semibold">{ssoUser.name}</strong> <span className="text-slate-400">({effectiveEmail})</span></span>
               <span>•</span>
-              <span>Tier: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{activeUser.name}</strong></span>
+              <span>Tier: <strong className="text-slate-700 font-semibold">{activeUser.name}</strong></span>
               <span>•</span>
-              <span>Model: <strong className="text-purple-600 dark:text-purple-400 font-semibold">{settings.model === 'auto' ? 'Auto (Intelligent Routing)' : settings.model}</strong></span>
+              <span>Model: <strong className="text-purple-600 font-semibold">{settings.model === 'auto' ? 'Auto (Intelligent Routing)' : settings.model}</strong></span>
               {settings.omitEmailHeader && (
                 <>
                   <span>•</span>
-                  <span className="bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/60 flex items-center gap-1 font-medium">
+                  <span className="bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200 flex items-center gap-1 font-medium">
                     <span>⚠️ Missing Authorization</span>
                     <button
                       type="button"
                       onClick={() => setSettings((prev) => ({ ...prev, omitEmailHeader: false }))}
-                      className="underline text-rose-700 dark:text-rose-200 ml-0.5 hover:text-rose-900 cursor-pointer font-bold"
+                      className="underline text-rose-700 ml-0.5 hover:text-rose-900 cursor-pointer font-bold"
                     >
                       Restore Auth
                     </button>
@@ -903,14 +903,14 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
               onClick={() => setSettings((prev) => ({ ...prev, useCache: !prev.useCache }))}
               className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold text-[10px] transition cursor-pointer border ${
                 settings.useCache
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700 shadow-2xs hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
-                  : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/70'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs hover:bg-emerald-100'
+                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:text-slate-900 hover:bg-slate-200/70'
               }`}
               title={`Semantic Vector Cache is currently ${settings.useCache ? 'ENABLED (use-cache: true)' : 'OFF (live inference)'}. Click to toggle.`}
             >
-              <Zap className={`w-3 h-3 ${settings.useCache ? 'text-emerald-600 dark:text-emerald-400 fill-emerald-500/30' : 'text-slate-400'}`} />
+              <Zap className={`w-3 h-3 ${settings.useCache ? 'text-emerald-600 fill-emerald-500/30' : 'text-slate-400'}`} />
               <span>Cache:</span>
-              <strong className={settings.useCache ? 'text-emerald-700 dark:text-emerald-300 font-bold' : 'text-slate-500 dark:text-slate-400 font-normal'}>
+              <strong className={settings.useCache ? 'text-emerald-700 font-bold' : 'text-slate-500 font-normal'}>
                 {settings.useCache ? 'ENABLED' : 'OFF'}
               </strong>
             </button>
@@ -920,7 +920,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
       {/* Right Column: Clean Telemetry Inspector */}
       <div
-        className={`w-full md:w-80 lg:w-96 surface-telemetry border-l border-slate-200 dark:border-slate-800/80 h-full overflow-hidden flex-col shrink-0 ${
+        className={`w-full md:w-80 lg:w-96 surface-telemetry border-l border-slate-200 h-full overflow-hidden flex-col shrink-0 ${
           mobileTab === 'trace' ? 'flex flex-1' : 'hidden md:flex'
         }`}
       >

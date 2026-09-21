@@ -570,10 +570,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   };
 
   return (
-    <div className="h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-y-auto p-4 sm:px-6 sm:py-5 space-y-5">
+    <div className="h-full bg-slate-50 text-slate-900 overflow-y-auto p-4 sm:px-6 sm:py-5 space-y-5">
 
       {fetchError && (
-        <div className="max-w-7xl mx-auto p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center justify-between">
           <span>{fetchError}</span>
           <button type="button" onClick={() => loadData()} className="underline font-semibold cursor-pointer ml-2">Retry</button>
         </div>
@@ -581,21 +581,21 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       <div className="max-w-7xl mx-auto space-y-6">
         {/* SECTION 1: UNIFIED GATEWAY ANALYTICS STRIP (Inspired by Semrush "Domain Analytics") */}
-        <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
           {/* Header with Purple Underline Accent */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-            <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900 dark:text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900">
               <span>{viewMode === 'user' ? 'Gateway Analytics (User View)' : 'Gateway Analytics'}</span>
               <span title="Real-time AI Gateway telemetry and consumption metrics">
                 <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
               </span>
             </div>
 
-            <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 font-sans flex-wrap">
+            <div className="flex items-center gap-2.5 text-xs text-slate-500 font-sans flex-wrap">
               {viewMode === 'user' ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">
-                    <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                    <User className="w-3 h-3 text-blue-600" />
                     {currentUserEmail}
                   </span>
                   <span>•</span>
@@ -603,13 +603,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               ) : (
                 <>
                   {/* Admin User Filter Dropdown */}
-                  <div className="flex items-center bg-slate-50 dark:bg-slate-950 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs shadow-xs">
-                    <User className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 mr-1.5 shrink-0" />
-                    <span className="text-slate-500 dark:text-slate-400 mr-1 text-[11px] font-semibold">User:</span>
+                  <div className="flex items-center bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs shadow-xs">
+                    <User className="w-3.5 h-3.5 text-purple-600 mr-1.5 shrink-0" />
+                    <span className="text-slate-500 mr-1 text-[11px] font-semibold">User:</span>
                     <select
                       value={userFilter}
                       onChange={(e) => setUserFilter(e.target.value)}
-                      className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-mono focus:outline-none cursor-pointer max-w-[190px] sm:max-w-[220px] truncate"
+                      className="bg-transparent text-slate-800 text-xs font-mono focus:outline-none cursor-pointer max-w-[190px] sm:max-w-[220px] truncate"
                       title="Filter Analytics by user or view fleet totals"
                     >
                       <option value="all">All Users (Fleet)</option>
@@ -628,33 +628,33 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 Production
               </span>
               <span>•</span>
-              <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">Updated 1m ago</span>
+              <span className="font-mono text-[11px] text-slate-500">Updated 1m ago</span>
             </div>
           </div>
 
           {/* 6-Column Metric Strip with Sparklines */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
             {/* Col 1: Request Success Rate */}
             <div className="p-3 sm:px-4 space-y-1">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
                 <span>Request Success Rate</span>
                 <span title="Percentage of successful client requests (100% minus error rate) processed by the gateway. Shows an em dash when no error data was recorded for this scope and window.">
                   <Info className="w-3 h-3 text-slate-400 hover:text-purple-500 cursor-pointer" />
                 </span>
               </div>
               <div className="flex items-center gap-3 pt-1">
-                <div className="w-11 h-11 rounded-full bg-teal-50 dark:bg-teal-950/60 border-2 border-teal-500 flex items-center justify-center font-mono font-bold text-sm text-teal-600 dark:text-teal-400 shadow-xs">
+                <div className="w-11 h-11 rounded-full bg-teal-50 border-2 border-teal-500 flex items-center justify-center font-mono font-bold text-sm text-teal-600 shadow-xs">
                   {aggregatedStats.slaHealth === null ? '—' : `${Math.round(aggregatedStats.slaHealth)}%`}
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <div className="text-xs font-bold text-slate-800">
                     {aggregatedStats.faultCount === null
                       ? 'No Error Data'
                       : aggregatedStats.faultCount === 0
                         ? 'Optimal'
                         : 'Errors Logged'}
                   </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <div className="text-[10px] text-slate-500">
                     {aggregatedStats.faultCount === null
                       ? 'Not recorded for this window'
                       : aggregatedStats.faultCount === 0
@@ -667,7 +667,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             {/* Col 2: Available Balance */}
             <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between gap-1">
                 <span className="truncate">Available Balance</span>
                 <span title="Native Monetization prepaid wallet balance" className="shrink-0">
                   <Wallet className="w-3.5 h-3.5 text-emerald-500" />
@@ -675,16 +675,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
               <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
                 <span
-                  className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight"
+                  className="text-2xl font-bold font-mono text-emerald-600 tracking-tight"
                   title={`Exact balance: $${availableBalanceData.exactAmount} USD`}
                 >
                   ${availableBalanceData.amount}
                 </span>
-                <span className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200 dark:border-teal-800 shrink-0 whitespace-nowrap">
+                <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 shrink-0 whitespace-nowrap">
                   {availableBalanceData.badge}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight" title={availableBalanceData.subtitle}>
+              <div className="text-[10px] text-slate-500 leading-tight" title={availableBalanceData.subtitle}>
                 {availableBalanceData.subtitle}
               </div>
               {/* Mini Area Sparkline */}
@@ -695,15 +695,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             {/* Col 3: Total Model Calls */}
             <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between gap-1">
                 <span className="truncate">Total Model Calls</span>
                 <Bot className="w-3.5 h-3.5 text-blue-500 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
-                <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
+                <span className="text-2xl font-bold font-mono text-blue-600">
                   {aggregatedStats.totalCalls}
                 </span>
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                <span className="text-[11px] font-semibold text-emerald-600 shrink-0">
                   {routingStats.flashPercent}% Flash
                 </span>
               </div>
@@ -715,15 +715,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             {/* Col 4: Total Token Volume */}
             <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between gap-1">
                 <span className="truncate">Total Token Volume</span>
                 <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
-                <span className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
+                <span className="text-2xl font-bold font-mono text-purple-600">
                   {aggregatedStats.totalTokens}
                 </span>
-                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 shrink-0">
+                <span className="text-[11px] font-medium text-slate-500 shrink-0">
                   Tokens
                 </span>
               </div>
@@ -735,15 +735,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             {/* Col 5: Total Enterprise Spend */}
             <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between gap-1">
                 <span className="truncate">{viewMode === 'user' ? 'My User Spend' : 'Total Enterprise Spend'}</span>
                 <Coins className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
-                <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                <span className="text-2xl font-bold font-mono text-emerald-600">
                   ${aggregatedStats.totalSpend}
                 </span>
-                <span className="text-[11px] font-sans text-slate-500 dark:text-slate-400 font-medium shrink-0">
+                <span className="text-[11px] font-sans text-slate-500 font-medium shrink-0">
                   USD
                 </span>
               </div>
@@ -755,16 +755,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             {/* Col 6: Semantic Cache Savings */}
             <div className="p-3 sm:px-4 space-y-1 min-w-0 overflow-hidden">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between gap-1">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between gap-1">
                 <span className="truncate">Cache Cost Savings</span>
                 <Database className="w-3.5 h-3.5 text-teal-500 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5 pt-0.5 flex-wrap">
-                <span className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">
+                <span className="text-2xl font-bold font-mono text-teal-600">
                   {aggregatedStats.cacheSavings === null ? '—' : `$${aggregatedStats.cacheSavings}`}
                 </span>
                 <span
-                  className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0"
+                  className="text-[11px] font-semibold text-emerald-600 shrink-0"
                   title={
                     aggregatedStats.cacheHitRate === null
                       ? 'Cache hit rate is measured fleet-wide from the dc_cache_status dimension. It is not broken down per user, and traffic served before that collector shipped is excluded.'
@@ -786,12 +786,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         {/* SECTION 2: DUAL EXECUTIVE PANELS (Inspired by Semrush "Position Tracking" & "On Page SEO Checker") */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* PANEL 1: Auto-Routing Policy & Complexity Audit (like Semrush Site Audit & Position Tracking) */}
-          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col justify-between">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col justify-between">
             <div>
               {/* Header with Purple Underline Accent */}
-              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                 <div>
-                  <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900 dark:text-white">
+                  <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900">
                     <Zap className="w-4 h-4 text-purple-500 shrink-0" />
                     <span>Auto-Routing Policy Audit</span>
                     <Info className="w-3.5 h-3.5 text-slate-400 hover:text-purple-500 cursor-pointer" />
@@ -800,7 +800,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 {/* Was `flashPercent * 0.55`, presented as a savings percentage. The 0.55 had
                     no basis — it was not a price ratio between the tiers and not measured.
                     Report the routing split itself, which is a real quantity. */}
-                <div className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/30 shrink-0">
+                <div className="text-[11px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0">
                   {routingStats.flashPercent === null
                     ? '⚡ No routing data'
                     : `⚡ ${routingStats.flashPercent}% to low-cost tier`}
@@ -810,7 +810,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               {/* Site Health Style Semi-Circle Arc & Split Stats */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-4">
                 {/* Arc Gauge */}
-                <div className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
+                <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
                   <div className="relative w-32 h-20 flex items-end justify-center overflow-hidden">
                     <svg viewBox="0 0 100 55" className="w-full h-full">
                       <path
@@ -818,7 +818,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         fill="none"
                         stroke="#e2e8f0"
                         strokeWidth="12"
-                        className="dark:stroke-slate-800"
                       />
                       <path
                         d="M 10 50 A 40 40 0 0 1 90 50"
@@ -830,27 +829,27 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         strokeDashoffset={126 * (1 - (routingStats.flashPercent ?? 0) / 100)}
                       />
                     </svg>
-                    <div className="absolute bottom-1 font-mono font-bold text-lg text-slate-900 dark:text-white">
+                    <div className="absolute bottom-1 font-mono font-bold text-lg text-slate-900">
                       {routingStats.flashPercent === null ? '—' : `${routingStats.flashPercent}%`}
                     </div>
                   </div>
-                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                  <div className="text-xs font-bold text-emerald-600 mt-1">
                     Flash Cost Optimized
                   </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <div className="text-[10px] text-slate-500">
                     High-Speed Flash Lite &amp; Flash
                   </div>
                 </div>
 
                 {/* Right Breakdown Cards */}
                 <div className="space-y-2 text-xs">
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Flash Models (Standard)</div>
-                      <div className="text-xs text-slate-600 dark:text-slate-300 font-sans">Low-cost fast response</div>
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Flash Models (Standard)</div>
+                      <div className="text-xs text-slate-600 font-sans">Low-cost fast response</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                      <div className="font-mono font-bold text-emerald-600 text-sm">
                         {routingStats.flashCalls.toLocaleString()}
                       </div>
                       <div className="text-[10px] font-mono text-slate-400">
@@ -859,13 +858,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Pro / Opus (Enterprise)</div>
-                      <div className="text-xs text-slate-600 dark:text-slate-300 font-sans">Complex code &amp; reasoning</div>
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Pro / Opus (Enterprise)</div>
+                      <div className="text-xs text-slate-600 font-sans">Complex code &amp; reasoning</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-purple-600 dark:text-purple-400 text-sm">
+                      <div className="font-mono font-bold text-purple-600 text-sm">
                         {routingStats.proCalls.toLocaleString()}
                       </div>
                       <div className="text-[10px] font-mono text-slate-400">
@@ -879,10 +878,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               {/* Stacked Multi-Colored Volume Bar (Inspired by Semrush "Crawled Pages") */}
               <div className="pt-4 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">Model Traffic Execution Stack</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">{totalModelTraffic.toLocaleString()} Calls</span>
+                  <span className="font-semibold text-slate-700">Model Traffic Execution Stack</span>
+                  <span className="font-mono font-bold text-slate-900">{totalModelTraffic.toLocaleString()} Calls</span>
                 </div>
-                <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800 shadow-inner">
+                <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-100 shadow-inner">
                   {[...modelStatsForPies].sort((a, b) => b.calls - a.calls).map((m) => {
                     const pct = totalModelTraffic > 0 ? (m.calls / totalModelTraffic) * 100 : 0;
                     if (pct <= 0) return null;
@@ -905,7 +904,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     .map((m) => {
                       const pct = totalModelTraffic > 0 ? ((m.calls / totalModelTraffic) * 100).toFixed(0) : '0';
                       return (
-                        <div key={m.model} className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                        <div key={m.model} className="flex items-center gap-1.5 text-slate-600">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
                           <span className="truncate">{m.model.replace('@20251101', '').replace('gemini-', 'G-')} {pct}%</span>
                         </div>
@@ -917,12 +916,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
 
           {/* PANEL 2: Model Spend & Token Breakdown (Inspired by Semrush "On Page SEO Checker") */}
-          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col justify-between">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col justify-between">
             <div>
               {/* Header with Purple Underline Accent & Toggle Pills */}
-              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                 <div>
-                  <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900 dark:text-white">
+                  <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900">
                     <Coins className="w-4 h-4 text-amber-500 shrink-0" />
                     <span>{viewMode === 'user' ? 'My Model Split' : 'Model Split Across Catalog'}</span>
                     <span title="Model token volume and spend split">
@@ -932,14 +931,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </div>
 
                 {/* View Switcher: Spend ($ USD) vs Token Volume */}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs shrink-0">
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs shrink-0">
                   <button
                     type="button"
                     onClick={() => setDistributionMode('spend')}
                     className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
                       distributionMode === 'spend'
-                        ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-white text-emerald-600 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
                     }`}
                   >
                     Spend ($)
@@ -949,8 +948,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     onClick={() => setDistributionMode('tokens')}
                     className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
                       distributionMode === 'tokens'
-                        ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-xs'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-white text-purple-600 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
                     }`}
                   >
                     Tokens
@@ -966,7 +965,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     totalFormatted={`$${aggregatedStats.totalSpend}`}
                     totalLabel="Total Spend"
                     unitLabel="USD Spent"
-                    centerBadgeColor="text-emerald-600 dark:text-emerald-400"
+                    centerBadgeColor="text-emerald-600"
                     borderless={true}
                   />
                 ) : (
@@ -975,7 +974,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     totalFormatted={aggregatedStats.totalTokens}
                     totalLabel="Total Volume"
                     unitLabel="Tokens Processed"
-                    centerBadgeColor="text-purple-600 dark:text-purple-300"
+                    centerBadgeColor="text-purple-600"
                     borderless={true}
                   />
                 )}
@@ -985,11 +984,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* SECTION 3: CONSUMPTION DASHBOARD TABLE (Inspired by Semrush "Backlink Audit" Data Table) */}
-        <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
           {/* Table Header with Purple Underline Accent */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
-              <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900 dark:text-white">
+              <div className="border-b-2 border-purple-500 inline-flex items-center gap-2 pb-1 font-bold text-sm text-slate-900">
                 <TableProperties className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span>
                   {viewMode === 'admin'
@@ -1005,13 +1004,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             {/* Filter Toolbar: ONLY Model Filter */}
             <div className="flex items-center gap-2.5">
               {/* Model Dropdown Filter */}
-              <div className="flex items-center bg-slate-50 dark:bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs shadow-xs">
+              <div className="flex items-center bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs shadow-xs">
                 <Filter className="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" />
-                <span className="text-slate-500 dark:text-slate-400 mr-1.5 text-[11px]">Model:</span>
+                <span className="text-slate-500 mr-1.5 text-[11px]">Model:</span>
                 <select
                   value={modelFilter}
                   onChange={(e) => setModelFilter(e.target.value)}
-                  className="bg-transparent text-slate-800 dark:text-slate-200 text-xs font-mono focus:outline-none cursor-pointer"
+                  className="bg-transparent text-slate-800 text-xs font-mono focus:outline-none cursor-pointer"
                 >
                   <option value="all">All Models ({uniqueModels.length})</option>
                   {uniqueModels.map((m) => (
@@ -1028,18 +1027,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-sans">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider font-semibold select-none">
+                <tr className="border-b border-slate-200 text-slate-500 uppercase text-[10px] tracking-wider font-semibold select-none">
                   {/* User Email */}
                   <th
                     onClick={() => handleSort('userEmail')}
-                    className="pb-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition"
+                    className="pb-3 cursor-pointer hover:text-slate-900 transition"
                   >
                     <div className="flex items-center gap-1">
                       <span>User Email</span>
                       {sortField === 'userEmail' ? (
                         sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-purple-500" /> : <ChevronDown className="w-3.5 h-3.5 text-purple-500" />
                       ) : (
-                        <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-600" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       )}
                     </div>
                   </th>
@@ -1047,14 +1046,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {/* Model */}
                   <th
                     onClick={() => handleSort('model')}
-                    className="pb-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition"
+                    className="pb-3 cursor-pointer hover:text-slate-900 transition"
                   >
                     <div className="flex items-center gap-1">
                       <span>Model</span>
                       {sortField === 'model' ? (
                         sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-purple-500" /> : <ChevronDown className="w-3.5 h-3.5 text-purple-500" />
                       ) : (
-                        <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-600" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       )}
                     </div>
                   </th>
@@ -1062,14 +1061,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {/* Total Traffic (Sum) */}
                   <th
                     onClick={() => handleSort('totalTraffic')}
-                    className="pb-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition"
+                    className="pb-3 text-right cursor-pointer hover:text-slate-900 transition"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Total Traffic (Sum)</span>
                       {sortField === 'totalTraffic' ? (
                         sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-purple-500" /> : <ChevronDown className="w-3.5 h-3.5 text-purple-500" />
                       ) : (
-                        <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-600" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       )}
                     </div>
                   </th>
@@ -1077,14 +1076,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {/* Input Token (Sum) */}
                   <th
                     onClick={() => handleSort('inputTokens')}
-                    className="pb-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition"
+                    className="pb-3 text-right cursor-pointer hover:text-slate-900 transition"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Input Token (Sum)</span>
                       {sortField === 'inputTokens' ? (
                         sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-purple-500" /> : <ChevronDown className="w-3.5 h-3.5 text-purple-500" />
                       ) : (
-                        <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-600" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       )}
                     </div>
                   </th>
@@ -1092,14 +1091,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {/* Output Token (Sum) */}
                   <th
                     onClick={() => handleSort('outputTokens')}
-                    className="pb-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition"
+                    className="pb-3 text-right cursor-pointer hover:text-slate-900 transition"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Output Token (Sum)</span>
                       {sortField === 'outputTokens' ? (
                         sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-purple-500" /> : <ChevronDown className="w-3.5 h-3.5 text-purple-500" />
                       ) : (
-                        <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-600" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       )}
                     </div>
                   </th>
@@ -1107,14 +1106,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {/* Cost (Sum) */}
                   <th
                     onClick={() => handleSort('costUsd')}
-                    className="pb-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 transition"
+                    className="pb-3 text-right cursor-pointer hover:text-slate-900 transition"
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>Cost (Sum)</span>
                       {sortField === 'costUsd' ? (
                         sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-purple-500" /> : <ChevronDown className="w-3.5 h-3.5 text-purple-500" />
                       ) : (
-                        <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-600" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       )}
                     </div>
                   </th>
@@ -1126,7 +1125,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-xs">
+              <tbody className="divide-y divide-slate-100 font-mono text-xs">
                 {displayedConsumptionRows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-slate-500 font-sans">
@@ -1141,16 +1140,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     return (
                       <tr
                         key={`${row.userEmail}__${row.model}`}
-                        className={`hover:bg-slate-50 dark:hover:bg-slate-850/50 transition group ${
-                          isCurrentUser ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
+                        className={`hover:bg-slate-50 transition group ${
+                          isCurrentUser ? 'bg-blue-50/40' : ''
                         }`}
                       >
                         {/* User Email */}
-                        <td className="py-3 font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2 font-sans">
+                        <td className="py-3 font-medium text-slate-800 flex items-center gap-2 font-sans">
                           <span
                             className={`w-2 h-2 rounded-full shrink-0 ${
                               isCurrentUser
-                                ? 'bg-blue-500 ring-2 ring-blue-200 dark:ring-blue-900'
+                                ? 'bg-blue-500 ring-2 ring-blue-200'
                                 : row.isUnauthenticated
                                 ? 'bg-slate-400'
                                 : 'bg-emerald-500'
@@ -1158,7 +1157,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                           />
                           <span className="truncate">{row.userEmail}</span>
                           {isCurrentUser && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                               You
                             </span>
                           )}
@@ -1167,22 +1166,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         {/* Model & Provider Badge */}
                         <td className="py-3">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">{row.model}</span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            <span className="font-semibold text-slate-800">{row.model}</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
                               {row.provider}
                             </span>
                           </div>
                         </td>
 
                         {/* Total Traffic (Sum) */}
-                        <td className="py-3 text-right text-slate-800 dark:text-slate-200">
+                        <td className="py-3 text-right text-slate-800">
                           <span className="font-bold">{row.totalTraffic.toLocaleString()}</span>
                           <span className="text-[10px] text-slate-500 font-sans ml-1">calls</span>
                         </td>
 
                         {/* Input Token (Sum) */}
                         <td
-                          className="py-3 text-right text-slate-600 dark:text-slate-300 font-mono"
+                          className="py-3 text-right text-slate-600 font-mono"
                           title={`${row.inputTokens.toLocaleString()} tokens`}
                         >
                           {formatTokens(row.inputTokens)}
@@ -1190,7 +1189,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
                         {/* Output Token (Sum) */}
                         <td
-                          className="py-3 text-right text-slate-600 dark:text-slate-300 font-mono"
+                          className="py-3 text-right text-slate-600 font-mono"
                           title={`${row.outputTokens.toLocaleString()} tokens`}
                         >
                           {formatTokens(row.outputTokens)}
@@ -1198,7 +1197,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
                         {/* Cost (Sum) */}
                         <td className="py-3 text-right">
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+                          <span className="text-emerald-600 font-bold font-mono">
                             {formatCost(row.costUsd)}
                           </span>
                           <span className="text-[10px] text-slate-500 font-sans ml-1">USD</span>
@@ -1211,7 +1210,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                               setLogsTarget({ userEmail: row.userEmail, model: row.model })
                             }
                             title={`View every call by ${row.userEmail} on ${row.model}`}
-                            className="inline-flex items-center gap-1 text-[11px] font-sans font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[11px] font-sans font-semibold text-blue-600 hover:underline cursor-pointer"
                           >
                             <ScrollText className="w-3.5 h-3.5" />
                             View logs
@@ -1226,23 +1225,23 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               {/* Table Totals Summary Footer */}
               {displayedConsumptionRows.length > 0 && (
                 <tfoot>
-                  <tr className="border-t-2 border-slate-200 dark:border-slate-700 font-mono text-xs bg-slate-50 dark:bg-slate-950/60 font-bold">
-                    <td className="py-3 text-slate-700 dark:text-slate-300 font-sans">
+                  <tr className="border-t-2 border-slate-200 font-mono text-xs bg-slate-50 font-bold">
+                    <td className="py-3 text-slate-700 font-sans">
                       Total ({displayedConsumptionRows.length} rows)
                     </td>
-                    <td className="py-3 text-slate-500 dark:text-slate-400 font-sans">
+                    <td className="py-3 text-slate-500 font-sans">
                       All Filtered Models
                     </td>
-                    <td className="py-3 text-right text-slate-900 dark:text-white">
+                    <td className="py-3 text-right text-slate-900">
                       {tableTotals.traffic} <span className="text-[10px] text-slate-500 font-sans font-normal">calls</span>
                     </td>
-                    <td className="py-3 text-right text-slate-700 dark:text-slate-200">
+                    <td className="py-3 text-right text-slate-700">
                       {tableTotals.inTokens}
                     </td>
-                    <td className="py-3 text-right text-slate-700 dark:text-slate-200">
+                    <td className="py-3 text-right text-slate-700">
                       {tableTotals.outTokens}
                     </td>
-                    <td className="py-3 text-right text-emerald-600 dark:text-emerald-400 text-sm">
+                    <td className="py-3 text-right text-emerald-600 text-sm">
                       ${tableTotals.cost} <span className="text-[10px] text-slate-500 font-sans font-normal">USD</span>
                     </td>
                     {/* Logs column has no meaningful total. */}
