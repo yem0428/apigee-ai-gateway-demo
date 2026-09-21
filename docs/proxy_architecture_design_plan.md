@@ -802,7 +802,7 @@ Three heuristics drive the decision:
 
 | Signal | Test (case-insensitive regex) |
 | :--- | :--- |
-| `isCoding` | code keywords — `def`, `class`, `function`, `import`, `const`, `let`, `var`, SQL verbs, fenced code blocks, `refactor`, `regex`, `async` |
+| `isCoding` | code keywords — `def`, `class`, `function`, `import`, `const`, `let`, `var`, SQL verbs, fenced code blocks, `code`, `refactor`, `regex`, `async` |
 | `isDeepReasoning` | `compare`, `architect`, `deep`, `reasoning`, `evaluate`, `trade-off`, `multi-step`, `benchmark`, `optimize`, `root cause` |
 | `isSimple` | prompt length < 200 **and** not coding **and** not deep reasoning |
 

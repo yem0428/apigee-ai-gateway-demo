@@ -76,6 +76,7 @@ describe("AutoRouting.js - Unit Test Suite", () => {
         { label: "Refactor keyword", prompt: "Please refactor this service layer to use dependency injection" },
         { label: "Regex keyword", prompt: "Help me write a regex to validate international phone numbers" },
         { label: "Async keyword", prompt: "async function fetchCustomerProfile(id) { return await api.get(id); }" },
+        { label: "Code keyword", prompt: "Please write code to generate a secure HMAC-SHA256 signature" },
       ];
 
       for (const { label, prompt } of codingPrompts) {

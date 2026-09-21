@@ -19,7 +19,7 @@ var isStandard = !isEnterprise;
 context.setVariable("flow.routingTier", isEnterprise ? "enterprise" : "standard");
 
 // Heuristic pattern matchers
-var isCoding = /def |class |function |import |const |let |var |SELECT |FROM |WHERE |UPDATE |INSERT |DELETE |```|refactor|regex|async /i.test(userPrompt);
+var isCoding = /def |class |function |import |const |let |var |SELECT |FROM |WHERE |UPDATE |INSERT |DELETE |```|code|refactor|regex|async /i.test(userPrompt);
 var isDeepReasoning = /compare|architect|deep|reasoning|evaluate|trade-off|multi-step|benchmark|optimize|root cause/i.test(userPrompt);
 var isSimple = userPrompt.length < 200 && !isCoding && !isDeepReasoning;
 
