@@ -20,10 +20,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-ORG="bap-apac-demo2"
-ENV="prod"
-DEV_EMAIL="maloosatyam@google.com"
-PROXY_NAME="ai-gateway-v1"
+# Load .env if present
+if [ -f "${ROOT_DIR}/.env" ]; then
+  set -a
+  source "${ROOT_DIR}/.env"
+  set +a
+fi
+
+ORG="${APIGEE_ORG:-${ORG:-bap-apac-demo2}}"
+ENV="${APIGEE_ENV:-${ENV:-prod}}"
+DEV_EMAIL="${DEV_EMAIL:-${APIGEE_DEVELOPER:-maloosatyam@google.com}}"
+PROXY_NAME="${PROXY_NAME:-ai-gateway-v1}"
 SKIP_PROXY=false
 SKIP_CREDS=false
 DRY_RUN=false

@@ -2,11 +2,21 @@
 # Script to deploy Apigee proxy bundle to Apigee X using gcloud / apigeecli
 set -e
 
-# Default variables
-ORG=""
-ENV="dev"
-PROXY_NAME=""
-SERVICE_ACCOUNT="ai-client@bap-apac-demo2.iam.gserviceaccount.com"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# Load .env if present
+if [ -f "${ROOT_DIR}/.env" ]; then
+  set -a
+  source "${ROOT_DIR}/.env"
+  set +a
+fi
+
+# Default variables (can be set via .env, exported env vars, or CLI flags)
+ORG="${APIGEE_ORG:-${ORG:-bap-apac-demo2}}"
+ENV="${APIGEE_ENV:-${ENV:-prod}}"
+PROXY_NAME="${PROXY_NAME:-ai-gateway-v1}"
+SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-ai-client@${ORG}.iam.gserviceaccount.com}"
 # By default the script blocks until the new revision is actually serving. Set --no-wait
 # to return as soon as the deploy is submitted.
 NO_WAIT="false"
@@ -24,12 +34,9 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [ -z "$ORG" ] || [ -z "$PROXY_NAME" ]; then
-    echo "Usage: $0 --org <APIGEE_ORG> [--env <APIGEE_ENV>] --proxy <PROXY_NAME> [--service-account <SA_EMAIL>] [--no-wait]"
+    echo "Usage: $0 [--org <APIGEE_ORG>] [--env <APIGEE_ENV>] [--proxy <PROXY_NAME>] [--service-account <SA_EMAIL>] [--no-wait]"
     exit 1
 fi
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 echo "=== Packaging Proxy: $PROXY_NAME ==="
 bash "${SCRIPT_DIR}/package_bundle.sh" "$PROXY_NAME"
@@ -37,7 +44,7 @@ bash "${SCRIPT_DIR}/package_bundle.sh" "$PROXY_NAME"
 BUNDLE_ZIP="${ROOT_DIR}/apigee/dist/${PROXY_NAME}.zip"
 
 echo "=== Deploying $PROXY_NAME to Org: $ORG, Env: $ENV ==="
-TOKEN=$(gcloud auth print-access-token)
+TOKEN=$(gcloud auth application-default print-access-token 2>/dev/null || gcloud auth print-access-token --impersonate-service-account="apigee-ui-mgmt-sa@${ORG}.iam.gserviceaccount.com" 2>/dev/null || gcloud auth print-access-token)
 
 # 1. Import proxy revision
 echo "Importing proxy revision..."
