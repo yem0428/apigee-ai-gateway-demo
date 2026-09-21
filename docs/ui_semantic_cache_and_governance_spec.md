@@ -301,17 +301,23 @@ them today, though both appear in the raw headers accordion.
 > (verified against prod: `x-gateway-category: simple`), alongside
 > `x-gateway-router-category`.
 
-Because `x-gateway-category` is now populated, the `Model Routing` card's intent label is
-taken straight from the gateway's own classification. The client-side fallback at
-[apigeeClient.ts#L237-L247](file:///Users/maloosatyam/Codebase/apigee-ai-gateway-demo/ui/src/services/apigeeClient.ts#L237-L247)
-— which string-matches the model name to yield `General / Fast` (`flash`), `Deep Reasoning`
-(`pro`) or `Coding` (`claude` / `opus`) — only runs if that header is ever absent.
+Because `x-gateway-category` is now populated, the `Model Routing` card's intent label comes
+solely from the gateway's own classification. The raw header value is a lowercase enum
+(`simple` | `general` | `deep_reasoning` | `coding`), so it is passed through
+[`formatRouterCategory`](file:///Users/maloosatyam/Codebase/apigee-ai-gateway-demo/ui/src/services/apigeeClient.ts#L26-L53)
+purely for display: `deep_reasoning` renders as `Deep Reasoning`. An unrecognised category is
+title-cased rather than dropped, so a category added server-side still surfaces.
 
-> [!WARNING]
-> That fallback cannot distinguish `gemini-3.1-flash-lite` (`simple`) from
-> `gemini-3-flash-preview` (`general`), since both match `flash`, and it has no `simple`
-> case at all. It is unreachable today, but it would silently mislabel `simple` traffic as
-> `General / Fast` if `x-gateway-category` ever stopped being emitted.
+> [!IMPORTANT]
+> The client no longer guesses the intent. A previous fallback substring-matched the model
+> name to produce `General / Fast` / `Deep Reasoning` / `Coding`, which could not work:
+> `gemini-3.1-flash-lite` (`simple`) and `gemini-3-flash-preview` (`general`) both contain
+> `flash`, and there was no `simple` branch at all, so every simple request was mislabelled
+> `General / Fast`. It has been removed — the same reasoning that already applies to cost,
+> which is never recomputed client-side. If the header is absent the label stays `undefined`
+> and the trace viewer hides the chip, which is honest; a wrong label is not.
+>
+> `tests/intentlabel.unit.test.mjs` statically guards against the heuristic returning.
 
 When the request was *not* auto-routed, `intent` stays `undefined`.
 

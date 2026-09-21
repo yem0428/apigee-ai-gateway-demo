@@ -23,6 +23,36 @@ export function getGatewayTargetUrl(settings: GatewaySettings, modelOverride?: s
   return `${base}/models/${targetModel}:generateContent`;
 }
 
+// `x-gateway-category` carries the router's raw verdict, which is a lowercase
+// enum (`simple` | `general` | `deep_reasoning` | `coding`). Render it as-is and
+// the trace viewer shows "deep_reasoning" to a customer, so map it to a label.
+//
+// This is presentation only. It never decides a category, it only renames one
+// the gateway already decided.
+const ROUTER_CATEGORY_LABELS: Record<string, string> = {
+  simple: 'Simple',
+  general: 'General',
+  deep_reasoning: 'Deep Reasoning',
+  coding: 'Coding',
+};
+
+export function formatRouterCategory(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const key = raw.trim().toLowerCase();
+  if (!key) return undefined;
+  // An unrecognised category means the gateway grew a new one. Title-case it
+  // rather than dropping it: showing an unstyled but truthful label beats
+  // silently hiding the fact that routing happened.
+  return (
+    ROUTER_CATEGORY_LABELS[key] ||
+    key
+      .split(/[_\s-]+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  );
+}
+
 export async function sendPromptToApigee(
   userMessage: string,
   settings: GatewaySettings,
@@ -232,19 +262,18 @@ export async function sendPromptToApigee(
     // which is honest; a wrong number is not.
     const effectiveCostUsd = headersReceived['x-gateway-cost-usd'] || undefined;
     const effectiveCostTier = headersReceived['x-gateway-cost-tier'] || undefined;
+    // Intent is NOT guessed client-side. The gateway's router is the single
+    // classification authority and reports its verdict in `x-gateway-category`.
+    //
+    // The previous fallback substring-matched the model name, which cannot work:
+    // gemini-3.1-flash-lite (`simple`) and gemini-3-flash-preview (`general`)
+    // both contain "flash", so every simple request was mislabelled
+    // "General / Fast", and there was no `simple` case at all. That is the same
+    // mistake the cost fallback above made by guessing the tier from the model
+    // name. When the header is absent the value stays undefined and the trace
+    // viewer hides the chip, which is honest; a wrong label is not.
     const effectiveCategory = headersReceived['x-gateway-category'] || headersReceived['x-gateway-intent'];
-    let effectiveIntent: string | undefined = effectiveCategory;
-    if (!effectiveIntent && (headersReceived['x-auto-routed'] === 'true' || isAuto)) {
-      if (targetModel.includes('flash') || (headersReceived['x-gateway-model'] && headersReceived['x-gateway-model'].includes('flash'))) {
-        effectiveIntent = 'General / Fast';
-      } else if (targetModel.includes('pro') || (headersReceived['x-gateway-model'] && headersReceived['x-gateway-model'].includes('pro'))) {
-        effectiveIntent = 'Deep Reasoning';
-      } else if (targetModel.includes('claude') || targetModel.includes('opus') || (headersReceived['x-gateway-model'] && (headersReceived['x-gateway-model'].includes('claude') || headersReceived['x-gateway-model'].includes('opus')))) {
-        effectiveIntent = 'Coding';
-      } else {
-        effectiveIntent = 'General / Fast';
-      }
-    }
+    const effectiveIntent: string | undefined = formatRouterCategory(effectiveCategory);
 
     // Record real-time session wallet debit so Start Balance -> Remaining chains continuously across requests
     if (responseStatus >= 200 && responseStatus < 300) {
