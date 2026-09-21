@@ -61,7 +61,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
   const isCacheHit = telemetry.cacheStatus === 'HIT';
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 font-sans text-xs overflow-y-auto">
+    <div className="h-full flex flex-col surface-telemetry font-sans text-xs overflow-y-auto">
       {/* Header */}
       <div className="p-3.5 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between bg-white dark:bg-slate-900/40">
         <div className="flex items-center gap-2">

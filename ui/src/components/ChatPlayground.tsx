@@ -483,7 +483,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
       {/* Left Column: Chat Area */}
       <div
-        className={`flex-1 flex flex-col bg-slate-900/60 border-r border-slate-800/80 h-full overflow-hidden ${
+        className={`flex-1 flex flex-col surface-flow border-r border-slate-200 dark:border-slate-800/80 h-full overflow-hidden ${
           mobileTab === 'chat' ? 'flex' : 'hidden md:flex'
         }`}
       >
@@ -920,7 +920,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
       {/* Right Column: Clean Telemetry Inspector */}
       <div
-        className={`w-full md:w-80 lg:w-96 bg-slate-50 dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800/80 h-full overflow-hidden flex-col shrink-0 ${
+        className={`w-full md:w-80 lg:w-96 surface-telemetry border-l border-slate-200 dark:border-slate-800/80 h-full overflow-hidden flex-col shrink-0 ${
           mobileTab === 'trace' ? 'flex flex-1' : 'hidden md:flex'
         }`}
       >

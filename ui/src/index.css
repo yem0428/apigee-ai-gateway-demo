@@ -17,6 +17,52 @@ code {
 }
 
 /* ==========================================================================
+   SURFACE TOKENS
+   --------------------------------------------------------------------------
+   Two panes sit side by side across the app: the *flow* (the conversation or
+   tool console — what a caller actually gets back) and the *telemetry*
+   inspector (what the gateway observed about that call). They must never read
+   as the same material, or a demo audience cannot tell the product from the
+   instrumentation.
+
+   Both are declared per theme here rather than as Tailwind `bg-slate-*`
+   utilities, because the theme blocks below rewrite those utilities with
+   `!important` and would flatten the two panes back together.
+
+   Constraint when retuning these: the telemetry tray must stay *darker* than
+   the cards inside it (`bg-white` in light, `slate-900/80` in the dark
+   themes), otherwise the cards lose their edge and the panel goes flat.
+   ========================================================================== */
+
+html {
+  --surface-flow: #ffffff;
+  --surface-telemetry: #e7ecf6;
+}
+
+html[data-theme="midnight"] {
+  --surface-flow: #0c1322;
+  --surface-telemetry: #010207;
+}
+
+html[data-theme="sunset"] {
+  --surface-flow: #1b1715;
+  --surface-telemetry: #070504;
+}
+
+html[data-theme="cyber"] {
+  --surface-flow: #040a12;
+  --surface-telemetry: #000000;
+}
+
+.surface-flow {
+  background-color: var(--surface-flow);
+}
+
+.surface-telemetry {
+  background-color: var(--surface-telemetry);
+}
+
+/* ==========================================================================
    THEME STYLES (Light, Apigee Sunset, Cyber Matrix)
    ========================================================================== */
 

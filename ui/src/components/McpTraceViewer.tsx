@@ -362,7 +362,7 @@ export const McpTraceViewer: React.FC<McpTraceViewerProps> = ({ telemetry, loadi
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 font-sans text-xs overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+    <div className="h-full flex flex-col surface-telemetry font-sans text-xs overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
       {/* Top Header Bar */}
       <div className="p-3.5 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between bg-white dark:bg-slate-900/60 shrink-0">
         <div className="flex items-center gap-2">

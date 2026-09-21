@@ -274,7 +274,7 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
       <div className="flex-1 flex overflow-hidden">
         {/* Left Pane: Tool Explorer & Execution Console */}
         <section
-          className={`flex-1 flex flex-col min-w-0 border-r border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950 overflow-y-auto ${
+          className={`flex-1 flex flex-col min-w-0 border-r border-slate-200 dark:border-slate-800/80 surface-flow overflow-y-auto ${
             mobileTab === 'console' ? 'flex' : 'hidden md:flex'
           }`}
         >
@@ -507,7 +507,7 @@ export const McpPlayground: React.FC<McpPlaygroundProps> = ({
 
         {/* Right Pane: Protocol & Telemetry Trace Inspector */}
         <aside
-          className={`w-full md:w-[480px] lg:w-[540px] xl:w-[600px] border-l border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950 p-4 sm:p-5 shrink-0 overflow-hidden flex flex-col ${
+          className={`w-full md:w-[480px] lg:w-[540px] xl:w-[600px] border-l border-slate-200 dark:border-slate-800/80 surface-telemetry p-4 sm:p-5 shrink-0 overflow-hidden flex flex-col ${
             mobileTab === 'trace' ? 'flex' : 'hidden md:flex'
           }`}
         >
