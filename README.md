@@ -29,33 +29,49 @@ product-driven LLM token quotas, and Apigee native monetization.
 
 ### 1. 🧠 Model Routing (`/ai/v1/auto`)
 
-[AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
-classifies the prompt with regex heuristics and then picks a model **based on the caller's API
-product tier**. The tier is read from
-[`verifyapikey.VA-VerifyAPIKey.apiproduct.tier`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L9-L17)
-— the `apiproduct` namespace matters, because the bare `…VA-VerifyAPIKey.tier` form addresses *app*
-attributes and never resolves. A product **name** containing `enterprise` is used only as a
-fallback when the attribute itself is empty.
+Routing is a **two-stage decision**: a small LLM classifies the prompt, and the caller's API
+product decides which model that classification is allowed to reach.
 
-| Prompt class (heuristic) | Enterprise tier target | Standard tier target | Cost tier |
+**Stage 1 — classify.** [PrepRouterRequest.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/PrepRouterRequest.js)
+builds a classification request and `SC-ModelRouter` calls **`gemini-3.1-flash-lite`** on Vertex AI
+with a strict `responseSchema` pinning the answer to one of four categories — `coding`,
+`deep_reasoning`, `simple`, `general` — at `temperature: 0`. Only the first 500 characters of the
+prompt are sent, which bounds classifier latency and cost.
+
+**Stage 2 — entitle.** [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
+reads the category and resolves the model from a **custom attribute on the caller's API product**:
+
+```
+verifyapikey.VA-VerifyAPIKey.apiproduct.routing.model.<category>
+```
+
+The policy contains **no model names and no prompt heuristics**. The model map lives entirely on
+the product, so the same classification yields a different model per tier:
+
+| Router category | Enterprise AI Tier | Standard AI Tier | Cost tier |
 | :--- | :--- | :--- | :--- |
-| Coding (`def `, `class `, `SELECT `, ` ``` `, `refactor`, `regex`, …) | `claude-opus-4-5@20251101` *(anthropic)* | `gemini-3-flash-preview` | high / medium |
-| Deep reasoning (`compare`, `architect`, `trade-off`, `benchmark`, `root cause`, …) | `gemini-3.1-pro-preview` | `gemini-3-flash-preview` | high / medium |
-| Simple (< 200 chars, no coding or reasoning hits) | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` | low |
-| Everything else (≥ 200 chars, general) | `gemini-3-flash-preview` | `gemini-3-flash-preview` | medium |
+| `coding` | `claude-opus-4-5@20251101` *(anthropic)* | `gemini-3-flash-preview` | high / medium |
+| `deep_reasoning` | `gemini-3.1-pro-preview` | `gemini-3-flash-preview` | high / medium |
+| `simple` | `gemini-3.1-flash-lite` | `gemini-3.1-flash-lite` | low |
+| `general` | `gemini-3-flash-preview` | `gemini-3-flash-preview` | medium |
 
-The Standard branch is **capped at `gemini-3-flash-preview`**: it has exactly two outcomes —
-`gemini-3.1-flash-lite` for simple prompts and `gemini-3-flash-preview` for everything else. A
-Standard key can never be routed to `gemini-3.1-pro-preview` or `claude-opus-4-5@20251101`.
+The Standard branch is **capped at `gemini-3-flash-preview`** — a Standard key can never reach
+`gemini-3.1-pro-preview` or `claude-opus-4-5@20251101`, because those names appear nowhere in its
+product. Changing the routing map is a **product edit, not a code change**; re-run
+`apigee/scripts/provision_unified_credentials.py` and the new mapping takes effect in ~10s with no
+proxy redeploy.
 
-Tier resolution **fails closed**: premium routing requires a positive enterprise signal, so an
-unresolved tier is downgraded to the constrained Standard branch rather than handed the expensive
-models. The downgrade is visible in the trace via `flow.routingTier`.
+**Degradation is explicit.** `SC-ModelRouter` is `continueOnError="true"` with a 2.5s timeout, and
+an empty prompt skips the callout entirely. If the classifier times out, errors, or returns
+something unparseable, the category stays unresolved and the request falls back to the product's
+`routing.model.general`. There is no hidden second classifier: a product that declares no routing
+attributes resolves **no model at all** rather than quietly serving one it may not entitle.
 
-Coding heuristics take precedence over deep-reasoning heuristics on the Enterprise branch. The
-policy writes `flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted` and
-`flow.routingTier`; `flow.target_provider == "anthropic"` is what selects the Claude Vertex target
-at route time.
+`flow.target_provider` is derived from the resolved model name (`claude…` → `anthropic`) and is what
+selects the Claude Vertex target at route time. The policy writes `flow.target_model`, `flow.model`,
+`flow.target_provider`, `flow.autoRouted`, `flow.routerCategory` and `flow.routingTier`; the chosen
+category is echoed to the caller as `x-gateway-category`. `flow.routingTier` is **tracing only** —
+it no longer selects a model.
 
 **Routing selects a model; it does not do costing.** `flow.costTier` is set in exactly one place,
 [CalculateCost.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/CalculateCost.js),
@@ -217,6 +233,8 @@ the live test suite all read it, so headers must not be renamed or dropped.
 | `x-gateway-model` | `flow.target_model` | Model actually invoked upstream |
 | `x-gateway-provider` | `flow.target_provider` | `google` or `anthropic` — also selects the Vertex target |
 | `x-auto-routed` | `flow.autoRouted` | Whether `AutoRouting.js` chose the model |
+| `x-gateway-category` | `flow.routerCategory` | Category the router model returned: `coding` / `deep_reasoning` / `simple` / `general`. Empty when the classifier was skipped or failed |
+| `x-gateway-router-category` | `flow.routerCategory` | Alias of the above, kept so the UI trace inspector and the analytics dashboard can read either name |
 | `x-gateway-cost-tier` | `flow.costTier` | `low` / `medium` / `high` routing classification |
 | `x-gateway-cost-usd` | `flow.tx_cost_usd` | Computed request cost |
 | `x-gateway-currency` | *(literal `USD`)* | Currency for the cost fields |

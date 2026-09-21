@@ -78,6 +78,18 @@
         <Condition>request.verb != "OPTIONS"</Condition>
       </Step>
       <Step>
+        <Name>JS-PrepRouterRequest</Name>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*"))</Condition>
+      </Step>
+      <Step>
+        <Name>AM-PrepRouterRequest</Name>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")) and flow.skipRouterCallout != "true"</Condition>
+      </Step>
+      <Step>
+        <Name>SC-ModelRouter</Name>
+        <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*")) and flow.skipRouterCallout != "true"</Condition>
+      </Step>
+      <Step>
         <Name>JS-AutoRouting</Name>
         <Condition>request.verb != "OPTIONS" and ((proxy.pathsuffix MatchesPath "/auto*") or (proxy.pathsuffix JavaRegex "^/auto.*"))</Condition>
       </Step>

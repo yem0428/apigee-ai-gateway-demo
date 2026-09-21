@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ServiceCallout async="false" continueOnError="true" enabled="true" name="SC-ModelRouter">
+  <DisplayName>SC-ModelRouter</DisplayName>
+  <Properties>
+    <Property name="io.timeout.millis">2500</Property>
+  </Properties>
+  <Request clearPayload="true" variable="routerRequest">
+    <IgnoreUnresolvedVariables>false</IgnoreUnresolvedVariables>
+  </Request>
+  <Response>routerResponse</Response>
+  <Timeout>2500</Timeout>
+  <HTTPTargetConnection>
+    <Authentication>
+      <GoogleAccessToken>
+        <Scopes>
+          <Scope>https://www.googleapis.com/auth/cloud-platform</Scope>
+        </Scopes>
+      </GoogleAccessToken>
+    </Authentication>
+    <URL>https://aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent</URL>
+  </HTTPTargetConnection>
+</ServiceCallout>

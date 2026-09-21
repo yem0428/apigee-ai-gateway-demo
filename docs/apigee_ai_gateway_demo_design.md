@@ -21,7 +21,7 @@ Capabilities that are actually implemented and deployed:
 | # | Capability | Where it lives |
 | :-- | :--- | :--- |
 | 1 | **Multi-provider model routing** (Gemini + Claude on Vertex) | [default.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L187-L193) route rules |
-| 2 | **Intelligent auto-routing** driven by prompt heuristics + product tier | [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js) |
+| 2 | **Intelligent auto-routing** — a `gemini-3.1-flash-lite` router model classifies the prompt, then product `routing.model.*` attributes pick the model | `SC-ModelRouter` → [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js) |
 | 3 | **Caller identity enforcement** (JWT `email` claim) | `DJWT-ExtractUserIdentity` → `RF-MissingUserEmail` |
 | 4 | **Model Armor prompt/response guardrails** | `SUP-UserPrompt`, `SMR-SanitizeModelResponse` |
 | 5 | **Semantic caching** on Vertex Vector Search | `SCL-Semantic-Cache-Lookup`, `SCP-Semantic-Cache-Populate` |
@@ -76,7 +76,7 @@ flowchart TB
         P4["4. VA-VerifyAPIKey (401 on product mismatch)"]
         P5["5. SUP-UserPrompt (Model Armor, 400 on match)"]
         P6["6. MLC-EnforceMonetizationLimits (403) + QC-EnforceBudgetLimit"]
-        P7["7. Routing prep: JS-AutoRouting / AM-PrepGeminiDirect / AM-PrepClaudeDirect"]
+        P7["7. Routing prep: JS-PrepRouterRequest / SC-ModelRouter / JS-AutoRouting / AM-PrepGeminiDirect / AM-PrepClaudeDirect"]
         P8["8. SCL-Semantic-Cache-Lookup (only when use-cache header is true)"]
         P9["9. LTQ-TokenEnforce (conditional flow: claude-haiku-4-5 only)"]
     end
@@ -138,11 +138,14 @@ Every step carries `request.verb != "OPTIONS"`.
 | 12 | `QC-EnforceBudgetLimit` | — |
 | 13 | `AM-RemoveAuthorization` | — |
 | 14 | `AM-InitCacheStatus` | — |
-| 15 | `JS-AutoRouting` | `/auto*` **or** regex `^/auto.*` (so bare `/auto` matches) |
-| 16 | `AM-PrepGeminiDirect` | `/models/gemini*` or regex `^/models/gemini.*` |
-| 17 | `AM-PrepClaudeDirect` | `/models/claude*` or regex `^/models/claude.*` |
-| 18 | `AM-SetCacheHitExpected` | `use-cache` or `x-use-cache` header is `true` |
-| 19 | `SCL-Semantic-Cache-Lookup` | same cache-header condition |
+| 15 | `JS-PrepRouterRequest` | `/auto*` **or** regex `^/auto.*` (so bare `/auto` matches) |
+| 16 | `AM-PrepRouterRequest` | same `/auto` condition **and** `flow.skipRouterCallout != "true"` |
+| 17 | `SC-ModelRouter` | same `/auto` condition **and** `flow.skipRouterCallout != "true"` |
+| 18 | `JS-AutoRouting` | same `/auto` condition |
+| 19 | `AM-PrepGeminiDirect` | `/models/gemini*` or regex `^/models/gemini.*` |
+| 20 | `AM-PrepClaudeDirect` | `/models/claude*` or regex `^/models/claude.*` |
+| 21 | `AM-SetCacheHitExpected` | `use-cache` or `x-use-cache` header is `true` |
+| 22 | `SCL-Semantic-Cache-Lookup` | same cache-header condition |
 
 ### 2.2 Conditional flows
 
@@ -190,7 +193,7 @@ request. This rule re-emits just the two identifying collectors — `dc_user_ema
 unentitled-model 401 is attributed to the caller who made it.
 
 The model collector reads `flow.model`, **not** `flow.target_model`. Guardrails fire at PreFlow
-steps 10-12, before `JS-AutoRouting` at step 15 has resolved a target, so `flow.target_model` is
+steps 10-12, before `JS-AutoRouting` at step 18 has resolved a target, so `flow.target_model` is
 still unset on every fault path — whereas `flow.model` is populated from the URI early in PreFlow.
 
 > [!IMPORTANT]
@@ -590,34 +593,49 @@ URL construction differs only between `auto` and a named model
 | any `gemini-*` | `{proxyPath}/models/{model}:generateContent` |
 | any `claude-*` | `{proxyPath}/models/{model}:generateContent` — the same unified path; the gateway converts the request and normalises the response |
 
-### 6.2 Auto-routing heuristics
+### 6.2 Auto-routing: router model + product attributes
 
-Source: [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js).
-The script reads `flow.userPrompt` plus
-`verifyapikey.VA-VerifyAPIKey.apiproduct.tier` and `...apiproduct.name`, then sets
-`flow.target_model`, `flow.model`, `flow.target_provider`, `flow.autoRouted`
-and `flow.routingTier`. It does **not** set `flow.costTier` — the cost tiers shown
-in the table below are the values `JS-CalculateCost` derives downstream from the
+Routing on `/auto` is two policies, not one heuristic.
+
+**Classify.** `SC-ModelRouter` calls **`gemini-3.1-flash-lite`** on Vertex AI with the
+payload built by
+[PrepRouterRequest.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/PrepRouterRequest.js):
+a 500-character excerpt of the prompt, `temperature: 0`, and a `responseSchema`
+that constrains the reply to one enum — `coding`, `deep_reasoning`, `simple`,
+`general`.
+
+**Entitle.** [AutoRouting.js](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js)
+reads that category and looks up
+`verifyapikey.VA-VerifyAPIKey.apiproduct.routing.model.<category>`, then sets
+`flow.routerCategory`, `flow.target_model`, `flow.model`, `flow.target_provider`,
+`flow.autoRouted` and `flow.routingTier`. It does **not** set `flow.costTier` — the
+cost tiers below are what `JS-CalculateCost` derives downstream from the
 `ai-model-rates` KVM for each selected model, not something routing asserts.
 
-| Classification | Trigger | Standard tier | Enterprise tier |
-| :--- | :--- | :--- | :--- |
-| Coding | regex on `def / class / function / import / const / let / var / SELECT / FROM / WHERE / UPDATE / INSERT / DELETE / ``` / refactor / regex / async` | `gemini-3-flash-preview` (medium) | `claude-opus-4-5@20251101`, provider `anthropic` (high) |
-| Deep reasoning | regex on `compare / architect / deep / reasoning / evaluate / trade-off / multi-step / benchmark / optimize / root cause` | `gemini-3-flash-preview` (medium) | `gemini-3.1-pro-preview` (high) |
-| Simple | `< 200` chars and neither of the above | `gemini-3.1-flash-lite` (low) | `gemini-3.1-flash-lite` (low) |
-| Fallback | anything else | `gemini-3-flash-preview` (medium) | `gemini-3-flash-preview` (medium) |
+| Router category | Standard tier | Enterprise tier |
+| :--- | :--- | :--- |
+| `coding` | `gemini-3-flash-preview` (medium) | `claude-opus-4-5@20251101`, provider `anthropic` (high) |
+| `deep_reasoning` | `gemini-3-flash-preview` (medium) | `gemini-3.1-pro-preview` (high) |
+| `simple` | `gemini-3.1-flash-lite` (low) | `gemini-3.1-flash-lite` (low) |
+| `general` | `gemini-3-flash-preview` (medium) | `gemini-3-flash-preview` (medium) |
+
+Both columns come from the `routing.model.*` attributes on the respective API
+Product — the table is a rendering of product configuration, not of code.
 
 > [!IMPORTANT]
-> Tier resolution **fails closed**. Premium routing (Pro / Opus) requires a positive
-> enterprise signal: the API Product name must contain `enterprise`. Anything else —
-> including an unresolved entitlement — falls back to the constrained Standard branch
-> rather than handing out the expensive models by default. The decision is exposed as
-> `flow.routingTier` so a silent downgrade is visible in a trace
-> ([AutoRouting.js#L6-L19](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js#L6-L19)).
+> **The tier cap is enforced by entitlement, not by a branch.** There is no
+> `if (isStandard)` in the policy any more, and no model name either. A Standard
+> caller cannot reach Pro or Opus because those names are absent from the Standard
+> product's attributes. If the classifier is slow, fails, or returns a category the
+> product does not map, the request falls back to that product's
+> `routing.model.general`; if the product declares no routing attributes at all,
+> no model resolves and the misconfiguration surfaces instead of being papered over.
+> `flow.routingTier` is still emitted for tracing but no longer selects a model.
 
-No product carries a `tier` attribute any more — the only attribute left on any product is
-`access: private` — so the product **name** is the sole tier signal. It must be read from
-the `apiproduct` namespace: `verifyapikey.VA-VerifyAPIKey.apiproduct.name`.
+The AI tier products therefore carry three classes of attribute: `access: private`,
+the three `developer.budget.*` values, and the four `routing.model.*` values. The
+product **name** remains the source of `flow.routingTier`, read from the
+`apiproduct` namespace: `verifyapikey.VA-VerifyAPIKey.apiproduct.name`.
 
 ### 6.3 Cost rate card
 
@@ -741,7 +759,7 @@ Two client-side behaviours matter before a live demo:
 
 ## 7. Policy Catalog & Fault Interception
 
-### 7.1 `ai-gateway-v1` — all 36 policies
+### 7.1 `ai-gateway-v1` — all 42 policies
 
 | Policy | Apigee type | Role |
 | :--- | :--- | :--- |
@@ -761,7 +779,10 @@ Two client-side behaviours matter before a live demo:
 | `RF-StreamingNotSupported` | RaiseFault | **HTTP 501 UNIMPLEMENTED** on `:streamGenerateContent`. Without it the request was served as a non-streaming 200 |
 | `AM-RemoveAuthorization` | AssignMessage | Strips the client `Authorization` header before upstream |
 | `AM-InitCacheStatus` | AssignMessage | Initialises cache flow variables |
-| `JS-AutoRouting` | Javascript | Heuristic model selection on `/auto*` |
+| `JS-PrepRouterRequest` | Javascript | Builds the router payload (`flow.routerPayload`) on `/auto*`; sets `flow.skipRouterCallout` when the prompt is empty |
+| `AM-PrepRouterRequest` | AssignMessage | Materialises `routerRequest` from `flow.routerPayload` |
+| `SC-ModelRouter` | ServiceCallout | Calls `gemini-3.1-flash-lite` on Vertex AI to classify the prompt into one of `coding` / `deep_reasoning` / `simple` / `general`. `continueOnError="true"`, 2.5s timeout |
+| `JS-AutoRouting` | Javascript | Joins the router category to the API product's `routing.model.<category>` attribute to select the model on `/auto*` |
 | `AM-PrepGeminiDirect` | AssignMessage | Sets `target_model` / `target_provider=google` |
 | `AM-PrepClaudeDirect` | AssignMessage | Sets `target_provider=anthropic` |
 | `AM-SetCacheHitExpected` | AssignMessage | Marks the request as cache-eligible |
@@ -786,12 +807,13 @@ Two client-side behaviours matter before a live demo:
 | `ML-CloudLogging` | MessageLogging | PostClientFlow audit log — incl. `prompt`, `response`, `cached`; fires on faults too |
 
 > [!NOTE]
-> The bundle contains exactly **36** policy files
+> The bundle contains exactly **42** policy files
 > (`ls apigee/proxies/ai-gateway-v1/apiproxy/policies/*.xml | wc -l`). Every one is listed
 > above.
 
-JavaScript resources: `AutoRouting.js`, `CalculateCost.js`, `ClaudeRequestPrep.js`,
-`ExtractPromptAndModel.js`, `FormatClaudeResponse.js`.
+JavaScript resources: `AuditBudgetAccounting.js`, `AutoRouting.js`, `CalculateCost.js`,
+`ClaudeRequestPrep.js`, `ExtractPromptAndModel.js`, `FormatClaudeResponse.js`,
+`PrepRouterRequest.js`.
 
 ### 7.2 `mcp` proxy policies
 
@@ -1027,7 +1049,7 @@ flips to `Blocked (400)`.
 ### Step 3 — Intelligent auto-routing (3 classifications)
 
 Chip: **`🧠 Auto: General / Fast (1/3)` → `Deep Reasoning (2/3)` → `Coding (3/3)`**
-(`AUTO_ROUTING_EXAMPLES`, admin persona so the enterprise branch of `AutoRouting.js` runs).
+(`AUTO_ROUTING_EXAMPLES`, admin persona so the Enterprise product's `routing.model.*` attributes apply).
 
 | Step | Prompt | Expected model |
 | :--- | :--- | :--- |

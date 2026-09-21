@@ -7,6 +7,7 @@
     <Policy>AM-InitCacheStatus</Policy>
     <Policy>AM-PrepClaudeDirect</Policy>
     <Policy>AM-PrepGeminiDirect</Policy>
+    <Policy>AM-PrepRouterRequest</Policy>
     <Policy>AM-RemoveAuthorization</Policy>
     <Policy>AM-RouteClaudeTarget</Policy>
     <Policy>AM-RouteGeminiTarget</Policy>
@@ -27,6 +28,7 @@
     <Policy>JS-ClaudeRequestPrep</Policy>
     <Policy>JS-ExtractPromptAndModel</Policy>
     <Policy>JS-FormatClaudeResponse</Policy>
+    <Policy>JS-PrepRouterRequest</Policy>
     <Policy>KVM-GetModelRates</Policy>
     <Policy>LTQ-TokenCount</Policy>
     <Policy>LTQ-TokenEnforce</Policy>
@@ -38,6 +40,7 @@
     <Policy>RF-BudgetExceeded</Policy>
     <Policy>RF-StreamingNotSupported</Policy>
     <Policy>RF-MissingUserEmail</Policy>
+    <Policy>SC-ModelRouter</Policy>
     <Policy>SCL-Semantic-Cache-Lookup</Policy>
     <Policy>SCP-Semantic-Cache-Populate</Policy>
     <Policy>SMR-SanitizeModelResponse</Policy>
@@ -50,6 +53,7 @@
     <Resource>jsc://ClaudeRequestPrep.js</Resource>
     <Resource>jsc://ExtractPromptAndModel.js</Resource>
     <Resource>jsc://FormatClaudeResponse.js</Resource>
+    <Resource>jsc://PrepRouterRequest.js</Resource>
     <Resource>properties://model_rates.properties</Resource>
     <Resource>oas://openapi.yaml</Resource>
   </Resources>

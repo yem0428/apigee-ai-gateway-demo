@@ -7,28 +7,77 @@ import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const autoRoutingPath = path.resolve(__dirname, "../../apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc/AutoRouting.js");
-const autoRoutingCode = fs.readFileSync(autoRoutingPath, "utf8");
+
+const jscDir = path.resolve(__dirname, "../../apigee/proxies/ai-gateway-v1/apiproxy/resources/jsc");
+const autoRoutingCode = fs.readFileSync(path.join(jscDir, "AutoRouting.js"), "utf8");
+const prepRouterCode = fs.readFileSync(path.join(jscDir, "PrepRouterRequest.js"), "utf8");
 
 /**
- * Helper to execute AutoRouting.js in an isolated Node vm sandbox simulating Apigee JSC context.
+ * AutoRouting.js with comments removed.
+ *
+ * The static guards below assert that no model name and no prompt-classification logic
+ * survives in the policy. They have to run against executable code only: the header
+ * comment legitimately names gemini-3.1-flash-lite as the classifier, and a guard that
+ * trips on its own documentation is a guard someone deletes.
  */
-function runAutoRouting({ userPrompt = "", tier = "", productName } = {}) {
-  // The gateway carries NO custom attributes. The routing tier is derived from
-  // the API PRODUCT NAME alone, so `tier` here is a convenience that synthesises
-  // the matching product name. Pass `productName` explicitly to control it.
-  const resolvedProductName =
-    productName !== undefined ? productName : tier ? `${tier} AI Tier` : "";
+const autoRoutingExecutable = autoRoutingCode
+  .replace(/\/\*[\s\S]*?\*\//g, "")
+  .replace(/^\s*\/\/.*$/gm, "");
+
+/**
+ * The routing model map as actually configured on the two AI tier API products.
+ *
+ * These are NOT test fixtures invented here: they mirror the `routing.model.*` custom
+ * attributes in apigee/products/{standard,enterprise}_ai_tier.json. `productAttributes`
+ * below asserts that correspondence against the product JSON itself, so a product edit
+ * that is not reflected here fails rather than silently drifting.
+ */
+const PRODUCT_ROUTING = {
+  "Enterprise AI Tier": {
+    coding: "claude-opus-4-5@20251101",
+    deep_reasoning: "gemini-3.1-pro-preview",
+    simple: "gemini-3.1-flash-lite",
+    general: "gemini-3-flash-preview",
+  },
+  "Standard AI Tier": {
+    coding: "gemini-3-flash-preview",
+    deep_reasoning: "gemini-3-flash-preview",
+    simple: "gemini-3.1-flash-lite",
+    general: "gemini-3-flash-preview",
+  },
+};
+
+/** Builds the Vertex `generateContent` envelope SC-ModelRouter writes to `routerResponse`. */
+function routerResponse(categoryText) {
+  return JSON.stringify({
+    candidates: [{ content: { role: "model", parts: [{ text: categoryText }] } }],
+  });
+}
+
+/**
+ * Executes AutoRouting.js in an isolated vm sandbox simulating the Apigee JSC context.
+ *
+ * `product` selects which set of `routing.model.*` attributes VA-VerifyAPIKey resolved.
+ * Pass `attributes: {}` to simulate a product that carries none.
+ */
+function runAutoRouting({
+  routerContent = undefined,
+  product = "Enterprise AI Tier",
+  attributes = undefined,
+  productName = undefined,
+} = {}) {
+  const resolvedName = productName !== undefined ? productName : product;
+  const routingMap = attributes !== undefined ? attributes : PRODUCT_ROUTING[product] || {};
 
   const variables = {
-    "flow.userPrompt": userPrompt,
-    // Both custom-attribute forms are deliberately left populated. The policy
-    // must NOT read either of them; the "ignores custom attributes" test below
-    // fails loudly if a change starts depending on them again.
-    "verifyapikey.VA-VerifyAPIKey.apiproduct.tier": tier,
-    "verifyapikey.VA-VerifyAPIKey.tier": tier,
-    "verifyapikey.VA-VerifyAPIKey.apiproduct.name": resolvedProductName,
+    "verifyapikey.VA-VerifyAPIKey.apiproduct.name": resolvedName,
   };
+  for (const [category, model] of Object.entries(routingMap)) {
+    variables[`verifyapikey.VA-VerifyAPIKey.apiproduct.routing.model.${category}`] = model;
+  }
+  if (routerContent !== undefined) {
+    variables["routerResponse.content"] = routerContent;
+  }
 
   const context = {
     getVariable: (name) => (variables[name] !== undefined ? variables[name] : null),
@@ -37,11 +86,7 @@ function runAutoRouting({ userPrompt = "", tier = "", productName } = {}) {
     },
   };
 
-  const sandbox = {
-    context,
-    console,
-  };
-
+  const sandbox = { context, console };
   vm.createContext(sandbox);
   vm.runInContext(autoRoutingCode, sandbox);
 
@@ -50,238 +95,373 @@ function runAutoRouting({ userPrompt = "", tier = "", productName } = {}) {
     model: variables["flow.model"],
     targetProvider: variables["flow.target_provider"],
     autoRouted: variables["flow.autoRouted"],
-    costTier: variables["flow.costTier"],
+    routerCategory: variables["flow.routerCategory"],
     routingTier: variables["flow.routingTier"],
+    costTier: variables["flow.costTier"],
     allVars: variables,
   };
 }
 
-describe("AutoRouting.js - Unit Test Suite", () => {
-  describe("1. Enterprise Tier (Default / Multi-Provider Routing)", () => {
-    describe("Coding Heuristics -> claude-opus-4-5@20251101 (anthropic)", () => {
-      const codingPrompts = [
-        { label: "Python def", prompt: "def calculate_discount(price, rate): return price * (1 - rate)" },
-        { label: "Python class", prompt: "class TransactionManager: pass" },
-        { label: "JavaScript function", prompt: "function computeHash(payload) { return sha256(payload); }" },
-        { label: "Import statement", prompt: "import { useState, useEffect } from \"react\";" },
-        { label: "const declaration", prompt: "const MAX_RETRIES = 5;" },
-        { label: "let declaration", prompt: "let currentIndex = 0;" },
-        { label: "var declaration", prompt: "var token = getAuthToken();" },
-        { label: "SQL SELECT", prompt: "SELECT id, email, status FROM users WHERE status = \"active\"" },
-        { label: "SQL FROM and WHERE", prompt: "Extract records FROM orders WHERE total > 1000" },
-        { label: "SQL UPDATE", prompt: "UPDATE accounts SET balance = balance - 50" },
-        { label: "SQL INSERT", prompt: "INSERT INTO audit_log (action) VALUES (\"LOGIN\")" },
-        { label: "SQL DELETE", prompt: "DELETE FROM session_cache WHERE expired = true" },
-        { label: "Markdown code fence", prompt: "Here is the snippet: ```json {\"enabled\": true} ```" },
-        { label: "Refactor keyword", prompt: "Please refactor this service layer to use dependency injection" },
-        { label: "Regex keyword", prompt: "Help me write a regex to validate international phone numbers" },
-        { label: "Async keyword", prompt: "async function fetchCustomerProfile(id) { return await api.get(id); }" },
-        { label: "Code keyword", prompt: "Please write code to generate a secure HMAC-SHA256 signature" },
-      ];
+/** Executes PrepRouterRequest.js in the same kind of sandbox. */
+function runPrepRouter(userPrompt) {
+  const variables = { "flow.userPrompt": userPrompt };
+  const context = {
+    getVariable: (name) => (variables[name] !== undefined ? variables[name] : null),
+    setVariable: (name, val) => {
+      variables[name] = val;
+    },
+  };
+  const sandbox = { context, console };
+  vm.createContext(sandbox);
+  vm.runInContext(prepRouterCode, sandbox);
 
-      for (const { label, prompt } of codingPrompts) {
-        it(`routes ${label} to Claude Opus 4.5`, () => {
-          const res = runAutoRouting({ userPrompt: prompt, tier: "enterprise" });
-          assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
-          assert.strictEqual(res.targetProvider, "anthropic");
-          assert.strictEqual(res.autoRouted, "true");
+  return {
+    skip: variables["flow.skipRouterCallout"],
+    payload: variables["flow.routerPayload"],
+    parsed: JSON.parse(variables["flow.routerPayload"]),
+  };
+}
+
+describe("AutoRouting.js - LLM Router Model Unit Test Suite", () => {
+  describe("1. Router category -> product attribute resolution (Enterprise AI Tier)", () => {
+    const cases = [
+      ["coding", "claude-opus-4-5@20251101", "anthropic"],
+      ["deep_reasoning", "gemini-3.1-pro-preview", "google"],
+      ["simple", "gemini-3.1-flash-lite", "google"],
+      ["general", "gemini-3-flash-preview", "google"],
+    ];
+
+    for (const [category, expectedModel, expectedProvider] of cases) {
+      it(`routes category "${category}" to ${expectedModel}`, () => {
+        const res = runAutoRouting({
+          routerContent: routerResponse(JSON.stringify({ category })),
+          product: "Enterprise AI Tier",
         });
-      }
+        assert.strictEqual(res.routerCategory, category);
+        assert.strictEqual(res.targetModel, expectedModel);
+        assert.strictEqual(res.model, expectedModel);
+        assert.strictEqual(res.targetProvider, expectedProvider);
+        assert.strictEqual(res.autoRouted, "true");
+      });
+    }
+  });
+
+  describe("2. The SAME category resolves differently per product (attribute-driven)", () => {
+    // This is the whole point of moving the model map onto the API product: the routing
+    // decision is one classification, and entitlement is applied by the product. If these
+    // two ever return the same model for `coding`, the tier cap has stopped working.
+    it("routes coding to Opus on Enterprise but to Flash on Standard", () => {
+      const ent = runAutoRouting({
+        routerContent: routerResponse('{"category": "coding"}'),
+        product: "Enterprise AI Tier",
+      });
+      const std = runAutoRouting({
+        routerContent: routerResponse('{"category": "coding"}'),
+        product: "Standard AI Tier",
+      });
+
+      assert.strictEqual(ent.targetModel, "claude-opus-4-5@20251101");
+      assert.strictEqual(ent.targetProvider, "anthropic");
+      assert.strictEqual(std.targetModel, "gemini-3-flash-preview");
+      assert.strictEqual(std.targetProvider, "google");
     });
 
-    describe("Deep Reasoning Heuristics -> gemini-3.1-pro-preview (google)", () => {
-      const deepPrompts = [
-        { label: "compare keyword", prompt: "Compare Apache Kafka and Google Cloud Pub/Sub for event streaming" },
-        { label: "architect keyword", prompt: "Help me architect a fault-tolerant multi-region payment gateway" },
-        { label: "deep keyword", prompt: "Conduct a deep investigation into GC pause time spikes in Go services" },
-        { label: "reasoning keyword", prompt: "Provide step-by-step reasoning for resolving this distributed consensus bug" },
-        { label: "evaluate keyword", prompt: "Evaluate the security risks of third-party MCP tool integrations" },
-        { label: "trade-off keyword", prompt: "Explain the consistency vs latency trade-off in distributed storage" },
-        { label: "multi-step keyword", prompt: "Outline a multi-step migration strategy to split a monolithic database into sharded tables" },
-        { label: "benchmark keyword", prompt: "Design a load benchmark experiment for 100,000 requests per second" },
-        { label: "optimize keyword", prompt: "How do we optimize vector similarity search across 10 million embeddings?" },
-        { label: "root cause keyword", prompt: "Determine the root cause of connection pool exhaustion under load" },
-      ];
-
-      for (const { label, prompt } of deepPrompts) {
-        it(`routes ${label} to Gemini 3.1 Pro Preview`, () => {
-          const res = runAutoRouting({ userPrompt: prompt, tier: "enterprise" });
-          assert.strictEqual(res.targetModel, "gemini-3.1-pro-preview");
-          assert.strictEqual(res.targetProvider, "google");
-          assert.strictEqual(res.autoRouted, "true");
+    it("never routes a Standard caller to Pro or Opus for any category", () => {
+      for (const category of ["coding", "deep_reasoning", "simple", "general"]) {
+        const res = runAutoRouting({
+          routerContent: routerResponse(JSON.stringify({ category })),
+          product: "Standard AI Tier",
         });
+        assert.notStrictEqual(res.targetModel, "claude-opus-4-5@20251101");
+        assert.notStrictEqual(res.targetModel, "gemini-3.1-pro-preview");
+        assert.strictEqual(res.targetProvider, "google");
       }
     });
+  });
 
-    describe("Simple Prompts -> gemini-3.1-flash-lite (google)", () => {
-      const simplePrompts = [
-        "Hi!",
-        "What is the capital of Japan?",
-        "Tell me a one-line joke.",
-        "Summarize this sentence in 3 words: The sky is blue and clear today.",
-        "Translate hello to Spanish.",
-      ];
-
-      for (const prompt of simplePrompts) {
-        it(`routes simple prompt "${prompt}" to Gemini 3.1 Flash Lite`, () => {
-          const res = runAutoRouting({ userPrompt: prompt, tier: "enterprise" });
-          assert.strictEqual(res.targetModel, "gemini-3.1-flash-lite");
-          assert.strictEqual(res.targetProvider, "google");
-          assert.strictEqual(res.autoRouted, "true");
-        });
-      }
+  describe("3. Router response parsing robustness", () => {
+    it("parses a pretty-printed JSON body", () => {
+      const res = runAutoRouting({
+        routerContent: routerResponse('{\n  "category": "deep_reasoning"\n}'),
+      });
+      assert.strictEqual(res.routerCategory, "deep_reasoning");
+      assert.strictEqual(res.targetModel, "gemini-3.1-pro-preview");
     });
 
-    describe("General Complex Prompts (>= 200 chars, no code, no deep reasoning) -> gemini-3-flash-preview (google)", () => {
-      it("routes general lengthy paragraph to Gemini 3 Flash", () => {
-        const longPrompt =
-          "The quick brown fox jumps over the lazy dog repeatedly until evening shadows settle across the ancient hills. " +
-          "All creatures gather silently to witness such extraordinary agility, boundless endurance, and calm harmony " +
-          "in the pristine forest canopy.";
-        assert.ok(longPrompt.length >= 200, "Prompt must be at least 200 characters");
+    it("strips ```json fences before parsing", () => {
+      const res = runAutoRouting({
+        routerContent: routerResponse('```json\n{"category": "coding"}\n```'),
+      });
+      assert.strictEqual(res.routerCategory, "coding");
+      assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
+    });
 
-        const res = runAutoRouting({ userPrompt: longPrompt, tier: "enterprise" });
+    it("recovers the category by regex when the body is not valid JSON", () => {
+      // Guards the `catch` arm of extractCategory: a truncated body still carries a
+      // usable decision, and discarding it would silently demote the request to general.
+      const res = runAutoRouting({
+        routerContent: routerResponse('{"category": "simple", "confidence":'),
+      });
+      assert.strictEqual(res.routerCategory, "simple");
+      assert.strictEqual(res.targetModel, "gemini-3.1-flash-lite");
+    });
+
+    it("normalises case and surrounding whitespace in the category", () => {
+      const res = runAutoRouting({
+        routerContent: routerResponse('{"category": "  CODING  "}'),
+      });
+      assert.strictEqual(res.routerCategory, "coding");
+      assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
+    });
+  });
+
+  describe("4. Router unavailable -> general attribute, never a hardcoded model", () => {
+    // The regex heuristics and the hardcoded per-tier model map were both deleted. The
+    // ONLY remaining source of a model name is the API product, so every degraded path
+    // has to land on `routing.model.general` rather than on a literal in the policy.
+    const degraded = [
+      ["callout never ran (empty prompt / skipped)", undefined],
+      ["callout timed out and left no body", ""],
+      ["callout returned an error envelope", '{"error":{"code":429,"message":"quota"}}'],
+      ["callout returned no candidates", '{"candidates":[]}'],
+      ["callout returned unparseable content", "not-json-at-all"],
+      ["candidate carried no recognisable category", routerResponse('{"label":"coding"}')],
+    ];
+
+    for (const [label, content] of degraded) {
+      it(`falls back to routing.model.general when the ${label}`, () => {
+        const res = runAutoRouting({ routerContent: content, product: "Enterprise AI Tier" });
+        assert.strictEqual(res.routerCategory, null, "category must stay unresolved");
         assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
         assert.strictEqual(res.targetProvider, "google");
         assert.strictEqual(res.autoRouted, "true");
       });
-    });
+    }
 
-    describe("Precedence Order (Coding beats Deep Reasoning in Enterprise)", () => {
-      it("routes prompt with both coding and reasoning keywords to Claude Opus", () => {
-        const combinedPrompt = "Architect an event pipeline and provide the Python code: def handle_message(msg): pass";
-        const res = runAutoRouting({ userPrompt: combinedPrompt, tier: "enterprise" });
-        assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
-        assert.strictEqual(res.targetProvider, "anthropic");
+    it("falls back to general when the router invents a category the product does not map", () => {
+      // The responseSchema enum makes this unlikely, not impossible. An unmapped category
+      // must degrade to the product's general model, not to null.
+      const res = runAutoRouting({
+        routerContent: routerResponse('{"category": "translation"}'),
+        product: "Enterprise AI Tier",
       });
+      assert.strictEqual(res.routerCategory, "translation");
+      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
     });
   });
 
-  describe("2. Standard Tier (Budget Constrained to Flash Models)", () => {
-    it("routes simple query to Gemini 3.1 Flash Lite", () => {
-      const res = runAutoRouting({ userPrompt: "What time is it in Tokyo?", tier: "standard" });
-      assert.strictEqual(res.targetModel, "gemini-3.1-flash-lite");
-      assert.strictEqual(res.targetProvider, "google");
+  describe("5. No hardcoded model map survives in the policy", () => {
+    it("resolves nothing when the product carries no routing attributes", () => {
+      // Deliberate. A product that grants /auto without declaring routing.model.* is a
+      // misconfiguration, and the policy must surface it rather than quietly hand out a
+      // model the product may not even entitle. This test is what fails if someone
+      // reintroduces the old per-tier literals as a "safety net".
+      for (const category of ["coding", "deep_reasoning", "simple", "general"]) {
+        const res = runAutoRouting({
+          routerContent: routerResponse(JSON.stringify({ category })),
+          attributes: {},
+          productName: "Enterprise AI Tier",
+        });
+        assert.strictEqual(
+          res.targetModel,
+          null,
+          `a product with no attributes must not yield a model (category: ${category})`
+        );
+      }
     });
 
-    it("constrains coding prompt to Gemini 3 Flash (NOT Opus)", () => {
-      const res = runAutoRouting({
-        userPrompt: "def calculate_sum(a, b): return a + b",
-        tier: "standard",
-      });
-      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
-      assert.strictEqual(res.targetProvider, "google");
+    it("contains no model literal in the executable source", () => {
+      // Static guard on the file itself. The runtime tests above can be satisfied by a
+      // literal that happens to agree with the product; this cannot.
+      //
+      // Comments are stripped first, deliberately. The header comment names
+      // gemini-3.1-flash-lite as the CLASSIFIER, which is accurate and worth keeping --
+      // a guard that fires on its own documentation just gets disabled.
+      for (const literal of [
+        "claude-opus-4-5@20251101",
+        "gemini-3.1-pro-preview",
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash-preview",
+      ]) {
+        assert.ok(
+          !autoRoutingExecutable.includes(literal),
+          `AutoRouting.js must not hardcode the model name ${literal}`
+        );
+      }
     });
 
-    it("constrains deep reasoning prompt to Gemini 3 Flash (NOT Pro)", () => {
-      const res = runAutoRouting({
-        userPrompt: "Compare and architect the trade-offs of microservices",
-        tier: "standard",
-      });
-      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
-      assert.strictEqual(res.targetProvider, "google");
-    });
-
-    it("routes long general prompt (>= 200 chars) to Gemini 3 Flash", () => {
-      const longPrompt =
-        "The quick brown fox jumps over the lazy dog repeatedly until the evening settles over the valley. " +
-        "Every single creature in the forest observes the graceful jumps and wonders what motivates such agility " +
-        "and boundless energy.";
-      assert.ok(longPrompt.length >= 200);
-
-      const res = runAutoRouting({ userPrompt: longPrompt, tier: "standard" });
-      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
-      assert.strictEqual(res.targetProvider, "google");
+    it("contains no prompt-classification logic in the executable source", () => {
+      // The classification now belongs to the router model. A regex creeping back in
+      // would mean two disagreeing classifiers and a decision that depends on timing.
+      // flow.userPrompt is included: AutoRouting.js must no longer read the prompt at all.
+      for (const marker of ["isCoding", "isDeepReasoning", "isSimple", "flow.userPrompt"]) {
+        assert.ok(
+          !autoRoutingExecutable.includes(marker),
+          `AutoRouting.js must not classify prompts itself (found ${marker})`
+        );
+      }
     });
   });
 
-  describe("3. Tier Detection Flexibility & Edge Cases", () => {
-    it("detects standard tier from a case-insensitive product name", () => {
-      const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "STANDARD" });
-      assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Should constrain to flash model");
+  describe("6. Tier tracing and provider selection", () => {
+    it("reports the enterprise tier from the product name", () => {
+      const res = runAutoRouting({ routerContent: routerResponse('{"category":"simple"}') });
+      assert.strictEqual(res.routingTier, "enterprise");
     });
 
-    it("detects standard tier from product name containing \"standard\"", () => {
+    it("reports the standard tier for a non-enterprise product name", () => {
       const res = runAutoRouting({
-        userPrompt: "def test(): pass",
-        tier: "",
-        productName: "Apigee-Standard-AI-Product",
+        routerContent: routerResponse('{"category":"simple"}'),
+        product: "Standard AI Tier",
       });
-      assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Should constrain to flash model");
-    });
-
-    it("fails CLOSED to standard when the product name is blank", () => {
-      // Security regression guard. An unresolved entitlement must never hand
-      // out the premium multi-provider models. A coding prompt that would route
-      // to Opus under enterprise must be constrained to flash here.
-      const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "", productName: "" });
-      assert.strictEqual(res.targetModel, "gemini-3-flash-preview", "Unknown tier must not reach Opus");
-      assert.strictEqual(res.targetProvider, "google");
       assert.strictEqual(res.routingTier, "standard");
     });
 
-    it("routes enterprise multi-provider when the product is an enterprise product", () => {
-      const res = runAutoRouting({ userPrompt: "def test(): pass", tier: "enterprise" });
-      assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
+    it("reports standard when the product name is blank", () => {
+      const res = runAutoRouting({
+        routerContent: routerResponse('{"category":"simple"}'),
+        product: "Standard AI Tier",
+        productName: "",
+      });
+      assert.strictEqual(res.routingTier, "standard");
+    });
+
+    it("selects the anthropic provider from the resolved model name alone", () => {
+      // Provider is derived, not configured. A product could map any category to a Claude
+      // model and the Claude RouteRule still has to fire.
+      const res = runAutoRouting({
+        routerContent: routerResponse('{"category":"simple"}'),
+        attributes: { simple: "claude-haiku-4-5@20251001" },
+      });
+      assert.strictEqual(res.targetModel, "claude-haiku-4-5@20251001");
       assert.strictEqual(res.targetProvider, "anthropic");
-      assert.strictEqual(res.routingTier, "enterprise");
     });
 
-    it("detects enterprise tier from the product name alone", () => {
-      const res = runAutoRouting({
-        userPrompt: "def test(): pass",
-        tier: "",
-        productName: "Enterprise AI Tier",
-      });
-      assert.strictEqual(res.targetModel, "claude-opus-4-5@20251101");
-      assert.strictEqual(res.routingTier, "enterprise");
-    });
-
-    it("ignores custom attributes entirely and trusts only the product name", () => {
-      // The products carry no custom attributes any more. Both legacy `tier`
-      // variables are set to "enterprise" here while the PRODUCT is standard.
-      // If the policy regressed to reading either attribute, a standard caller
-      // would be escalated to the premium multi-provider models.
-      const res = runAutoRouting({
-        userPrompt: "def test(): pass",
-        tier: "enterprise",
-        productName: "Standard AI Tier",
-      });
-      assert.strictEqual(res.targetModel, "gemini-3-flash-preview");
-      assert.strictEqual(res.targetProvider, "google");
-      assert.strictEqual(res.routingTier, "standard");
-    });
-
-    it("handles empty prompt gracefully as simple prompt", () => {
-      const res = runAutoRouting({ userPrompt: "", tier: "enterprise" });
-      assert.strictEqual(res.targetModel, "gemini-3.1-flash-lite");
+    it("defaults the provider to google when no model resolves", () => {
+      // Regression guard: reading .indexOf on a null model threw and took the whole
+      // policy down, which turns a misconfigured product into a 500 for the caller.
+      const res = runAutoRouting({ attributes: {} });
+      assert.strictEqual(res.targetModel, null);
       assert.strictEqual(res.targetProvider, "google");
     });
+  });
 
-    it("verifies all expected context variables are populated", () => {
-      const res = runAutoRouting({ userPrompt: "Hello", tier: "enterprise" });
-      assert.ok(res.allVars["flow.target_model"]);
-      assert.ok(res.allVars["flow.model"]);
-      assert.ok(res.allVars["flow.target_provider"]);
-      assert.strictEqual(res.allVars["flow.autoRouted"], "true");
-    });
-
+  describe("7. Separation of concerns", () => {
     it("sets NO costing variables - routing selects a model, nothing else", () => {
-      // Separation of concerns guard. Routing used to hardcode a costTier literal
-      // beside each decision, which then beat the KVM-resolved rate in
-      // CalculateCost.js on the /auto path. Costing now lives in exactly one place.
-      for (const prompt of ["Hello", "def f(): pass", "Compare A and B"]) {
-        for (const tier of ["standard", "enterprise"]) {
-          const res = runAutoRouting({ userPrompt: prompt, tier });
-          assert.strictEqual(
-            res.costTier,
-            undefined,
-            `AutoRouting must not set flow.costTier (prompt: ${prompt}, tier: ${tier})`
-          );
+      // Routing used to hardcode a costTier literal beside each decision, which then beat
+      // the KVM-resolved rate in CalculateCost.js on the /auto path. Costing lives in
+      // exactly one place.
+      for (const category of ["coding", "deep_reasoning", "simple", "general"]) {
+        for (const product of ["Standard AI Tier", "Enterprise AI Tier"]) {
+          const res = runAutoRouting({
+            routerContent: routerResponse(JSON.stringify({ category })),
+            product,
+          });
+          assert.strictEqual(res.costTier, undefined);
           assert.strictEqual(res.allVars["flow.tx_cost_usd"], undefined);
           assert.strictEqual(res.allVars["flow.tx_cost_micros"], undefined);
         }
       }
     });
+
+    it("populates every variable the downstream flow reads", () => {
+      const res = runAutoRouting({ routerContent: routerResponse('{"category":"coding"}') });
+      assert.ok(res.allVars["flow.target_model"]);
+      assert.ok(res.allVars["flow.model"]);
+      assert.ok(res.allVars["flow.target_provider"]);
+      assert.ok(res.allVars["flow.routerCategory"]);
+      assert.ok(res.allVars["flow.routingTier"]);
+      assert.strictEqual(res.allVars["flow.autoRouted"], "true");
+    });
   });
+});
+
+describe("PrepRouterRequest.js - Router Callout Payload", () => {
+  it("skips the callout on an empty prompt", () => {
+    // No prompt means nothing to classify. Calling the router anyway would add a billed
+    // round trip and ~300ms to a request that can only ever land on the general model.
+    for (const prompt of ["", "   ", "\n\t "]) {
+      const res = runPrepRouter(prompt);
+      assert.strictEqual(res.skip, "true", `expected skip for ${JSON.stringify(prompt)}`);
+    }
+  });
+
+  it("builds a callout payload for a real prompt", () => {
+    const res = runPrepRouter("def fib(n): pass");
+    assert.strictEqual(res.skip, "false");
+    assert.ok(res.parsed.contents[0].parts[0].text.includes("def fib(n): pass"));
+  });
+
+  it("pins the response to the four-category JSON schema", () => {
+    // The enum is what lets AutoRouting.js index the product attributes directly. If a
+    // category is added here it must also be added to every AI tier product.
+    const { parsed } = runPrepRouter("hello");
+    const cfg = parsed.generationConfig;
+    assert.strictEqual(cfg.responseMimeType, "application/json");
+    assert.deepStrictEqual(cfg.responseSchema.properties.category.enum, [
+      "coding",
+      "deep_reasoning",
+      "simple",
+      "general",
+    ]);
+    assert.deepStrictEqual(cfg.responseSchema.required, ["category"]);
+  });
+
+  it("pins temperature to 0 so the same prompt routes the same way", () => {
+    // A nondeterministic router makes cost and entitlement behaviour irreproducible
+    // between two identical demo runs.
+    assert.strictEqual(runPrepRouter("hello").parsed.generationConfig.temperature, 0.0);
+  });
+
+  it("truncates a long prompt to bound classification latency", () => {
+    const long = "x".repeat(5000);
+    const { parsed } = runPrepRouter(long);
+    const sent = parsed.contents[0].parts[0].text;
+    assert.ok(sent.length < 2000, `classifier prompt should be bounded, got ${sent.length}`);
+    assert.ok(!sent.includes("x".repeat(501)), "prompt excerpt should be capped at 500 chars");
+  });
+
+  it("emits a payload that is valid JSON for the AssignMessage template", () => {
+    // AM-PrepRouterRequest injects this verbatim as the callout body. A prompt carrying
+    // quotes or newlines must not be able to break out of the JSON envelope.
+    const { payload } = runPrepRouter('He said "hi"\nthen {left};');
+    assert.doesNotThrow(() => JSON.parse(payload));
+  });
+});
+
+describe("API products back the routing attributes the policy reads", () => {
+  const productsDir = path.resolve(__dirname, "../../apigee/products");
+
+  for (const [productName, expected] of Object.entries(PRODUCT_ROUTING)) {
+    const file = productName === "Enterprise AI Tier" ? "enterprise_ai_tier.json" : "standard_ai_tier.json";
+
+    it(`${file} declares every routing.model.* attribute the router can emit`, () => {
+      const data = JSON.parse(fs.readFileSync(path.join(productsDir, file), "utf8"));
+      const attrs = Object.fromEntries(data.attributes.map((a) => [a.name, a.value]));
+
+      for (const [category, model] of Object.entries(expected)) {
+        assert.strictEqual(
+          attrs[`routing.model.${category}`],
+          model,
+          `${file} must map routing.model.${category} to ${model}`
+        );
+      }
+    });
+
+    it(`${file} only routes to models it actually entitles`, () => {
+      // An attribute pointing at a model the product does not grant would route the call
+      // straight into a 401 at VA-VerifyAPIKey on the downstream operation.
+      const data = JSON.parse(fs.readFileSync(path.join(productsDir, file), "utf8"));
+      const granted = new Set(
+        data.llmOperationGroup.operationConfigs.flatMap((oc) => oc.llmOperations.map((op) => op.model))
+      );
+
+      for (const [category, model] of Object.entries(expected)) {
+        assert.ok(
+          granted.has(model),
+          `${file} maps ${category} to ${model}, which the product does not entitle`
+        );
+      }
+    });
+  }
 });
