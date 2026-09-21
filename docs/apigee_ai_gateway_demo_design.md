@@ -1046,12 +1046,12 @@ flips to `Blocked (400)`.
 
 ### Step 3 — Intelligent auto-routing (3 classifications)
 
-Chip: **`🧠 Auto: General / Fast (1/3)` → `Deep Reasoning (2/3)` → `Coding (3/3)`**
+Chip: **`🧠 Auto: Simple / Fast (1/3)` → `Deep Reasoning (2/3)` → `Coding (3/3)`**
 (`AUTO_ROUTING_EXAMPLES`, admin persona so the Enterprise product's `routing.model.*` attributes apply).
 
 | Step | Prompt | Expected model |
 | :--- | :--- | :--- |
-| 1 | *"What are 3 benefits of an API gateway? Give a brief summary."* (<200 chars) | `gemini-3.1-flash-lite` (low cost tier) |
+| 1 | *"What does the acronym API stand for?"* (trivial factual lookup) | `gemini-3.1-flash-lite` (low cost tier) |
 | 2 | *"Evaluate the architectural trade-offs and benchmark performance between asynchronous event streaming versus synchronous gRPC microservices."* | `gemini-3.1-pro-preview` (high) |
 | 3 | *"Write a Python function to validate JWT tokens and decode user claims."* | `claude-opus-4-5@20251101`, provider `anthropic` (high) |
 

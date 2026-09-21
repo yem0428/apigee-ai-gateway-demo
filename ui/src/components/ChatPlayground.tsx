@@ -241,14 +241,14 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     {
       label:
         autoStep === 0
-          ? '🧠 Model Routing: General / Fast (1/3)'
+          ? '🧠 Model Routing: Simple / Fast (1/3)'
           : autoStep === 1
           ? '🧠 Model Routing: Deep Reasoning (2/3)'
           : '🧠 Model Routing: Coding (3/3)',
       promptId: 'auto-routing',
       title:
         autoStep === 0
-          ? 'Auto Example 1/3: General query (<200 chars) -> Auto-classified as General / Fast'
+          ? 'Auto Example 1/3: Trivial factual lookup -> Auto-classified as Simple'
           : autoStep === 1
           ? 'Auto Example 2/3: Deep reasoning (trade-offs, benchmark) -> Auto-classified as Deep Reasoning'
           : 'Auto Example 3/3: Coding implementation -> Auto-classified as Coding',
@@ -611,7 +611,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                             }`}
                           >
-                            Fast
+                            Simple
                           </button>
                           <button
                             type="button"
