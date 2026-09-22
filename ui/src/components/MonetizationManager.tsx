@@ -1117,7 +1117,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </div>
             </div>
 
-            {/* 4 Architectural Categories Filter Bar */}
+            {/* Product Configuration Categories Navigation */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
               {/* Tab 1: Whitelisted Models & Rate Limits */}
               <button
@@ -1129,24 +1129,21 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
                 }`}
               >
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'models' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>
-                      <Cpu className="w-3 h-3" />
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 font-mono">Layer 1</span>
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${productConfigSection === 'models' ? 'bg-blue-600 text-white shadow-2xs' : 'bg-blue-100 text-blue-700'}`}>
+                    <Cpu className="w-3.5 h-3.5" />
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    productConfigSection === 'models' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    productConfigSection === 'models' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200/80'
                   }`}>
-                    {configuredModels.length}
+                    {configuredModels.length} {configuredModels.length === 1 ? 'model' : 'models'}
                   </span>
                 </div>
                 <div className="text-xs font-bold text-slate-900 leading-snug">Whitelisted Models & Quotas</div>
                 <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Per-model token rate limits</div>
               </button>
 
-              {/* Tab 2: Semantic Router Intent Mapping */}
+              {/* Tab 2: Prompt Auto-Routing Targets */}
               <button
                 type="button"
                 onClick={() => setProductConfigSection('routing')}
@@ -1156,21 +1153,18 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
                 }`}
               >
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'routing' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'}`}>
-                      <Route className="w-3 h-3" />
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 font-mono">Layer 2</span>
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${productConfigSection === 'routing' ? 'bg-purple-600 text-white shadow-2xs' : 'bg-purple-100 text-purple-700'}`}>
+                    <Route className="w-3.5 h-3.5" />
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    productConfigSection === 'routing' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    productConfigSection === 'routing' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200/80'
                   }`}>
-                    4
+                    4 targets
                   </span>
                 </div>
-                <div className="text-xs font-bold text-slate-900 leading-snug">Semantic Router Intents</div>
-                <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Automatic prompt intent routing</div>
+                <div className="text-xs font-bold text-slate-900 leading-snug">Prompt Auto-Routing</div>
+                <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Target models for auto requests</div>
               </button>
 
               {/* Tab 3: Developer Budget Governance */}
@@ -1183,15 +1177,12 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
                 }`}
               >
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'budget' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                      <Coins className="w-3 h-3" />
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 font-mono">Layer 3</span>
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${productConfigSection === 'budget' ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-emerald-100 text-emerald-700'}`}>
+                    <Coins className="w-3.5 h-3.5" />
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    productConfigSection === 'budget' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    productConfigSection === 'budget' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200/80'
                   }`}>
                     ${budgetUsd}/mo
                   </span>
@@ -1210,17 +1201,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
                 }`}
               >
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'custom' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-700'}`}>
-                      <Tag className="w-3 h-3" />
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 font-mono">Layer 4</span>
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${productConfigSection === 'custom' ? 'bg-amber-600 text-white shadow-2xs' : 'bg-amber-100 text-amber-700'}`}>
+                    <Tag className="w-3.5 h-3.5" />
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    productConfigSection === 'custom' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    productConfigSection === 'custom' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200/80'
                   }`}>
-                    {customAttributesList.length}
+                    {customAttributesList.length} {customAttributesList.length === 1 ? 'attr' : 'attrs'}
                   </span>
                 </div>
                 <div className="text-xs font-bold text-slate-900 leading-snug">Custom Attributes</div>
@@ -1237,15 +1225,12 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
                 }`}
               >
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'all' ? 'bg-white text-slate-900' : 'bg-slate-100 text-slate-700'}`}>
-                      <Layers className="w-3 h-3" />
-                    </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${productConfigSection === 'all' ? 'text-slate-300' : 'text-slate-500'}`}>Full Stack</span>
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${productConfigSection === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'bg-slate-100 text-slate-700'}`}>
+                    <Layers className="w-3.5 h-3.5" />
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    productConfigSection === 'all' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    productConfigSection === 'all' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600 border border-slate-200/80'
                   }`}>
                     All 4
                   </span>
@@ -1303,7 +1288,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                 <span className="font-mono text-xs font-bold text-slate-900">{m.model}</span>
                                 {isAuto && (
                                   <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.2 rounded-full border border-purple-200">
-                                    Semantic Router
+                                    Auto-Routed
                                   </span>
                                 )}
                                 {isHaiku && isLowLimit && (
@@ -1450,7 +1435,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </div>
             )}
 
-            {/* CARD 2: Semantic Router Target Mapping */}
+            {/* CARD 2: Prompt Auto-Routing Targets */}
             {(productConfigSection === 'all' || productConfigSection === 'routing') && (
               <div className="bg-white rounded-xl border-2 border-purple-200/90 shadow-xs overflow-hidden">
                 <div className="bg-purple-50/50 px-4 py-2.5 border-b border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1461,16 +1446,16 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-xs font-bold text-slate-900">
-                          Semantic Router Intent Mapping
+                          Prompt-Based Auto-Routing Targets
                         </h3>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        When callers request <code className="font-mono text-purple-700 font-semibold">auto</code>, the gateway analyzes prompt intent and routes the request to the designated target model.
+                        When callers request <code className="font-mono text-purple-700 font-semibold">auto</code>, the gateway analyzes prompt task complexity and directs traffic to the designated target model.
                       </p>
                     </div>
                   </div>
                   <div className="text-[11px] font-mono font-semibold text-purple-800 bg-white border border-purple-200 px-2.5 py-1 rounded-lg shrink-0 shadow-2xs self-start sm:self-auto">
-                    4 router intents
+                    4 routing targets
                   </div>
                 </div>
 
@@ -1480,32 +1465,32 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       {
                         key: 'routing.model.coding',
                         badge: 'Coding',
-                        label: 'Coding & Development Intent',
-                        desc: 'Selected when prompt involves code generation, debugging, refactoring, or syntax.',
+                        label: 'Coding & Development',
+                        desc: 'Directed here when prompt involves code generation, debugging, refactoring, or syntax.',
                         icon: Code2,
                         iconColor: 'text-blue-600 bg-blue-50 border-blue-200',
                       },
                       {
                         key: 'routing.model.deep_reasoning',
                         badge: 'Reasoning',
-                        label: 'Deep Reasoning & Math Intent',
-                        desc: 'Selected for complex logic, multi-step chain-of-thought problem solving, and math.',
+                        label: 'Complex Reasoning & Math',
+                        desc: 'Directed here for multi-step logic, problem solving, architecture planning, and math.',
                         icon: Brain,
                         iconColor: 'text-purple-600 bg-purple-50 border-purple-200',
                       },
                       {
                         key: 'routing.model.simple',
                         badge: 'Lookups',
-                        label: 'Simple & Factual Lookups',
-                        desc: 'Selected for quick facts, lookups, and short conversational queries.',
+                        label: 'Quick Lookups & Facts',
+                        desc: 'Directed here for fast factual answers, dictionary lookups, and short questions.',
                         icon: Zap,
                         iconColor: 'text-amber-600 bg-amber-50 border-amber-200',
                       },
                       {
                         key: 'routing.model.general',
                         badge: 'General',
-                        label: 'General & Conversational Intent',
-                        desc: 'Default catch-all for broad creative text, open-ended answers, and dialogue.',
+                        label: 'General Tasks & Dialogue',
+                        desc: 'Default catch-all for broad creative writing, general assistance, and dialogue.',
                         icon: MessageSquare,
                         iconColor: 'text-emerald-600 bg-emerald-50 border-emerald-200',
                       },
@@ -2780,7 +2765,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               </p>
               <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Restores Default Semantic Router Mappings</span>
+                <span>Restores Default Auto-Routing Targets</span>
               </div>
               <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
