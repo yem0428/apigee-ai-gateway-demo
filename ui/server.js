@@ -1413,9 +1413,10 @@ const server = http.createServer(async (req, res) => {
       const proxyStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/apiproxy?select=sum(message_count),sum(is_error),avg(total_response_time)&timeRange=${encodeURIComponent(apigeeTimeRange)}`;
       const kvmUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/ai-model-rates/entries/rate_card`;
       // Real semantic-cache signal. dc_cache_status is HIT / MISS / DISABLED, captured by
-      // DC-ModelAnalytics. Traffic served before that collector shipped reports "(not set)"
-      // and is excluded from the denominator rather than counted as a miss.
-      const cacheStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_cache_status?select=sum(message_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
+      // DC-ModelAnalytics alongside dc_user_email. Querying both dimensions allows calculating
+      // both fleet totals and per-user cache hit rates. Traffic served before that collector
+      // shipped reports "(not set)" and is excluded from the denominator.
+      const cacheStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_cache_status?select=sum(message_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
 
       const [statsRes, proxyRes, kvmRes, cacheRes] = await Promise.all([
         fetch(statsUrl, { headers: { Authorization: `Bearer ${token}` } }),
@@ -1562,14 +1563,38 @@ const server = http.createServer(async (req, res) => {
       // rather than the 29.4 constant that used to sit here.
       let cacheHits = 0;
       let cacheMisses = 0;
+      const userCacheStats = {};
+
       if (cacheRes && cacheRes.ok) {
         try {
           const cacheJson = await cacheRes.json();
           for (const dim of cacheJson?.environments?.[0]?.dimensions || []) {
-            const label = String(dim.individualNames?.[0] || dim.name || '').toUpperCase();
+            const rawUser = dim.individualNames?.[0] || dim.name?.split(',')[0] || '(not set)';
+            const rawStatus = dim.individualNames?.[1] || dim.name?.split(',')[1] || '(not set)';
+
+            const isAbsent = (v) => !v || v === '(not set)' || v === 'null' || v === 'undefined';
+            const userEmail = isAbsent(rawUser) ? 'anonymous.caller@external.client' : rawUser;
+            const status = String(rawStatus || '').toUpperCase();
+
             const n = Number(dim.metrics?.find((m) => m.name === 'sum(message_count)')?.values?.[0] || 0);
-            if (label === 'HIT') cacheHits += n;
-            else if (label === 'MISS') cacheMisses += n;
+            if (n <= 0) continue;
+
+            const emailKey = userEmail.toLowerCase();
+            if (!userCacheStats[emailKey]) {
+              userCacheStats[emailKey] = { hits: 0, misses: 0, disabled: 0, notSet: 0 };
+            }
+
+            if (status === 'HIT') {
+              cacheHits += n;
+              userCacheStats[emailKey].hits += n;
+            } else if (status === 'MISS') {
+              cacheMisses += n;
+              userCacheStats[emailKey].misses += n;
+            } else if (status === 'DISABLED') {
+              userCacheStats[emailKey].disabled += n;
+            } else {
+              userCacheStats[emailKey].notSet += n;
+            }
           }
         } catch { }
       }
@@ -1626,6 +1651,7 @@ const server = http.createServer(async (req, res) => {
           proOpusPercent: flashRatio === null ? null : Number((100 - flashRatio).toFixed(1)),
         },
         consumptionRows,
+        userCacheStats,
       }));
     } catch (err) {
       res.statusCode = 500;

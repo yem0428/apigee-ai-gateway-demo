@@ -204,6 +204,12 @@ export interface FleetAnalyticsResponse {
     proOpusPercent: number | null;
   };
   consumptionRows: import('../types').UserConsumptionRecord[];
+  userCacheStats?: Record<string, {
+    hits: number;
+    misses: number;
+    disabled?: number;
+    notSet?: number;
+  }>;
 }
 
 export async function fetchFleetAnalytics(

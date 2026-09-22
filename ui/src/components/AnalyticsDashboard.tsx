@@ -312,20 +312,62 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
     const canReportSla = hasErrorData && measuredCalls > 0;
 
+    // Real scoped cache metrics from the dc_user_email,dc_cache_status dimension.
+    // Only HIT and MISS count toward the rate; DISABLED and (not set) traffic is excluded.
+    const targetEmails = new Set<string>();
+    if (viewMode === 'user') {
+      targetEmails.add(currentUserEmail.toLowerCase());
+    } else if (userFilter !== 'all') {
+      targetEmails.add(userFilter.toLowerCase());
+    } else {
+      activeConsumptionRecords.forEach((r) => targetEmails.add(r.userEmail.toLowerCase()));
+    }
+
+    let userHits = 0;
+    let userMisses = 0;
+    let hasMeasuredCache = false;
+
+    if (fleetData?.userCacheStats) {
+      targetEmails.forEach((email) => {
+        const stat = fleetData.userCacheStats?.[email];
+        if (stat) {
+          userHits += stat.hits || 0;
+          userMisses += stat.misses || 0;
+          if ((stat.hits || 0) + (stat.misses || 0) > 0) {
+            hasMeasuredCache = true;
+          }
+        }
+      });
+    }
+
+    const userMeasured = userHits + userMisses;
+    const userCacheHitRate =
+      hasMeasuredCache && userMeasured > 0
+        ? Math.round((userHits / userMeasured) * 100)
+        : null;
+
+    let userCacheSavings: string | null = null;
+    if (userCacheHitRate !== null && userHits > 0) {
+      const modelCalls = Math.max(1, calls - userHits);
+      let costPerModelCall = calls > 0 && spend > 0 ? spend / modelCalls : 0;
+      if (costPerModelCall === 0 && fleetData?.kpis?.totalSpendUsd && fleetData?.kpis?.totalCalls) {
+        const fleetHits = fleetData.kpis.cacheHitCount || 0;
+        const fleetModelCalls = Math.max(1, fleetData.kpis.totalCalls - fleetHits);
+        costPerModelCall = fleetData.kpis.totalSpendUsd / fleetModelCalls;
+      }
+      userCacheSavings = (costPerModelCall * userHits).toFixed(2);
+    }
+
     return {
       totalCalls: calls.toLocaleString(),
       totalTokens: formatTokens(tokens),
       totalSpend: spend.toFixed(2),
-      // Cache is measured by the dc_cache_status dimension, which is not broken down per
-      // user, so there is no honest per-user figure. These were `spend * 0.35` and a flat
-      // `33`, which meant a single user could be shown a cache hit rate while having made
-      // no cacheable calls at all.
-      cacheSavings: null,
-      cacheHitRate: null,
+      cacheSavings: userCacheSavings,
+      cacheHitRate: userCacheHitRate,
       slaHealth: canReportSla ? Math.round((1 - errors / measuredCalls) * 100) : null,
       faultCount: hasErrorData ? errors : null,
     };
-  }, [viewMode, userFilter, fleetData, activeConsumptionRecords]);
+  }, [viewMode, userFilter, fleetData, activeConsumptionRecords, currentUserEmail]);
 
   // Dynamic Routing & Model Volume Stats
   const routingStats = useMemo(() => {
@@ -767,7 +809,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   className="text-[11px] font-semibold text-emerald-600 shrink-0"
                   title={
                     aggregatedStats.cacheHitRate === null
-                      ? 'Cache hit rate is measured fleet-wide from the dc_cache_status dimension. It is not broken down per user, and traffic served before that collector shipped is excluded.'
+                      ? 'No cacheable traffic (HIT or MISS) was recorded in this time window. DISABLED and (not set) requests are excluded.'
                       : 'Measured from the dc_cache_status dimension: HIT / (HIT + MISS).'
                   }
                 >

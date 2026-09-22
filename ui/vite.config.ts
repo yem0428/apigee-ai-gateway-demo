@@ -1333,8 +1333,8 @@ export default defineConfig(({ mode }) => {
               // 3. Fetch KVM Rates
               const kvmUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/keyvaluemaps/ai-model-rates/entries/rate_card`;
 
-              // 4. Real semantic-cache signal: HIT / MISS / DISABLED per request.
-              const cacheStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_cache_status?select=sum(message_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
+              // 4. Real semantic-cache signal: HIT / MISS / DISABLED per request broken down by user.
+              const cacheStatsUrl = `https://apigee.googleapis.com/v1/organizations/${org}/environments/${apigeeEnv}/stats/dc_user_email,dc_cache_status?select=sum(message_count)&timeRange=${encodeURIComponent(apigeeTimeRange)}&filter=${proxyFilter}`;
 
               const [statsRes, proxyRes, kvmRes, cacheRes] = await Promise.all([
                 fetch(statsUrl, { headers: { Authorization: `Bearer ${token}` } }),
@@ -1461,19 +1461,43 @@ export default defineConfig(({ mode }) => {
 
               consumptionRows.sort((a, b) => b.costUsd - a.costUsd || b.totalTraffic - a.totalTraffic);
 
-              // Real cache hit rate from the dc_cache_status dimension. Only HIT and MISS
-              // count; DISABLED and "(not set)" are not cache misses. Null when nothing
+              // Real cache hit rate from the dc_cache_status dimension broken down per user and fleet.
+              // Only HIT and MISS count; DISABLED and "(not set)" are not cache misses. Null when nothing
               // measurable exists — the UI renders an em dash instead of a constant.
               let cacheHits = 0;
               let cacheMisses = 0;
+              const userCacheStats: Record<string, { hits: number; misses: number; disabled: number; notSet: number }> = {};
+
               if (cacheRes && cacheRes.ok) {
                 try {
                   const cacheJson = await cacheRes.json();
                   for (const dim of cacheJson?.environments?.[0]?.dimensions || []) {
-                    const label = String(dim.individualNames?.[0] || dim.name || '').toUpperCase();
+                    const rawUser = dim.individualNames?.[0] || dim.name?.split(',')[0] || '(not set)';
+                    const rawStatus = dim.individualNames?.[1] || dim.name?.split(',')[1] || '(not set)';
+
+                    const isAbsent = (v?: string) => !v || v === '(not set)' || v === 'null' || v === 'undefined';
+                    const userEmail = isAbsent(rawUser) ? 'anonymous.caller@external.client' : rawUser;
+                    const status = String(rawStatus || '').toUpperCase();
+
                     const n = Number(dim.metrics?.find((m: any) => m.name === 'sum(message_count)')?.values?.[0] || 0);
-                    if (label === 'HIT') cacheHits += n;
-                    else if (label === 'MISS') cacheMisses += n;
+                    if (n <= 0) continue;
+
+                    const emailKey = userEmail.toLowerCase();
+                    if (!userCacheStats[emailKey]) {
+                      userCacheStats[emailKey] = { hits: 0, misses: 0, disabled: 0, notSet: 0 };
+                    }
+
+                    if (status === 'HIT') {
+                      cacheHits += n;
+                      userCacheStats[emailKey].hits += n;
+                    } else if (status === 'MISS') {
+                      cacheMisses += n;
+                      userCacheStats[emailKey].misses += n;
+                    } else if (status === 'DISABLED') {
+                      userCacheStats[emailKey].disabled += n;
+                    } else {
+                      userCacheStats[emailKey].notSet += n;
+                    }
                   }
                 } catch { }
               }
@@ -1526,6 +1550,7 @@ export default defineConfig(({ mode }) => {
                   proOpusPercent: flashRatio === null ? null : Number((100 - flashRatio).toFixed(1)),
                 },
                 consumptionRows,
+                userCacheStats,
               }));
             } catch (err: any) {
               res.statusCode = 500;
