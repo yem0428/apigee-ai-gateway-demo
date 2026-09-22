@@ -1535,15 +1535,18 @@ export default defineConfig(({ mode }) => {
                 const matchedRate = (rateKey ? rates[rateKey] : null) || rates[model] || rates['default'] || {};
 
                 const tierFromRate = (out: number) => (out >= 5.0 ? 'high' : out <= 0.3 ? 'low' : 'medium');
-                const tier = matchedRate.tier
-                  || (matchedRate.output !== undefined ? tierFromRate(Number(matchedRate.output)) : 'medium');
-                const provider = matchedRate.provider
-                  ? (matchedRate.provider === 'anthropic' ? 'Anthropic' : 'Google')
-                  : (model.includes('claude') ? 'Anthropic' : 'Google');
+                const tier = isAbsent(rawModel)
+                  ? 'N/A'
+                  : matchedRate.tier || (matchedRate.output !== undefined ? tierFromRate(Number(matchedRate.output)) : 'medium');
+                const provider = isAbsent(rawModel)
+                  ? 'System / Pre-Model'
+                  : matchedRate.provider
+                    ? (matchedRate.provider === 'anthropic' ? 'Anthropic' : 'Google')
+                    : (model.includes('claude') ? 'Anthropic' : 'Google');
 
                 const inRate = matchedRate.input ?? 0.15;
                 const outRate = matchedRate.output ?? 0.60;
-                const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
+                const cost = isAbsent(rawModel) ? 0 : (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
 
                 totalTraffic += mc;
                 totalPromptTokens += pt;

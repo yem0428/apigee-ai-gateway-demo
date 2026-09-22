@@ -1144,7 +1144,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     4 targets
                   </span>
                 </div>
-                <div className="text-xs font-bold text-slate-900 leading-snug">Prompt Auto-Routing</div>
+                <div className="text-xs font-bold text-slate-900 leading-snug">Auto-Routing Model Mapping</div>
                 <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Target models for auto requests</div>
               </button>
 
@@ -1427,7 +1427,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-xs font-bold text-slate-900">
-                          Prompt-Based Auto-Routing Targets
+                          Auto-Routing Model Mappings
                         </h3>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5">
@@ -1445,7 +1445,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     {[
                       {
                         key: 'routing.model.coding',
-                        badge: 'Coding',
                         label: 'Coding & Development',
                         desc: 'Directed here when prompt involves code generation, debugging, refactoring, or syntax.',
                         icon: Code2,
@@ -1453,7 +1452,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       },
                       {
                         key: 'routing.model.deep_reasoning',
-                        badge: 'Reasoning',
                         label: 'Complex Reasoning & Math',
                         desc: 'Directed here for multi-step logic, problem solving, architecture planning, and math.',
                         icon: Brain,
@@ -1461,7 +1459,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       },
                       {
                         key: 'routing.model.simple',
-                        badge: 'Lookups',
                         label: 'Quick Lookups & Facts',
                         desc: 'Directed here for fast factual answers, dictionary lookups, and short questions.',
                         icon: Zap,
@@ -1469,13 +1466,12 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       },
                       {
                         key: 'routing.model.general',
-                        badge: 'General',
                         label: 'General Tasks & Dialogue',
                         desc: 'Default catch-all for broad creative writing, general assistance, and dialogue.',
                         icon: MessageSquare,
                         iconColor: 'text-emerald-600 bg-emerald-50 border-emerald-200',
                       },
-                    ].map(({ key, badge, label, desc, icon: IconComponent, iconColor }) => {
+                    ].map(({ key, label, desc, icon: IconComponent, iconColor }) => {
                       const currentTarget = getProductAttr(key);
                       return (
                         <div key={key} className="bg-slate-50/80 rounded-xl border border-slate-200 p-3 space-y-2">
@@ -1486,9 +1482,6 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                               </div>
                               <span className="text-xs font-bold text-slate-900">{label}</span>
                             </div>
-                            <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 shrink-0">
-                              {badge}
-                            </span>
                           </div>
                           <p className="text-[11px] text-slate-500 leading-relaxed">{desc}</p>
                           <div className="pt-0.5">

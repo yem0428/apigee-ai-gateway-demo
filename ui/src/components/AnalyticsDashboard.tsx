@@ -436,11 +436,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       'gemini-3.8-flash': { color: '#c2410c', badge: 'F8' },         // Orange-700
       'gemini-3.1-pro-preview': { color: '#4f46e5', badge: 'Pr' },   // Indigo
       'gemini-2.5-pro': { color: '#6366f1', badge: 'P2' },          // Indigo-500
+      'unknown-model': { color: '#94a3b8', badge: 'BL' },           // Slate-400 (Blocked / Unrouted)
     };
 
     activeConsumptionRecords.forEach((r) => {
       // Only include records that have traffic
       if (r.totalTraffic <= 0) return;
+
+      // Filter out non-model calls (blocked pre-flow calls, unrouted faults).
+      // These are already accounted for in the Request Success Rate & Errors Logged counters.
+      if (r.model === 'unknown-model' || r.model === '{flow.model}' || r.model === 'null') return;
 
       // Normalize model name (e.g. claude-opus-4-5@20251101 -> claude-opus-4-5)
       const normalizedModel = r.model.replace(/@\d+$/, '');

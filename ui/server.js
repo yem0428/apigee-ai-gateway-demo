@@ -1618,15 +1618,18 @@ const server = http.createServer(async (req, res) => {
         // gemini-3.1-pro-preview at 1.25/5.00, yet the old heuristic called them 'medium' and
         // counted them as low-cost routing wins. Fall back to the band only for an unpriced model.
         const tierFromRate = (out) => (out >= 5.0 ? 'high' : out <= 0.3 ? 'low' : 'medium');
-        const tier = matchedRate.tier
-          || (matchedRate.output !== undefined ? tierFromRate(Number(matchedRate.output)) : 'medium');
-        const provider = matchedRate.provider
-          ? (matchedRate.provider === 'anthropic' ? 'Anthropic' : 'Google')
-          : (model.includes('claude') ? 'Anthropic' : 'Google');
+        const tier = isAbsent(rawModel)
+          ? 'N/A'
+          : matchedRate.tier || (matchedRate.output !== undefined ? tierFromRate(Number(matchedRate.output)) : 'medium');
+        const provider = isAbsent(rawModel)
+          ? 'System / Pre-Model'
+          : matchedRate.provider
+            ? (matchedRate.provider === 'anthropic' ? 'Anthropic' : 'Google')
+            : (model.includes('claude') ? 'Anthropic' : 'Google');
 
         const inRate = matchedRate.input ?? 0.15;
         const outRate = matchedRate.output ?? 0.60;
-        const cost = (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
+        const cost = isAbsent(rawModel) ? 0 : (pt / 1_000_000) * inRate + (ct / 1_000_000) * outRate;
 
         totalTraffic += mc;
         totalPromptTokens += pt;
