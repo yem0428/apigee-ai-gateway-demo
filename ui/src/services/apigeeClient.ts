@@ -106,8 +106,9 @@ export async function sendPromptToApigee(
   // cosmetic and silently send Enterprise credentials as any persona.
   const isNamedPersona = !!settings.activeUser && settings.activeUser in USERS;
   let effectiveApiKey = isNamedPersona ? userInfo.apiKey : (settings.apiKey || userInfo.apiKey);
+  let effectiveIdToken = settings.ssoUser?.idToken || settings.idToken;
 
-  if (!effectiveApiKey && typeof window !== 'undefined') {
+  if ((!effectiveApiKey || (!effectiveIdToken && !settings.omitEmailHeader)) && typeof window !== 'undefined') {
     try {
       const meRes = await fetch('/api/me');
       if (meRes.ok) {
@@ -118,12 +119,20 @@ export async function sendPromptToApigee(
         if (apiKeys.loans_agent) USERS.loans_agent.apiKey = apiKeys.loans_agent;
         // Resolve strictly within the active persona. Falling through to
         // meData.apiKey or the admin key here would re-introduce the escalation.
-        effectiveApiKey = isNamedPersona
-          ? (apiKeys[settings.activeUser] || USERS[settings.activeUser]?.apiKey || '')
-          : (apiKeys[settings.activeUser] || meData.apiKey || USERS.admin.apiKey);
+        if (!effectiveApiKey) {
+          effectiveApiKey = isNamedPersona
+            ? (apiKeys[settings.activeUser] || USERS[settings.activeUser]?.apiKey || '')
+            : (apiKeys[settings.activeUser] || meData.apiKey || USERS.admin.apiKey);
+        }
+        if (!effectiveIdToken && meData.token) {
+          effectiveIdToken = meData.token;
+          if (settings.ssoUser) {
+            settings.ssoUser.idToken = meData.token;
+          }
+        }
       }
     } catch (e) {
-      console.warn('[apigeeClient] Failed to auto-resolve API key from /api/me', e);
+      console.warn('[apigeeClient] Failed to auto-resolve credentials from /api/me', e);
     }
   }
   if (!effectiveApiKey && !isNamedPersona) {
@@ -139,7 +148,6 @@ export async function sendPromptToApigee(
   }
 
   const effectiveEmail = settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email;
-  const effectiveIdToken = settings.ssoUser?.idToken || settings.idToken;
 
   const headersSent: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -270,11 +278,19 @@ export async function sendPromptToApigee(
     const effectiveProvider = cacheHitUnattributed
       ? undefined
       : (headersReceived['x-gateway-provider'] || (targetModel.startsWith('claude') ? 'anthropic' : 'google'));
-    // See the cacheHitUnattributed comment above: undefined on a cache hit the
-    // gateway could not attribute, rather than a fabricated model name.
+    // See the cacheHitUnattributed comment above: undefined rather than a fabricated
+    // model name.
+    //
+    // The `isAuto` arm extends the same rule to /auto. There the fallback would be the
+    // literal string "auto", which is a URL path segment, not a model - and it is most
+    // visible exactly when the call failed. A 401 from the identity check returns no
+    // x-gateway-* headers at all, and the panel would confidently report that the router
+    // picked a model named "auto". A direct /models/<name> call is different: the client
+    // named the model itself, so echoing it back asserts nothing the caller did not
+    // already state.
     const effectiveModel: string | undefined = cacheHitUnattributed
       ? undefined
-      : (headersReceived['x-gateway-model'] || targetModel);
+      : (headersReceived['x-gateway-model'] || (isAuto ? undefined : targetModel));
     // Cost is NOT recomputed client-side. JS-CalculateCost in the gateway is the single
     // costing authority and derives both figures from the ai-model-rates KVM, on cache
     // hits too. The previous fallbacks invented a $0.20/1M blended rate and guessed the
@@ -332,9 +348,13 @@ export async function sendPromptToApigee(
       requestedModel: settings.model,
       // Not "Auto-Routed" on an unattributed cache hit. isAuto only says the
       // client called /auto; the router never ran, so nothing was routed.
+      //
+      // The same caveat applies to a call that never reached the router at all - a 401
+      // from the identity check, say. `effectiveModel` is the evidence that routing
+      // happened: the gateway only names a model once it has picked one.
       autoRouted: cacheHitUnattributed
         ? false
-        : (headersReceived['x-auto-routed'] === 'true' || isAuto),
+        : (headersReceived['x-auto-routed'] === 'true' || (isAuto && !!effectiveModel)),
       intent: effectiveIntent,
       environment: settings.environment,
       user: userInfo.name,

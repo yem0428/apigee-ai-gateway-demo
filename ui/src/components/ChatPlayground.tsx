@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptTransactionRecord } from '../types';
 import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
-import { diffTelemetry } from '../services/telemetryDiff';
 import { TourActionId } from '../services/tourSteps';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
 import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES, MODEL_ARMOR_EXAMPLES } from '../services/defaultSettings';
-import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap, Workflow, ArrowRight } from 'lucide-react';
+import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap, Workflow } from 'lucide-react';
 import { ApigeeColorSymbol } from './ApigeeLogo';
 
 interface ChatPlaygroundProps {
@@ -499,26 +498,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const ssoUser = settings.ssoUser || DEFAULT_SSO_USER;
   const effectiveEmail = ssoUser.email || settings.userEmail || DEFAULT_SSO_USER.email;
 
-  /**
-   * For every agent message carrying telemetry, the telemetry of the call before it.
-   *
-   * Built once per render rather than scanning backwards inside the message map, which
-   * would be quadratic over a long demo session. Keyed by message id because indices
-   * shift as messages are appended.
-   *
-   * "Previous call" means the previous GATEWAY call, not the previous chat bubble - user
-   * messages are skipped, otherwise every comparison baseline would be undefined.
-   */
-  const baselineByMessageId = useMemo(() => {
-    const map = new Map<string, GatewayTelemetry>();
-    let previous: GatewayTelemetry | undefined;
-    for (const m of messages) {
-      if (m.sender !== 'agent' || !m.telemetry) continue;
-      if (previous) map.set(m.id, previous);
-      previous = m.telemetry;
-    }
-    return map;
-  }, [messages]);
 
   /** The id of the message whose telemetry the inspector is currently showing. */
   const selectedMessageId = useMemo(() => {
@@ -540,10 +519,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const isViewingHistoricalCall =
     !!selectedMessageId && !!latestTelemetryMessageId && selectedMessageId !== latestTelemetryMessageId;
 
-  const activeComparison = useMemo(
-    () => diffTelemetry(selectedMessageId ? baselineByMessageId.get(selectedMessageId) : undefined, activeTelemetry),
-    [baselineByMessageId, selectedMessageId, activeTelemetry]
-  );
 
 
   return (
@@ -873,11 +848,18 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                               setActiveTelemetry(msg.telemetry!);
                             }}
                             aria-pressed={msg.id === selectedMessageId}
+                            /*
+                              Do NOT reach for bg-slate-800 + text-white here. The light
+                              theme in index.css repaints bg-slate-800 to #f1f5f9 with
+                              !important, so the selected pill came out white-on-white.
+                              bg-slate-200 / text-slate-900 are outside that override layer.
+                            */
                             className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-sans font-semibold text-[10px] transition cursor-pointer shadow-2xs border ${
                               msg.id === selectedMessageId
-                                ? 'bg-slate-800 text-white border-slate-800'
-                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                                ? 'bg-slate-200 text-slate-900 border-slate-400 font-bold'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
                             }`}
+
                             title="Show this call's telemetry in the inspector"
                           >
                             <Activity className="w-3 h-3" />
@@ -933,40 +915,27 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                   )}
 
                   {/*
-                    "What changed" hints, relative to the PREVIOUS gateway call.
-                    Only headline changes appear here - a cache hit, a model switch, a cost
-                    or latency swing. The full list lives in the inspector; this is the
-                    at-a-glance cue that something is worth looking at, which is exactly
-                    what carries an auto-routing or cache demo from the chat pane.
+                    Which model the router picked.
+
+                    Shown only for /auto, because that is the only case where the target
+                    URL above does not already answer the question: a direct
+                    /models/<name> call names its model in the path, so repeating it here
+                    would be noise. `autoRouted` is false for those, and also false on an
+                    unattributed cache hit, where no model ran at all - the Semantic Cache
+                    card owns that story instead.
                   */}
-                  {(() => {
-                    const hints = diffTelemetry(baselineByMessageId.get(msg.id), msg.telemetry).filter(
-                      (c) => c.headline
-                    );
-                    if (hints.length === 0) return null;
-                    return (
-                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                        {hints.map((c) => (
-                          <span
-                            key={c.key}
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-sans font-semibold text-[9px] ${
-                              c.kind === 'improved'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : c.kind === 'regressed'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-purple-50 text-purple-700 border-purple-200'
-                            }`}
-                            title={`${c.label}: ${c.from} → ${c.to}`}
-                          >
-                            <span className="uppercase tracking-wide opacity-70">{c.label}</span>
-                            <ArrowRight className="w-2.5 h-2.5" />
-                            <span className="font-mono">{c.to}</span>
-                            {c.detail && <span className="opacity-80">({c.detail})</span>}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                  {msg.telemetry?.autoRouted && msg.telemetry.model && (
+                    <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                      <span
+                        data-routed-model={msg.telemetry.model}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-purple-200 bg-purple-50 text-purple-700 font-sans font-semibold text-[9px]"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span className="uppercase tracking-wide opacity-70">Routed to</span>
+                        <span className="font-mono">{msg.telemetry.model}</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
                   </>
                 );
@@ -1133,7 +1102,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
         <GatewayTraceViewer
           telemetry={activeTelemetry}
           settings={settings}
-          comparison={activeComparison}
           isHistorical={isViewingHistoricalCall}
           onReturnToLatest={() => {
             const latest = messages.find((m) => m.id === latestTelemetryMessageId);

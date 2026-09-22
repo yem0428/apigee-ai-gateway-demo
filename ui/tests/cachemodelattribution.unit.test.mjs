@@ -60,9 +60,15 @@ const rule = [
   extractDecl("effectiveModel"),
 ].join("\n");
 
-/** Evaluate the extracted rule against one set of inputs. */
-function resolve({ cacheStatus, headersReceived = {}, targetModel }) {
-  const sandbox = { cacheStatus, headersReceived, targetModel };
+/**
+ * Evaluate the extracted rule against one set of inputs.
+ *
+ * `isAuto` mirrors the client: `settings.model === 'auto'`, i.e. the caller hit /auto.
+ * It defaults off that same equality so a caller only has to pass it when testing the
+ * disagreement between the requested path and what came back.
+ */
+function resolve({ cacheStatus, headersReceived = {}, targetModel, isAuto = targetModel === "auto" }) {
+  const sandbox = { cacheStatus, headersReceived, targetModel, isAuto };
   vm.createContext(sandbox);
   vm.runInContext(
     `${rule}
@@ -96,6 +102,26 @@ describe("apigeeClient.ts - model attribution on a semantic cache hit", () => {
     it("reports no provider either, rather than guessing from the model name", () => {
       const out = resolve({ cacheStatus: "HIT", targetModel: "claude-opus-4-5@20251101" });
       assert.strictEqual(out.effectiveProvider, undefined);
+    });
+  });
+
+  describe("1b. An /auto call that never reached the router names no model either", () => {
+    it("does not report \"auto\" as the model when the call was rejected", () => {
+      // A 401 from the identity check comes back with no x-gateway-* headers at all.
+      // The old fallback turned that into a confident claim that the router picked a
+      // model called "auto" - the URL path segment, printed as a model name.
+      const out = resolve({ cacheStatus: "DISABLED", targetModel: "auto" });
+      assert.strictEqual(out.cacheHitUnattributed, false);
+      assert.strictEqual(out.effectiveModel, undefined);
+    });
+
+    it("reports the routed model as soon as the gateway names one", () => {
+      const out = resolve({
+        cacheStatus: "DISABLED",
+        headersReceived: { "x-gateway-model": "claude-opus-4-5@20251101" },
+        targetModel: "auto",
+      });
+      assert.strictEqual(out.effectiveModel, "claude-opus-4-5@20251101");
     });
   });
 
@@ -159,10 +185,19 @@ describe("apigeeClient.ts - model attribution on a semantic cache hit", () => {
   });
 
   describe("4. The trace viewer renders the absence honestly", () => {
-    it("falls back to \"Served from cache\" instead of rendering an empty model", () => {
+    it("labels an unattributed cache hit \"Served from cache\" rather than rendering an empty model", () => {
       assert.ok(
-        viewerCode.includes("telemetry.model || 'Served from cache'"),
-        "GatewayTraceViewer must label an unattributed response 'Served from cache'"
+        viewerCode.includes("telemetry.model || (isCacheHit ? 'Served from cache'"),
+        "GatewayTraceViewer must label an unattributed cache hit 'Served from cache'"
+      );
+    });
+
+    it("does not credit the cache for a call that was never cached", () => {
+      // A 401 also arrives with no model. Reusing the cache wording there would invent
+      // a mechanism that never ran, which is the same class of lie as inventing a model.
+      assert.ok(
+        viewerCode.includes("'No model reported'"),
+        "a missing model on a non-cached call must not be reported as a cache hit"
       );
     });
 

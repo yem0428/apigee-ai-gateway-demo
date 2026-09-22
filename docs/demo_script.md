@@ -57,8 +57,8 @@ and the gateway picked the tier that matches.
 
 > **Click:** the same chip's **Coding** sub-button.
 
-**Point at:** the purple `MODEL →` chip that appears on the new reply, and the
-*Changed from previous call* band at the top of the inspector.
+**Point at:** the *Model Routing* card — it turns purple whenever the router chose the
+model — and the `Routed to <model>` badge under the target URL on the new reply.
 
 Same URL, same credential, different vendor. The reply itself shows the switch without
 anyone needing to read the panel.
@@ -84,13 +84,14 @@ the call.
 Read the prompts aloud, side by side. They are **differently worded questions with the same
 meaning** — not a repeat. The cache matched on embedding similarity, not on string equality.
 
-**Point at:** the *Changed from previous call* band: `Cache MISS → HIT`, and cost to zero.
+**Point at:** the *Semantic Cache* card. It turns green on a hit: `Vector Cache Hit`,
+`$0 Token Cost`. Then the *Latency* figure above it, against what the seed call cost.
 
 > [!TIP]
 > If the vector index is still warm from an earlier rehearsal, **Seed (Miss)** will itself
-> come back as a hit and the band will only show a small latency delta. Point at the
-> *Semantic Cache* card instead — `Vector Cache Hit`, `$0 Token Cost` — which is true
-> either way. Or hit **Reset** and use a prompt of your own to get a genuine cold miss.
+> come back as a hit, so both cards are green and the latency gap is small. The *Semantic
+> Cache* card is still true either way. Or hit **Reset** and use a prompt of your own to
+> get a genuine cold miss.
 
 **The line:** *"Exact-match caching never fires in production, because humans never ask the
 same question twice the same way."*
@@ -151,15 +152,15 @@ time for it.
 
 ---
 
-## 4. Comparing calls
+## 4. Looking back at earlier calls
 
 Every reply carrying telemetry is clickable, and each one also has an explicit
 **Telemetry** button next to **Request Flow**.
 
 - Click an earlier reply → the inspector loads **that** call, and shows an amber
   *Viewing an earlier call* banner with **Back to latest**.
-- The *Changed from previous call* band always compares against the call immediately
-  before the one you are looking at, so you can step backwards through a session.
+- Flick between two replies to compare them directly: the *Model Routing* and *Semantic
+  Cache* cards light up on whichever call actually routed or hit the cache.
 
 Use this when someone asks *"wait, go back — what did the first one cost?"* You do not have
 to re-run it.

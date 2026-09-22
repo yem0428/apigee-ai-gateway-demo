@@ -71,10 +71,10 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'auto-coding',
     title: 'Same endpoint, different model',
     body:
-      'Now a coding prompt, to the exact same URL. The router moved it to Claude Opus, on ' +
-      'Vertex, through the same gateway. Look at the purple MODEL hint on the reply - it flags ' +
-      'what changed since the previous call.',
-    target: 'telemetry-comparison',
+      'Now a coding prompt, to the exact same URL. The Model Routing card lights up purple ' +
+      'and names Claude Opus, on Vertex, through the same gateway. The reply itself carries ' +
+      'the same verdict - a "Routed to" badge under the target URL.',
+    target: 'telemetry-model-routing',
     tab: 'ai-gateway',
     action: 'auto-coding',
     note: 'Switching vendor costs the client nothing: no SDK change, no new credential.',
@@ -94,28 +94,28 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'cache-hit',
     title: 'The same question, reworded',
     body:
-      'Different words, same meaning - and the Semantic Cache card reads Vector Cache Hit, ' +
-      '$0 token cost. It matched on embedding similarity, not on an exact string. The ' +
-      '"Changed from previous call" band quantifies the difference.',
-    target: 'telemetry-comparison',
+      'Different words, same meaning - and the Semantic Cache card turns green: Vector Cache ' +
+      'Hit, $0 token cost. It matched on embedding similarity, not on an exact string. ' +
+      'Compare the latency above with the previous call.',
+    target: 'telemetry-semantic-cache',
     tab: 'ai-gateway',
     action: 'cache-hit',
     /*
       Deliberately not promising "cache MISS -> HIT" in the body. The vector index is
-      shared and its TTL outlives a rehearsal, so the previous step is often a hit too,
-      and the band then shows a modest latency delta instead. Copy that describes a
-      transition the viewer cannot see is worse than copy that describes the card.
+      shared and its TTL outlives a rehearsal, so the previous step is often a hit too.
+      Copy that describes a transition the viewer cannot see is worse than copy that
+      describes the card in front of them.
     */
     note:
       'No model is credited on a hit: the cache keys on the prompt alone and the router ' +
-      'never runs. If the previous call was already a hit, the delta here will be small.',
+      'never runs, so the Model Routing card stays quiet.',
   },
   {
     id: 'history',
     title: 'Every call is still inspectable',
     body:
-      'Click any earlier reply to load its telemetry back into the panel. The comparison band ' +
-      'follows, so you can step back through a session and show what each call did differently.',
+      'Click any earlier reply, or its Telemetry button, to load that call back into the ' +
+      'panel. Step back through a session and show what each call did differently.',
     target: 'chat-messages',
     tab: 'ai-gateway',
   },

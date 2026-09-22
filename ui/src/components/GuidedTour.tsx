@@ -122,8 +122,8 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({
     Re-resolved on a timer rather than once, for two reasons.
 
     First, most targets do not exist yet when the step opens: a step that fires a gateway
-    call is pointing at telemetry still in flight, and the comparison band only mounts
-    once there are two calls to compare.
+    call is pointing at telemetry still in flight, and the inspector cards only mount once
+    a response has landed.
 
     Second, and less obviously, React rewrites `className` on re-render from its own
     props. Any class we added imperatively is wiped the moment the target re-renders for

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { GatewayTelemetry, GatewaySettings } from '../types';
-import { TelemetryChange } from '../services/telemetryDiff';
 import {
   Activity,
   Clock,
@@ -16,17 +15,13 @@ import {
   Send,
   Coins,
   Zap,
-  ArrowRight,
   History,
-  GitCompareArrows,
 } from 'lucide-react';
 
 interface GatewayTraceViewerProps {
   telemetry?: GatewayTelemetry | null;
   settings: GatewaySettings;
   onToggleCache: () => void;
-  /** What changed versus the call before this one. Empty for the first call of a session. */
-  comparison?: TelemetryChange[];
   /** True when the inspector is showing an earlier call rather than the most recent one. */
   isHistorical?: boolean;
   onReturnToLatest?: () => void;
@@ -36,7 +31,6 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
   telemetry,
   settings,
   onToggleCache,
-  comparison = [],
   isHistorical = false,
   onReturnToLatest,
 }) => {
@@ -115,62 +109,23 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
         </div>
       )}
 
-      {/*
-        What changed versus the previous call.
-        This is the demo's punchline surface: replay a prompt with caching on and the band
-        reads "Cache MISS -> HIT" and "Cost -100%" without anyone having to squint at two
-        numbers and do the arithmetic out loud. Hidden entirely on the first call of a
-        session, where there is nothing to compare against.
-      */}
-      {comparison.length > 0 && (
-        <div
-          data-tour-id="telemetry-comparison"
-          className="px-3 py-2 bg-slate-50 border-b border-slate-200 space-y-1.5"
-        >
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            <GitCompareArrows className="w-3 h-3" />
-            Changed from previous call
-          </div>
-          <div className="space-y-1">
-            {comparison.map((c) => (
-              <div key={c.key} className="flex items-center gap-1.5 text-[10px]">
-                <span className="w-14 shrink-0 text-slate-500 font-semibold">{c.label}</span>
-                <span className="font-mono text-slate-400 line-through truncate max-w-[35%]">{c.from}</span>
-                <ArrowRight className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                <span
-                  className={`font-mono font-bold truncate ${
-                    c.kind === 'improved'
-                      ? 'text-emerald-700'
-                      : c.kind === 'regressed'
-                      ? 'text-amber-700'
-                      : 'text-purple-700'
-                  }`}
-                >
-                  {c.to}
-                </span>
-                {c.detail && (
-                  <span
-                    className={`ml-auto shrink-0 px-1.5 py-0.5 rounded font-bold font-sans ${
-                      c.kind === 'improved'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {c.detail}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Focused Telemetry Cards Container */}
       <div className="p-3 space-y-2">
-        {/* 1. Model Routing */}
+        {/*
+          1. Model Routing
+
+          Highlighted only when the router actually picked the model, i.e. a /auto call
+          that reached a model. On a direct /models/<name> call there is no routing
+          decision to celebrate, and on an unattributed cache hit no model ran at all -
+          `autoRouted` is already false for both, so the card stays quiet.
+        */}
         <div
           data-tour-id="telemetry-model-routing"
-          className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-1 shadow-2xs"
+          className={`p-2.5 border rounded-xl space-y-1 shadow-2xs transition ${
+            telemetry.autoRouted
+              ? 'bg-purple-50/70 border-purple-300 ring-1 ring-purple-200'
+              : 'bg-white border-slate-200'
+          }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -190,15 +145,20 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
           <div className="flex items-center justify-between gap-2 pt-0.5">
             <div className="min-w-0">
               <div className="text-xs font-bold text-slate-900 font-mono truncate">
-                {telemetry.model || 'Served from cache'}
+                {telemetry.model || (isCacheHit ? 'Served from cache' : 'No model reported')}
               </div>
               <div className="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap">
                 {telemetry.model ? (
                   <span>{telemetry.provider || (telemetry.model.startsWith('claude') ? 'Anthropic' : 'Google')}</span>
-                ) : (
+                ) : isCacheHit ? (
                   // The cache keys on the prompt alone and the router is skipped on a
                   // hit, so the gateway names no model and neither do we.
                   <span>No model invoked &middot; semantic cache</span>
+                ) : (
+                  // Not a cache hit and still no model: the request did not get far
+                  // enough to be routed - a rejected identity, a blocked prompt. Saying
+                  // "served from cache" here would invent a mechanism that never ran.
+                  <span>Request did not reach a model</span>
                 )}
                 {telemetry.costTier && (
                   <>
@@ -311,8 +271,22 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
           </div>
         </div>
 
-        {/* 4. Semantic Cache (renamed from Semantic Caching) */}
-        <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs">
+        {/*
+          4. Semantic Cache
+
+          Highlighted when the cache actually served the answer. This is one of the two
+          cards that carry a demo, so it gets a tinted surface and a ring rather than a
+          numeric delta - the point a presenter makes is "this came from the cache", not
+          "this was 62% faster than last time".
+        */}
+        <div
+          data-tour-id="telemetry-semantic-cache"
+          className={`p-2.5 border rounded-xl shadow-2xs transition ${
+            isCacheHit
+              ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-200'
+              : 'bg-white border-slate-200'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5 text-emerald-500" />
@@ -334,19 +308,23 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
             </button>
           </div>
 
+          {/*
+            The verdict describes THIS call, so it reads cacheStatus, not the live
+            `settings.useCache` toggle above it. Those two disagree the moment you flip
+            the toggle - or look back at an earlier call - and the toggle used to win,
+            which meant a genuine cache hit could be labelled "Bypassed".
+          */}
           <div className="flex items-center justify-between">
             <div className="text-xs font-semibold">
-              {settings.useCache ? (
-                isCacheHit ? (
-                  <span className="text-emerald-600 flex items-center gap-1 font-bold">
-                    <Zap className="w-3.5 h-3.5 fill-emerald-500" />
-                    Vector Cache Hit
-                  </span>
-                ) : (
-                  <span className="text-slate-700">
-                    Cache Miss (Seeded to Vector DB)
-                  </span>
-                )
+              {isCacheHit ? (
+                <span className="text-emerald-600 flex items-center gap-1 font-bold">
+                  <Zap className="w-3.5 h-3.5 fill-emerald-500" />
+                  Vector Cache Hit
+                </span>
+              ) : telemetry.cacheStatus === 'MISS' ? (
+                <span className="text-slate-700">
+                  Cache Miss (Seeded to Vector DB)
+                </span>
               ) : (
                 <span className="text-slate-500">
                   Bypassed (Direct LLM Inference)
