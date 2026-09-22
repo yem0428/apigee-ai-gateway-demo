@@ -56,26 +56,7 @@ import {
   ApiProduct,
 } from '../types';
 import { DEFAULT_SSO_USER } from '../services/defaultSettings';
-
-// Crisp inline Google 4-color "G" logo
-const GoogleLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} aria-label="Google">
-    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
-    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z" />
-    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z" />
-    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
-  </svg>
-);
-
-// Crisp inline Anthropic geometric brand mark
-const AnthropicLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="none" aria-label="Anthropic">
-    <path
-      fill="#D97706"
-      d="M13.827 2.667h-3.654l-5.6 18.666h3.654l1.32-4.4h4.907l1.32 4.4h3.653l-5.6-18.666zm-3.36 11.2l1.533-5.107 1.534 5.107h-3.067z"
-    />
-  </svg>
-);
+import { GoogleLogo, AnthropicLogo } from './ProviderLogos';
 
 // Provider logo/mark component replacing raw GOOG/ANTH text badges
 const ModelProviderIcon = ({ model }: { model: string }) => {
@@ -89,14 +70,14 @@ const ModelProviderIcon = ({ model }: { model: string }) => {
   if (model.startsWith('gemini') || model.startsWith('gemma')) {
     return (
       <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-2xs shrink-0" title="Google DeepMind / Vertex AI">
-        <GoogleLogo className="w-4 h-4" />
+        <GoogleLogo className="w-4.5 h-4.5" />
       </div>
     );
   }
   if (model.startsWith('claude')) {
     return (
-      <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shadow-2xs shrink-0" title="Anthropic on Vertex AI">
-        <AnthropicLogo className="w-4 h-4" />
+      <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-2xs shrink-0" title="Anthropic on Vertex AI">
+        <AnthropicLogo className="w-4.5 h-4.5" />
       </div>
     );
   }
@@ -2120,20 +2101,22 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   <button
                     type="button"
                     onClick={() => setFilterProvider('google')}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
                       filterProvider === 'google' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Google
+                    <GoogleLogo className="w-3.5 h-3.5" />
+                    <span>Google</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setFilterProvider('anthropic')}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
-                      filterProvider === 'anthropic' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
+                      filterProvider === 'anthropic' ? 'bg-stone-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Anthropic
+                    <AnthropicLogo className="w-3.5 h-3.5" />
+                    <span>Anthropic</span>
                   </button>
                 </div>
 
@@ -2222,12 +2205,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
                             <td className="py-3 px-4 font-sans">
                               {item.provider === 'anthropic' ? (
-                                <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md">
-                                  Anthropic Vertex
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-stone-800 bg-stone-100 border border-stone-200 px-2 py-0.5 rounded-md">
+                                  <AnthropicLogo className="w-3 h-3" />
+                                  <span>Anthropic Vertex</span>
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
-                                  Google Gemini
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                                  <GoogleLogo className="w-3 h-3" />
+                                  <span>Google Gemini</span>
                                 </span>
                               )}
                             </td>

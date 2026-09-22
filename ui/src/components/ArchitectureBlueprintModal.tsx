@@ -22,6 +22,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { GatewayTelemetry, McpTelemetry } from '../types';
+import { GoogleLogo, AnthropicLogo } from './ProviderLogos';
 
 interface ArchitectureBlueprintModalProps {
   isOpen: boolean;
@@ -754,14 +755,20 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                           <div className="text-xs font-bold text-slate-800">Vertex AI Gemini 2.5</div>
                           <div className="text-[11px] text-slate-500">Flash, Flash-Lite & Pro</div>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">Google Cloud</span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">
+                          <GoogleLogo className="w-3 h-3" />
+                          <span>Google Cloud</span>
+                        </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-slate-800">Anthropic Claude 4.5</div>
                           <div className="text-[11px] text-slate-500">Haiku & Sonnet via Vertex</div>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800">Anthropic</span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold rounded bg-stone-100 text-slate-800 border border-stone-200">
+                          <AnthropicLogo className="w-3 h-3" />
+                          <span>Anthropic</span>
+                        </span>
                       </div>
                     </div>
                   </div>

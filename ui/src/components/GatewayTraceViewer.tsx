@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GatewayTelemetry, GatewaySettings } from '../types';
+import { GoogleLogo, AnthropicLogo } from './ProviderLogos';
 import {
   Activity,
   Clock,
@@ -149,7 +150,14 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
               </div>
               <div className="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap">
                 {telemetry.model ? (
-                  <span>{telemetry.provider || (telemetry.model.startsWith('claude') ? 'Anthropic' : 'Google')}</span>
+                  <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                    {telemetry.model.startsWith('claude') ? (
+                      <AnthropicLogo className="w-3 h-3" />
+                    ) : (
+                      <GoogleLogo className="w-3 h-3" />
+                    )}
+                    <span>{telemetry.provider || (telemetry.model.startsWith('claude') ? 'Anthropic' : 'Google')}</span>
+                  </span>
                 ) : isCacheHit ? (
                   // The cache keys on the prompt alone and the router is skipped on a
                   // hit, so the gateway names no model and neither do we.

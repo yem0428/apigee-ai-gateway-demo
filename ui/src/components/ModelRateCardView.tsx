@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { fetchModelRates, updateModelRates } from '../services/api';
 import { RateCardDictionary } from '../types';
+import { GoogleLogo, AnthropicLogo } from './ProviderLogos';
 
 interface ModelRateCardViewProps {
   currentEnv?: 'dev' | 'prod';
@@ -396,20 +397,22 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
               <button
                 type="button"
                 onClick={() => setFilterProvider('google')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
                   filterProvider === 'google' ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Google
+                <GoogleLogo className="w-3.5 h-3.5" />
+                <span>Google</span>
               </button>
               <button
                 type="button"
                 onClick={() => setFilterProvider('anthropic')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
-                  filterProvider === 'anthropic' ? 'bg-orange-600/30 text-orange-300 border border-orange-500/30' : 'text-slate-400 hover:text-slate-200'
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                  filterProvider === 'anthropic' ? 'bg-stone-800 text-stone-200 border border-stone-700' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Anthropic
+                <AnthropicLogo className="w-3.5 h-3.5" />
+                <span>Anthropic</span>
               </button>
             </div>
           </div>
@@ -481,12 +484,14 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
                         {/* Provider Tag */}
                         <td className="py-3 px-4">
                           {item.provider === 'anthropic' ? (
-                            <span className="text-[10px] font-semibold text-orange-300 bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 rounded-md">
-                              Anthropic Vertex
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-stone-200 bg-stone-800/80 border border-stone-700 px-2 py-0.5 rounded-md">
+                              <AnthropicLogo className="w-3 h-3" />
+                              <span>Anthropic Vertex</span>
                             </span>
                           ) : (
-                            <span className="text-[10px] font-semibold text-blue-300 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-md">
-                              Google Gemini
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-300 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-md">
+                              <GoogleLogo className="w-3 h-3" />
+                              <span>Google Gemini</span>
                             </span>
                           )}
                         </td>
