@@ -143,7 +143,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [, setProductDefaults] = useState<Record<string, ApiProduct>>({});
   const [editedProducts, setEditedProducts] = useState<Record<string, ApiProduct>>({});
   const [selectedProductName, setSelectedProductName] = useState<string>('Enterprise AI Tier');
-  const [productConfigSection, setProductConfigSection] = useState<'all' | 'models' | 'routing' | 'budget' | 'custom'>('models');
+  const [productConfigSection, setProductConfigSection] = useState<'models' | 'routing' | 'budget' | 'custom'>('models');
   const [productsLoading, setProductsLoading] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
   const [productResetting, setProductResetting] = useState(false);
@@ -1099,7 +1099,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             </div>
 
             {/* Product Configuration Categories Navigation */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               {/* Tab 1: Whitelisted Models & Rate Limits */}
               <button
                 type="button"
@@ -1195,34 +1195,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 <div className="text-xs font-bold text-slate-900 leading-snug">Custom Attributes</div>
                 <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Key-value product metadata</div>
               </button>
-
-              {/* Tab 5: View All Categories */}
-              <button
-                type="button"
-                onClick={() => setProductConfigSection('all')}
-                className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
-                  productConfigSection === 'all'
-                    ? 'bg-slate-900 border-slate-900 text-white ring-2 ring-slate-900/20 shadow-xs'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1 mb-1.5">
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${productConfigSection === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'bg-slate-100 text-slate-700'}`}>
-                    <Layers className="w-3.5 h-3.5" />
-                  </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                    productConfigSection === 'all' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600 border border-slate-200/80'
-                  }`}>
-                    All 4
-                  </span>
-                </div>
-                <div className={`text-xs font-bold leading-snug ${productConfigSection === 'all' ? 'text-white' : 'text-slate-900'}`}>View All Sections</div>
-                <div className={`text-[10px] leading-tight mt-0.5 truncate ${productConfigSection === 'all' ? 'text-slate-400' : 'text-slate-500'}`}>Display all product options</div>
-              </button>
             </div>
 
             {/* CARD 1: Whitelisted Models & Token Rate Quotas */}
-            {(productConfigSection === 'all' || productConfigSection === 'models') && (
+            {productConfigSection === 'models' && (
               <div className="bg-white rounded-xl border-2 border-blue-200/90 shadow-xs overflow-hidden">
                 <div className="bg-slate-50/90 px-4 py-2.5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
@@ -1417,7 +1393,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             )}
 
             {/* CARD 2: Prompt Auto-Routing Targets */}
-            {(productConfigSection === 'all' || productConfigSection === 'routing') && (
+            {productConfigSection === 'routing' && (
               <div className="bg-white rounded-xl border-2 border-purple-200/90 shadow-xs overflow-hidden">
                 <div className="bg-purple-50/50 px-4 py-2.5 border-b border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
@@ -1512,7 +1488,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             )}
 
             {/* CARD 3: Developer Monthly Budget Cap */}
-            {(productConfigSection === 'all' || productConfigSection === 'budget') && (
+            {productConfigSection === 'budget' && (
               <div className="bg-white rounded-xl border-2 border-emerald-200/90 shadow-xs overflow-hidden">
                 <div className="bg-emerald-50/50 px-4 py-2.5 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
@@ -1586,7 +1562,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             )}
 
             {/* CARD 4: Other Custom Attributes */}
-            {(productConfigSection === 'all' || productConfigSection === 'custom') && (
+            {productConfigSection === 'custom' && (
               <div className="bg-white rounded-xl border-2 border-amber-200/90 shadow-xs overflow-hidden">
                 <div className="bg-amber-50/50 px-4 py-2.5 border-b border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
