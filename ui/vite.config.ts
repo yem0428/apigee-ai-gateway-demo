@@ -35,6 +35,120 @@ function allocatedBudgetFor(hasWallet: boolean, balanceUsd: number, consumedUsd:
   return PREPAID_STARTING_BALANCE_USD
 }
 
+// Canonical default definitions for Standard and Enterprise AI Tier products from apigee/products.
+const DEFAULT_PRODUCTS: Record<string, any> = {
+  'Standard AI Tier': {
+    name: 'Standard AI Tier',
+    displayName: 'Standard AI Tier',
+    approvalType: 'auto',
+    environments: ['dev', 'prod'],
+    attributes: [
+      { name: 'access', value: 'private' },
+      { name: 'developer.budget.limit', value: '5000000' },
+      { name: 'developer.budget.interval', value: '1' },
+      { name: 'developer.budget.timeunit', value: 'month' },
+      { name: 'routing.model.coding', value: 'gemini-3-flash-preview' },
+      { name: 'routing.model.deep_reasoning', value: 'gemini-3-flash-preview' },
+      { name: 'routing.model.simple', value: 'gemini-3.1-flash-lite' },
+      { name: 'routing.model.general', value: 'gemini-3-flash-preview' },
+    ],
+    llmOperationGroup: {
+      operationConfigs: [
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/auto', methods: ['POST'], model: 'auto' }],
+          llmTokenQuota: { limit: '2000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/auto:*', methods: ['POST'], model: 'auto' }],
+          llmTokenQuota: { limit: '2000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/gemini-3.1-flash-lite:*', methods: ['POST'], model: 'gemini-3.1-flash-lite' }],
+          llmTokenQuota: { limit: '2000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/gemini-3-flash-preview:*', methods: ['POST'], model: 'gemini-3-flash-preview' }],
+          llmTokenQuota: { limit: '2000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/claude-haiku-4-5@20251001:*', methods: ['POST'], model: 'claude-haiku-4-5@20251001' }],
+          llmTokenQuota: { limit: '50', interval: '1', timeUnit: 'minute' },
+        },
+      ],
+    },
+  },
+  'Enterprise AI Tier': {
+    name: 'Enterprise AI Tier',
+    displayName: 'Enterprise AI Tier',
+    approvalType: 'auto',
+    environments: ['dev', 'prod'],
+    attributes: [
+      { name: 'access', value: 'private' },
+      { name: 'developer.budget.limit', value: '20000000' },
+      { name: 'developer.budget.interval', value: '1' },
+      { name: 'developer.budget.timeunit', value: 'month' },
+      { name: 'routing.model.coding', value: 'claude-opus-4-5@20251101' },
+      { name: 'routing.model.deep_reasoning', value: 'gemini-3.1-pro-preview' },
+      { name: 'routing.model.simple', value: 'gemini-3.1-flash-lite' },
+      { name: 'routing.model.general', value: 'gemini-3-flash-preview' },
+    ],
+    llmOperationGroup: {
+      operationConfigs: [
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/auto', methods: ['POST'], model: 'auto' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/auto:*', methods: ['POST'], model: 'auto' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/gemini-3.1-flash-lite:*', methods: ['POST'], model: 'gemini-3.1-flash-lite' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/gemini-3-flash-preview:*', methods: ['POST'], model: 'gemini-3-flash-preview' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/gemini-3.1-pro-preview:*', methods: ['POST'], model: 'gemini-3.1-pro-preview' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/claude-haiku-4-5@20251001:*', methods: ['POST'], model: 'claude-haiku-4-5@20251001' }],
+          llmTokenQuota: { limit: '50', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/claude-opus-4-5@20251101:*', methods: ['POST'], model: 'claude-opus-4-5@20251101' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/gemini-3.7-flash:*', methods: ['POST'], model: 'gemini-3.7-flash' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+        {
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: '/models/gemini-3.8-flash:*', methods: ['POST'], model: 'gemini-3.8-flash' }],
+          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
+        },
+      ],
+    },
+  },
+};
+
 async function getGcpAccessToken(): Promise<string> {
   const now = Date.now()
   if (cachedToken && now < tokenExpiry) {
@@ -1744,6 +1858,150 @@ export default defineConfig(({ mode }) => {
               res.statusCode = 500;
               res.end(JSON.stringify({ error: err.message }));
             }
+          });
+
+          // 12. /api/products/reset (Must be registered before /api/products)
+          server.middlewares.use('/api/products/reset', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+              return;
+            }
+
+            const token = await getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const org = 'bap-apac-demo2';
+            let body = '';
+            req.on('data', (c) => { body += c; });
+            req.on('end', async () => {
+              try {
+                const payload = JSON.parse(body || '{}');
+                const name = payload.name;
+                const toReset = name === 'all'
+                  ? ['Standard AI Tier', 'Enterprise AI Tier']
+                  : [name].filter((n: string) => DEFAULT_PRODUCTS[n]);
+
+                if (toReset.length === 0) {
+                  res.statusCode = 400;
+                  res.end(JSON.stringify({ error: 'Invalid product name to reset' }));
+                  return;
+                }
+
+                const resetResults = await Promise.all(
+                  toReset.map(async (pName: string) => {
+                    const defaultData = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS[pName]));
+                    const pUrl = `https://apigee.googleapis.com/v1/organizations/${org}/apiproducts/${encodeURIComponent(pName)}`;
+                    const putRes = await fetch(pUrl, {
+                      method: 'PUT',
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(defaultData),
+                    });
+                    const data = await putRes.json().catch(() => ({}));
+                    return { name: pName, ok: putRes.ok, data };
+                  })
+                );
+
+                const allOk = resetResults.every((r) => r.ok);
+                res.statusCode = allOk ? 200 : 500;
+                res.end(JSON.stringify({
+                  status: allOk ? 'ok' : 'error',
+                  message: allOk ? 'Reset to demo defaults successfully' : 'Failed to reset one or more products',
+                  results: resetResults,
+                  defaults: DEFAULT_PRODUCTS,
+                }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+          });
+
+          // 13. /api/products
+          server.middlewares.use('/api/products', async (req, res) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Cache-Control', 'no-store');
+
+            const token = await getGcpAccessToken();
+            if (!token) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Could not obtain GCP access token from gcloud' }));
+              return;
+            }
+
+            const org = 'bap-apac-demo2';
+            const names = ['Standard AI Tier', 'Enterprise AI Tier'];
+
+            if (req.method === 'GET') {
+              try {
+                const products = await Promise.all(
+                  names.map(async (name) => {
+                    const pUrl = `https://apigee.googleapis.com/v1/organizations/${org}/apiproducts/${encodeURIComponent(name)}`;
+                    try {
+                      const pRes = await fetch(pUrl, { headers: { Authorization: `Bearer ${token}` } });
+                      if (pRes.ok) return await pRes.json();
+                    } catch {}
+                    return JSON.parse(JSON.stringify(DEFAULT_PRODUCTS[name]));
+                  })
+                );
+                res.end(JSON.stringify({ status: 'ok', products, defaults: DEFAULT_PRODUCTS }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
+              return;
+            }
+
+            if (req.method === 'PUT') {
+              let body = '';
+              req.on('data', (c) => { body += c; });
+              req.on('end', async () => {
+                try {
+                  const payload = JSON.parse(body || '{}');
+                  const name = payload.name;
+                  if (!name || (name !== 'Standard AI Tier' && name !== 'Enterprise AI Tier')) {
+                    res.statusCode = 400;
+                    res.end(JSON.stringify({ error: 'Only Standard AI Tier and Enterprise AI Tier can be modified' }));
+                    return;
+                  }
+
+                  const productData = payload.product || {};
+                  delete productData.createdAt;
+                  delete productData.lastModifiedAt;
+
+                  const pUrl = `https://apigee.googleapis.com/v1/organizations/${org}/apiproducts/${encodeURIComponent(name)}`;
+                  const putRes = await fetch(pUrl, {
+                    method: 'PUT',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(productData),
+                  });
+
+                  const data = await putRes.json();
+                  res.statusCode = putRes.status;
+                  res.end(JSON.stringify({ status: putRes.ok ? 'ok' : 'error', product: data }));
+                } catch (err: any) {
+                  res.statusCode = 500;
+                  res.end(JSON.stringify({ error: err.message }));
+                }
+              });
+              return;
+            }
+
+            res.statusCode = 405;
+            res.end(JSON.stringify({ error: 'Method Not Allowed' }));
           });
         },
       },

@@ -19,6 +19,12 @@ import {
   ShieldCheck,
   User,
   Users,
+  Box,
+  Cpu,
+  Sliders,
+  Check,
+  Tag,
+  Code2,
 } from 'lucide-react';
 import {
   fetchModelRates,
@@ -31,6 +37,9 @@ import {
   fetchDeveloperMonetizationConfig,
   updateDeveloperMonetizationConfig,
   fetchDeveloperAttributions,
+  fetchAiProducts,
+  updateAiProduct,
+  resetAiProduct,
 } from '../services/api';
 import {
   RateCardDictionary,
@@ -39,15 +48,28 @@ import {
   DeveloperMonetizationConfig,
   GatewaySettings,
   UserMonetizationAttribution,
+  ApiProduct,
 } from '../types';
 import { DEFAULT_SSO_USER } from '../services/defaultSettings';
+
+const CATALOG_MODELS = [
+  { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', provider: 'google', desc: 'Ultra-low latency, cost-effective' },
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', provider: 'google', desc: 'Flagship fast multimodal reasoning' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', provider: 'google', desc: 'Frontier reasoning & advanced coding' },
+  { id: 'claude-haiku-4-5@20251001', name: 'Claude 4.5 Haiku', provider: 'anthropic', desc: 'Lightweight Anthropic model (50 tpm on Standard demo)' },
+  { id: 'claude-opus-4-5@20251101', name: 'Claude 4.5 Opus', provider: 'anthropic', desc: 'Anthropic flagship reasoning model' },
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', provider: 'google', desc: 'Hybrid reasoning model' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', provider: 'google', desc: 'Next-gen flash model' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'google', desc: 'Stable legacy flash model' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'google', desc: 'Stable legacy pro model' },
+];
 
 interface MonetizationManagerProps {
   currentEnv?: 'dev' | 'prod';
   settings?: GatewaySettings;
 }
 
-type MonetizationSubTab = 'wallets' | 'rate-cards' | 'rate-plans';
+type MonetizationSubTab = 'products' | 'wallets' | 'rate-cards' | 'rate-plans';
 
 export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   currentEnv = 'prod',
@@ -56,11 +78,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<MonetizationSubTab>(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search).get('subtab') as MonetizationSubTab;
-      if (p && ['wallets', 'rate-cards', 'rate-plans'].includes(p)) {
+      if (p && ['products', 'wallets', 'rate-cards', 'rate-plans'].includes(p)) {
         return p;
       }
     }
-    return 'wallets';
+    return 'products';
   });
   const [env] = useState<'dev' | 'prod'>(currentEnv);
 
@@ -77,6 +99,227 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   // Global Alert / Notification state
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // -------------------------------------------------------------
+  // 0. AI Products & Entitlements State
+  // -------------------------------------------------------------
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [, setProductDefaults] = useState<Record<string, ApiProduct>>({});
+  const [editedProducts, setEditedProducts] = useState<Record<string, ApiProduct>>({});
+  const [selectedProductName, setSelectedProductName] = useState<string>('Standard AI Tier');
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productSaving, setProductSaving] = useState(false);
+  const [productResetting, setProductResetting] = useState(false);
+  const [showProductResetModal, setShowProductResetModal] = useState(false);
+  const [showRawProductJson, setShowRawProductJson] = useState(false);
+  const [customModelInput, setCustomModelInput] = useState('');
+  const [newCustomAttrKey, setNewCustomAttrKey] = useState('');
+  const [newCustomAttrVal, setNewCustomAttrVal] = useState('');
+
+  const activeProduct = editedProducts[selectedProductName] || products.find((p) => p.name === selectedProductName);
+  const originalProduct = products.find((p) => p.name === selectedProductName);
+  const hasProductChanges = useMemo(() => {
+    if (!activeProduct || !originalProduct) return false;
+    return JSON.stringify(activeProduct) !== JSON.stringify(originalProduct);
+  }, [activeProduct, originalProduct]);
+
+  const loadAiProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const res = await fetchAiProducts();
+      if (res.products && res.products.length > 0) {
+        setProducts(res.products);
+        setProductDefaults(res.defaults || {});
+        const edits: Record<string, ApiProduct> = {};
+        res.products.forEach((p) => {
+          edits[p.name] = JSON.parse(JSON.stringify(p));
+        });
+        setEditedProducts(edits);
+      }
+    } catch (err: any) {
+      console.warn('Failed to load AI products:', err.message);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  const handleSaveProduct = async () => {
+    if (!activeProduct) return;
+    setProductSaving(true);
+    setError(null);
+    try {
+      const res = await updateAiProduct(selectedProductName, activeProduct);
+      setProducts((prev) => prev.map((p) => (p.name === selectedProductName ? res.product : p)));
+      setEditedProducts((prev) => ({
+        ...prev,
+        [selectedProductName]: JSON.parse(JSON.stringify(res.product)),
+      }));
+      setSuccessMessage(`Successfully updated ${selectedProductName} on Apigee Management API`);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save product');
+    } finally {
+      setProductSaving(false);
+    }
+  };
+
+  const handleResetProduct = async (name: 'Standard AI Tier' | 'Enterprise AI Tier' | 'all') => {
+    setProductResetting(true);
+    setError(null);
+    setShowProductResetModal(false);
+    try {
+      await resetAiProduct(name);
+      await loadAiProducts();
+      setSuccessMessage(
+        name === 'all'
+          ? 'Successfully restored all AI products to canonical demo defaults'
+          : `Successfully restored ${name} to canonical demo defaults`
+      );
+      setTimeout(() => setSuccessMessage(null), 4500);
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset product');
+    } finally {
+      setProductResetting(false);
+    }
+  };
+
+  const handleRevertProduct = () => {
+    if (!originalProduct) return;
+    setEditedProducts((prev) => ({
+      ...prev,
+      [selectedProductName]: JSON.parse(JSON.stringify(originalProduct)),
+    }));
+  };
+
+  const updateCurrentProduct = (updater: (p: ApiProduct) => void) => {
+    if (!activeProduct) return;
+    const clone: ApiProduct = JSON.parse(JSON.stringify(activeProduct));
+    updater(clone);
+    setEditedProducts((prev) => ({
+      ...prev,
+      [selectedProductName]: clone,
+    }));
+  };
+
+  const configuredModels = useMemo(() => {
+    if (!activeProduct?.llmOperationGroup?.operationConfigs) return [];
+    const configs = activeProduct.llmOperationGroup.operationConfigs;
+    const map = new Map<string, {
+      model: string;
+      resource: string;
+      limit: string;
+      interval: string;
+      timeUnit: string;
+    }>();
+
+    configs.forEach((cfg) => {
+      cfg.llmOperations?.forEach((op) => {
+        const m = op.model;
+        if (!map.has(m)) {
+          map.set(m, {
+            model: m,
+            resource: op.resource,
+            limit: cfg.llmTokenQuota?.limit || '2000',
+            interval: cfg.llmTokenQuota?.interval || '1',
+            timeUnit: cfg.llmTokenQuota?.timeUnit || 'minute',
+          });
+        }
+      });
+    });
+
+    return Array.from(map.values());
+  }, [activeProduct]);
+
+  const handleUpdateModelQuota = (modelName: string, field: 'limit' | 'interval' | 'timeUnit', val: string) => {
+    updateCurrentProduct((p) => {
+      p.llmOperationGroup?.operationConfigs?.forEach((cfg) => {
+        if (cfg.llmOperations?.some((op) => op.model === modelName)) {
+          if (!cfg.llmTokenQuota) {
+            cfg.llmTokenQuota = { limit: '2000', interval: '1', timeUnit: 'minute' };
+          }
+          cfg.llmTokenQuota[field] = val;
+        }
+      });
+    });
+  };
+
+  const handleRemoveModel = (modelName: string) => {
+    updateCurrentProduct((p) => {
+      if (!p.llmOperationGroup?.operationConfigs) return;
+      p.llmOperationGroup.operationConfigs = p.llmOperationGroup.operationConfigs.filter(
+        (cfg) => !cfg.llmOperations?.some((op) => op.model === modelName)
+      );
+    });
+  };
+
+  const handleAddProductModel = (modelName: string, defaultQuota = { limit: '2000', interval: '1', timeUnit: 'minute' }) => {
+    const trimmed = modelName.trim();
+    if (!trimmed) return;
+    updateCurrentProduct((p) => {
+      if (!p.llmOperationGroup) p.llmOperationGroup = { operationConfigs: [] };
+      if (!p.llmOperationGroup.operationConfigs) p.llmOperationGroup.operationConfigs = [];
+      const exists = p.llmOperationGroup.operationConfigs.some((cfg) =>
+        cfg.llmOperations?.some((op) => op.model === trimmed)
+      );
+      if (exists) return;
+
+      if (trimmed === 'auto') {
+        p.llmOperationGroup.operationConfigs.push(
+          {
+            apiSource: 'ai-gateway-v1',
+            llmOperations: [{ resource: '/auto', methods: ['POST'], model: 'auto' }],
+            llmTokenQuota: { ...defaultQuota },
+          },
+          {
+            apiSource: 'ai-gateway-v1',
+            llmOperations: [{ resource: '/auto:*', methods: ['POST'], model: 'auto' }],
+            llmTokenQuota: { ...defaultQuota },
+          }
+        );
+      } else {
+        p.llmOperationGroup.operationConfigs.push({
+          apiSource: 'ai-gateway-v1',
+          llmOperations: [{ resource: `/models/${trimmed}:*`, methods: ['POST'], model: trimmed }],
+          llmTokenQuota: { ...defaultQuota },
+        });
+      }
+    });
+    setCustomModelInput('');
+  };
+
+  const getProductAttr = (name: string): string => {
+    const found = activeProduct?.attributes?.find((a) => a.name === name);
+    return found ? found.value : '';
+  };
+
+  const setProductAttr = (name: string, value: string) => {
+    updateCurrentProduct((p) => {
+      if (!p.attributes) p.attributes = [];
+      const idx = p.attributes.findIndex((a) => a.name === name);
+      if (idx >= 0) {
+        p.attributes[idx].value = value;
+      } else {
+        p.attributes.push({ name, value });
+      }
+    });
+  };
+
+  const removeProductAttr = (name: string) => {
+    updateCurrentProduct((p) => {
+      if (!p.attributes) return;
+      p.attributes = p.attributes.filter((a) => a.name !== name);
+    });
+  };
+
+  const budgetMicros = parseInt(getProductAttr('developer.budget.limit') || '0', 10);
+  const budgetUsd = !isNaN(budgetMicros) && budgetMicros > 0 ? (budgetMicros / 1000000).toFixed(2) : '0.00';
+
+  const handleBudgetUsdChange = (val: string) => {
+    const num = parseFloat(val);
+    if (isNaN(num) || num < 0) return;
+    const micros = Math.round(num * 1000000).toString();
+    setProductAttr('developer.budget.limit', micros);
+  };
 
   // -------------------------------------------------------------
   // 1. Developer Wallet & Monetization Config State
@@ -229,6 +472,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const handleRefreshAll = async (isManual = false) => {
     setError(null);
     await Promise.all([
+      loadAiProducts(),
       loadWalletData(selectedDeveloper),
       loadKvmRates(),
       loadPlansAndSubscriptions(selectedDeveloper),
@@ -239,6 +483,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       setTimeout(() => setSuccessMessage(null), 3500);
     }
   };
+
+  useEffect(() => {
+    loadAiProducts();
+  }, []);
 
   useEffect(() => {
     handleRefreshAll(false);
@@ -523,11 +771,11 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             <button
               type="button"
               onClick={() => handleRefreshAll(true)}
-              disabled={walletLoading || ratesLoading || plansLoading}
+              disabled={walletLoading || ratesLoading || plansLoading || productsLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
               title="Synchronize all data from Management API"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${walletLoading || ratesLoading || plansLoading ? 'animate-spin text-emerald-500' : 'text-slate-500'}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${walletLoading || ratesLoading || plansLoading || productsLoading ? 'animate-spin text-emerald-500' : 'text-slate-500'}`} />
               <span className="hidden sm:inline">Sync</span>
             </button>
           </div>
@@ -536,6 +784,22 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         {/* Sub-Tab Navigation Strip: Sleek Segmented Control */}
         <div className="max-w-7xl mx-auto mt-3.5 flex items-center border-t border-slate-200 pt-3 overflow-x-auto">
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs shadow-xs">
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('products')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
+                activeSubTab === 'products'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Box className="w-3.5 h-3.5 text-blue-600" />
+              <span>AI Products</span>
+              {hasProductChanges && (
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveSubTab('wallets')}
@@ -605,6 +869,546 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             <button onClick={() => setSuccessMessage(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
               <X className="w-4 h-4" />
             </button>
+          </div>
+        )}
+
+        {/* SUB-TAB 0: AI PRODUCTS & ENTITLEMENTS */}
+        {activeSubTab === 'products' && (
+          <div className="space-y-6">
+            {/* Tier Switcher Bar & Actions */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center gap-2">
+                {['Standard AI Tier', 'Enterprise AI Tier'].map((tierName) => {
+                  const isSelected = selectedProductName === tierName;
+                  const isStandard = tierName === 'Standard AI Tier';
+                  const prod = editedProducts[tierName] || products.find((p) => p.name === tierName);
+                  const orig = products.find((p) => p.name === tierName);
+                  const isDirty = prod && orig && JSON.stringify(prod) !== JSON.stringify(orig);
+                  const modelCount = prod?.llmOperationGroup?.operationConfigs?.length || 0;
+
+                  return (
+                    <button
+                      key={tierName}
+                      type="button"
+                      onClick={() => setSelectedProductName(tierName)}
+                      className={`flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-2.5 rounded-xl border text-left transition cursor-pointer ${
+                        isSelected
+                          ? isStandard
+                            ? 'bg-blue-50/70 border-blue-500/50 text-blue-950 shadow-xs'
+                            : 'bg-purple-50/70 border-purple-500/50 text-purple-950 shadow-xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                            isSelected
+                              ? isStandard
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-purple-600 text-white'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {isStandard ? 'STD' : 'ENT'}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold flex items-center gap-1.5">
+                            <span>{tierName}</span>
+                            {isDirty && (
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Unsaved changes" />
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            {modelCount} models • {isStandard ? '2k tpm (Haiku 50)' : '50k tpm'}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {/* Reset to Demo Defaults Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowProductResetModal(true)}
+                  disabled={productResetting || productsLoading}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+                  title="Restore default models, rate limits, and routing from canonical demo configurations"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${productResetting ? 'animate-spin' : ''}`} />
+                  <span>{productResetting ? 'Resetting...' : 'Reset to Demo Defaults'}</span>
+                </button>
+
+                {/* Revert Unsaved */}
+                {hasProductChanges && (
+                  <button
+                    type="button"
+                    onClick={handleRevertProduct}
+                    disabled={productSaving}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer"
+                  >
+                    <span>Revert</span>
+                  </button>
+                )}
+
+                {/* Save Product to Apigee */}
+                <button
+                  type="button"
+                  onClick={handleSaveProduct}
+                  disabled={!hasProductChanges || productSaving || productsLoading}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
+                    hasProductChanges && !productSaving
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                  title="Deploy changes directly to Apigee Management API"
+                >
+                  <Save className={`w-3.5 h-3.5 ${productSaving ? 'animate-spin' : ''}`} />
+                  <span>{productSaving ? 'Saving to Apigee...' : 'Save Product to Apigee'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Live Apigee Metadata Banner */}
+            <div className="bg-slate-900 text-slate-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-white flex items-center gap-2">
+                    <span>Target: {selectedProductName}</span>
+                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      Live on Apigee Organization
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    Organization: <span className="font-mono text-slate-200">bap-apac-demo2</span> • Proxies: <span className="font-mono text-slate-200">ai-gateway-v1</span> • Envs: <span className="font-mono text-slate-200">dev, prod</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRawProductJson(!showRawProductJson)}
+                className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition font-mono cursor-pointer"
+              >
+                <Code2 className="w-3 h-3" />
+                <span>{showRawProductJson ? 'Hide Raw JSON' : 'Inspect Product JSON'}</span>
+              </button>
+            </div>
+
+            {showRawProductJson && (
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 shadow-inner overflow-hidden">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs text-slate-400">
+                  <span className="font-mono font-semibold">Live Apigee Product Definition Payload</span>
+                  <span className="text-[10px]">Read-only timestamp fields stripped for updates</span>
+                </div>
+                <pre className="font-mono text-[11px] text-emerald-400 overflow-x-auto max-h-80 p-2">
+                  {JSON.stringify(activeProduct, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {/* CARD 1: Whitelisted Models & Token Rate Quotas */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-blue-600" />
+                    <span>Whitelisted Models & Rate Limits (Token Quotas)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configured in <code className="font-mono text-blue-700 font-semibold">llmOperationGroup.operationConfigs</code>. Enforced by Apigee's <code className="font-mono text-slate-800">Quota-LLM-Token</code> policy.
+                  </p>
+                </div>
+                <div className="text-[11px] font-mono text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+                  {configuredModels.length} active models
+                </div>
+              </div>
+
+              {/* Models List */}
+              <div className="space-y-3">
+                {configuredModels.map((m) => {
+                  const isHaiku = m.model === 'claude-haiku-4-5@20251001';
+                  const isAuto = m.model === 'auto';
+                  const isGoogle = m.model.startsWith('gemini');
+                  const isAnthropic = m.model.startsWith('claude');
+                  const isLowLimit = parseInt(m.limit, 10) <= 100;
+
+                  return (
+                    <div
+                      key={m.model}
+                      className={`p-3.5 rounded-xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                        isHaiku && isLowLimit
+                          ? 'bg-amber-50/40 border-amber-200'
+                          : 'bg-slate-50/70 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 min-w-[240px]">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 ${
+                            isAuto
+                              ? 'bg-purple-100 text-purple-700'
+                              : isGoogle
+                              ? 'bg-blue-100 text-blue-700'
+                              : isAnthropic
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {isAuto ? 'RTR' : isGoogle ? 'GOOG' : isAnthropic ? 'ANTH' : 'LLM'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-slate-900">{m.model}</span>
+                            {isAuto && (
+                              <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                                Semantic Router
+                              </span>
+                            )}
+                            {isHaiku && isLowLimit && (
+                              <span className="text-[10px] font-semibold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full border border-rose-200">
+                                429 Demo Trigger (50 tpm)
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            Resource: {m.resource}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quota inputs and preset pills */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                          <span className="text-[11px] font-semibold text-slate-500">Quota Limit:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={m.limit}
+                            onChange={(e) => handleUpdateModelQuota(m.model, 'limit', e.target.value)}
+                            className="w-20 font-mono text-xs font-bold text-slate-900 text-right bg-slate-50 rounded px-1.5 py-0.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <span className="text-[10px] text-slate-400">tokens /</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={m.interval}
+                            onChange={(e) => handleUpdateModelQuota(m.model, 'interval', e.target.value)}
+                            className="w-12 font-mono text-xs font-bold text-slate-900 text-center bg-slate-50 rounded px-1 py-0.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <select
+                            value={m.timeUnit}
+                            onChange={(e) => handleUpdateModelQuota(m.model, 'timeUnit', e.target.value)}
+                            className="text-xs font-mono text-slate-700 bg-transparent focus:outline-none cursor-pointer"
+                          >
+                            <option value="minute">min</option>
+                            <option value="hour">hour</option>
+                            <option value="day">day</option>
+                          </select>
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateModelQuota(m.model, 'limit', '50')}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-medium transition cursor-pointer border ${
+                              m.limit === '50'
+                                ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                            title="Set to 50 tokens (triggers 429 quota exhaustion on 1 prompt)"
+                          >
+                            50 tpm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateModelQuota(m.model, 'limit', '2000')}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-medium transition cursor-pointer border ${
+                              m.limit === '2000'
+                                ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                            title="Set to 2,000 tokens (Standard default)"
+                          >
+                            2k
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateModelQuota(m.model, 'limit', '50000')}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-medium transition cursor-pointer border ${
+                              m.limit === '50000'
+                                ? 'bg-purple-50 text-purple-700 border-purple-300 font-bold'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                            title="Set to 50,000 tokens (Enterprise default)"
+                          >
+                            50k
+                          </button>
+                        </div>
+
+                        {/* Remove Button */}
+                        {!isAuto && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveModel(m.model)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title={`Remove ${m.model} from tier`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Models Controls */}
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <span className="text-xs font-semibold text-slate-700">Quick-Add Catalog Models:</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {CATALOG_MODELS.filter((cat) => !configuredModels.some((m) => m.model === cat.id)).map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleAddProductModel(cat.id, selectedProductName === 'Enterprise AI Tier' ? { limit: '50000', interval: '1', timeUnit: 'minute' } : { limit: '2000', interval: '1', timeUnit: 'minute' })}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-slate-200 text-[11px] font-mono text-slate-700 transition cursor-pointer"
+                      title={cat.desc}
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>{cat.id}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Model Input */}
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="text"
+                    value={customModelInput}
+                    onChange={(e) => setCustomModelInput(e.target.value)}
+                    placeholder="Custom Model ID (e.g. meta/llama-3.3-70b or mistral-large)..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddProductModel(customModelInput)}
+                    disabled={!customModelInput.trim()}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Model</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 2: Semantic Router Target Mapping */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-purple-600" />
+                  <span>Semantic Router Intent Mapping (Attributes)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  When users call <code className="font-mono text-purple-700 font-semibold">/auto</code>, Apigee's router evaluates caller prompt intent and routes the payload to these product attributes.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  {
+                    key: 'routing.model.coding',
+                    label: 'Coding & Development Intent',
+                    desc: 'Selected when prompt involves code generation, debugging, or syntax',
+                  },
+                  {
+                    key: 'routing.model.deep_reasoning',
+                    label: 'Deep Reasoning & Math Intent',
+                    desc: 'Selected for complex logic, multi-step problem solving, and math',
+                  },
+                  {
+                    key: 'routing.model.simple',
+                    label: 'Simple & Factual Lookups',
+                    desc: 'Selected for quick facts, lookups, and short queries',
+                  },
+                  {
+                    key: 'routing.model.general',
+                    label: 'General & Conversational Intent',
+                    desc: 'Default catch-all for broad creative text and dialog',
+                  },
+                ].map(({ key, label, desc }) => {
+                  const currentTarget = getProductAttr(key);
+                  return (
+                    <div key={key} className="bg-slate-50 rounded-xl border border-slate-200 p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900">{label}</span>
+                        <code className="text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 font-mono">
+                          {key}
+                        </code>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-tight">{desc}</p>
+                      <div className="pt-1">
+                        <select
+                          value={currentTarget}
+                          onChange={(e) => setProductAttr(key, e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs cursor-pointer"
+                        >
+                          {configuredModels.filter((m) => m.model !== 'auto').map((m) => (
+                            <option key={m.model} value={m.model}>
+                              {m.model}
+                            </option>
+                          ))}
+                          {currentTarget && !configuredModels.some((m) => m.model === currentTarget) && (
+                            <option value={currentTarget}>{currentTarget}</option>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* CARD 3: Developer Monthly Budget Cap */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-emerald-600" />
+                  <span>Developer Budget Governance (Attributes)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Stored in product attributes as <code className="font-mono text-emerald-700">developer.budget.limit</code> in micro-dollars (1 USD = 1,000,000 micro-USD).
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <div className="text-xs font-bold text-slate-900">Monthly Spending Ceiling</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Standard AI Tier default: $5.00 / mo • Enterprise AI Tier default: $20.00 / mo
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-white border border-slate-300 rounded-xl px-3 py-1.5 shadow-2xs">
+                    <span className="text-slate-400 font-mono text-sm mr-1">$</span>
+                    <input
+                      type="number"
+                      step="0.50"
+                      min="0"
+                      value={budgetUsd}
+                      onChange={(e) => handleBudgetUsdChange(e.target.value)}
+                      className="w-20 text-xs font-mono font-bold text-slate-900 focus:outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400 font-sans ml-1">USD</span>
+                  </div>
+
+                  <span className="text-xs text-slate-400">per</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={getProductAttr('developer.budget.interval') || '1'}
+                    onChange={(e) => setProductAttr('developer.budget.interval', e.target.value)}
+                    className="w-12 bg-white border border-slate-300 rounded-xl px-2 py-1.5 text-xs font-mono font-bold text-slate-900 text-center shadow-2xs focus:outline-none"
+                  />
+
+                  <select
+                    value={getProductAttr('developer.budget.timeunit') || 'month'}
+                    onChange={(e) => setProductAttr('developer.budget.timeunit', e.target.value)}
+                    className="bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-mono text-slate-700 shadow-2xs focus:outline-none cursor-pointer"
+                  >
+                    <option value="day">day</option>
+                    <option value="month">month</option>
+                    <option value="year">year</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 4: Other Custom Attributes */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-slate-600" />
+                  <span>Other Custom Attributes</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Arbitrary key-value metadata attached to this API Product on Apigee.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {(activeProduct?.attributes || [])
+                  .filter(
+                    (a: { name: string; value: string }) =>
+                      !a.name.startsWith('routing.model.') &&
+                      !a.name.startsWith('developer.budget.')
+                  )
+                  .map((attr: { name: string; value: string }) => (
+                    <div
+                      key={attr.name}
+                      className="flex items-center justify-between gap-3 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono"
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="font-bold text-slate-800">{attr.name}</span>
+                        <span className="text-slate-400">=</span>
+                        <input
+                          type="text"
+                          value={attr.value}
+                          onChange={(e) => setProductAttr(attr.name, e.target.value)}
+                          className="flex-1 bg-white border border-slate-200 rounded px-2 py-0.5 text-slate-700 text-xs focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeProductAttr(attr.name)}
+                        className="text-slate-400 hover:text-rose-600 transition p-1 cursor-pointer"
+                        title="Remove attribute"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                {/* Add new attribute row */}
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="text"
+                    placeholder="New attribute key..."
+                    value={newCustomAttrKey}
+                    onChange={(e) => setNewCustomAttrKey(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="New attribute value..."
+                    value={newCustomAttrVal}
+                    onChange={(e) => setNewCustomAttrVal(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newCustomAttrKey.trim()) return;
+                      setProductAttr(newCustomAttrKey.trim(), newCustomAttrVal.trim());
+                      setNewCustomAttrKey('');
+                      setNewCustomAttrVal('');
+                    }}
+                    disabled={!newCustomAttrKey.trim()}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Attribute</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1541,6 +2345,80 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Product Reset Confirmation Modal */}
+      {showProductResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Reset to Demo Defaults</h3>
+                  <p className="text-xs text-slate-500">Restore canonical Apigee configurations</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowProductResetModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              This will re-apply canonical product configurations from <code className="font-mono text-slate-800 bg-slate-100 px-1 py-0.5 rounded">apigee/products/*.json</code> directly to Apigee Management API.
+            </p>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-600 space-y-1.5">
+              <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Restores Standard AI Tier Demo Rate Limits</span>
+              </div>
+              <p className="text-slate-500 pl-5">
+                Sets Claude Haiku back to 50 tokens/min to ensure rate-limit demo scenarios function reliably.
+              </p>
+              <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Restores Default Semantic Router Mappings</span>
+              </div>
+              <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Restores Developer Budget Caps ($5.00 & $20.00)</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowProductResetModal(false)}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleResetProduct(selectedProductName as any)}
+                disabled={productResetting}
+                className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {productResetting ? 'Resetting...' : `Reset ${selectedProductName}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleResetProduct('all')}
+                disabled={productResetting}
+                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {productResetting ? 'Resetting All...' : 'Reset All Tiers'}
+              </button>
+            </div>
           </div>
         </div>
       )}

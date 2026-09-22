@@ -332,3 +332,43 @@ export interface McpPresetScenario {
   badgeText: string;
   badgeColor: string;
 }
+
+export interface ProductAttribute {
+  name: string;
+  value: string;
+}
+
+export interface LlmOperation {
+  resource: string;
+  methods: string[];
+  model: string;
+}
+
+export interface LlmTokenQuota {
+  limit: string;
+  interval: string;
+  timeUnit: string;
+}
+
+export interface OperationConfig {
+  apiSource: string;
+  llmOperations: LlmOperation[];
+  llmTokenQuota?: LlmTokenQuota;
+}
+
+export interface ApiProduct {
+  name: string;
+  displayName: string;
+  approvalType?: string;
+  environments?: string[];
+  attributes?: ProductAttribute[];
+  llmOperationGroup?: {
+    operationConfigs?: OperationConfig[];
+  };
+  proxies?: string[];
+  scopes?: string[];
+  quota?: string;
+  quotaInterval?: string;
+  quotaTimeUnit?: string;
+  [key: string]: any;
+}

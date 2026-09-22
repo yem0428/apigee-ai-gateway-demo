@@ -289,3 +289,50 @@ export async function fetchCallLogs(
   return response.json();
 }
 
+export async function fetchAiProducts(): Promise<{
+  status: string;
+  products: import('../types').ApiProduct[];
+  defaults: Record<string, import('../types').ApiProduct>;
+}> {
+  const response = await fetch('/api/products');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch AI products (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateAiProduct(name: string, product: import('../types').ApiProduct): Promise<{
+  status: string;
+  product: import('../types').ApiProduct;
+}> {
+  const response = await fetch('/api/products', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, product }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to update product ${name} (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function resetAiProduct(name: 'Standard AI Tier' | 'Enterprise AI Tier' | 'all' = 'all'): Promise<{
+  status: string;
+  message: string;
+  results: Array<{ name: string; ok: boolean; data?: any }>;
+  defaults: Record<string, import('../types').ApiProduct>;
+}> {
+  const response = await fetch('/api/products/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to reset product defaults (${response.status})`);
+  }
+  return response.json();
+}
+
