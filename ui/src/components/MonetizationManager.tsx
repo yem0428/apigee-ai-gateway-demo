@@ -27,6 +27,9 @@ import {
   Route,
   MessageSquare,
   Sparkles,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import {
   fetchModelRates,
@@ -437,14 +440,20 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [subscribingProduct, setSubscribingProduct] = useState<string | null>(null);
   const [liveAttributions, setLiveAttributions] = useState<UserMonetizationAttribution[]>([]);
 
-  // Available Developers loaded dynamically from Management API
+  // Available Developers loaded dynamically from Management API (sorted alphabetically by name)
   const availableDevelopers = useMemo(() => {
     if (liveAttributions.length > 0) {
-      return liveAttributions.map((a) => ({
+      const list = liveAttributions.map((a) => ({
         email: a.userEmail,
-        name: a.name,
+        name: a.name || a.userEmail.split('@')[0],
         badge: a.badge,
       }));
+      return list.sort((a, b) => {
+        const nameA = (a.name || a.email).toLowerCase();
+        const nameB = (b.name || b.email).toLowerCase();
+        const cmp = nameA.localeCompare(nameB);
+        return cmp !== 0 ? cmp : a.email.localeCompare(b.email);
+      });
     }
     return [
       { email: defaultEmail, name: defaultEmail.split('@')[0], badge: 'SSO Caller' },
@@ -761,6 +770,109 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
     );
   }, [liveAttributions, selectedDeveloper, defaultEmail, walletBalance, isSimulatingExhaustedWallet, userAttributionSearch]);
 
+  // Enterprise User & Persona Attribution Table Sorting
+  type AttributionSortColumn = 'name' | 'tier' | 'billing' | 'consumed' | 'balance' | 'quota';
+  type SortDirection = 'asc' | 'desc';
+
+  const [attributionSortColumn, setAttributionSortColumn] = useState<AttributionSortColumn>('name');
+  const [attributionSortDirection, setAttributionSortDirection] = useState<SortDirection>('asc');
+
+  const handleAttributionSort = (col: AttributionSortColumn) => {
+    if (attributionSortColumn === col) {
+      setAttributionSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setAttributionSortColumn(col);
+      setAttributionSortDirection(
+        col === 'consumed' || col === 'balance' || col === 'quota' ? 'desc' : 'asc'
+      );
+    }
+  };
+
+  const sortedUserAttributions = useMemo(() => {
+    const list = [...userAttributions];
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (attributionSortColumn) {
+        case 'name': {
+          const nameA = (a.name || a.userEmail).toLowerCase();
+          const nameB = (b.name || b.userEmail).toLowerCase();
+          cmp = nameA.localeCompare(nameB);
+          if (cmp === 0) {
+            cmp = a.userEmail.localeCompare(b.userEmail);
+          }
+          break;
+        }
+        case 'tier': {
+          const tierA = (a.badge || a.tier || '').toLowerCase();
+          const tierB = (b.badge || b.tier || '').toLowerCase();
+          cmp = tierA.localeCompare(tierB);
+          if (cmp === 0) {
+            const nameA = (a.name || a.userEmail).toLowerCase();
+            const nameB = (b.name || b.userEmail).toLowerCase();
+            cmp = nameA.localeCompare(nameB);
+          }
+          break;
+        }
+        case 'billing': {
+          cmp = (a.billingType || '').localeCompare(b.billingType || '');
+          if (cmp === 0) {
+            const nameA = (a.name || a.userEmail).toLowerCase();
+            const nameB = (b.name || b.userEmail).toLowerCase();
+            cmp = nameA.localeCompare(nameB);
+          }
+          break;
+        }
+        case 'consumed': {
+          const valA = Number(a.totalConsumedUsd) || 0;
+          const valB = Number(b.totalConsumedUsd) || 0;
+          cmp = valA - valB;
+          if (cmp === 0) {
+            cmp = (a.totalTokens || 0) - (b.totalTokens || 0);
+          }
+          if (cmp === 0) {
+            const nameA = (a.name || a.userEmail).toLowerCase();
+            const nameB = (b.name || b.userEmail).toLowerCase();
+            cmp = nameA.localeCompare(nameB);
+          }
+          break;
+        }
+        case 'balance': {
+          const balA = Number(a.currentBalanceUsd) || 0;
+          const balB = Number(b.currentBalanceUsd) || 0;
+          cmp = balA - balB;
+          if (cmp === 0) {
+            const nameA = (a.name || a.userEmail).toLowerCase();
+            const nameB = (b.name || b.userEmail).toLowerCase();
+            cmp = nameA.localeCompare(nameB);
+          }
+          break;
+        }
+        case 'quota': {
+          const totalAllocA = (a.totalConsumedUsd || 0) + (a.currentBalanceUsd || 0);
+          const pctA = totalAllocA > 0 ? (a.totalConsumedUsd || 0) / totalAllocA : 0;
+          const totalAllocB = (b.totalConsumedUsd || 0) + (b.currentBalanceUsd || 0);
+          const pctB = totalAllocB > 0 ? (b.totalConsumedUsd || 0) / totalAllocB : 0;
+          cmp = pctA - pctB;
+          if (cmp === 0) {
+            const valA = Number(a.totalConsumedUsd) || 0;
+            const valB = Number(b.totalConsumedUsd) || 0;
+            cmp = valA - valB;
+          }
+          if (cmp === 0) {
+            const nameA = (a.name || a.userEmail).toLowerCase();
+            const nameB = (b.name || b.userEmail).toLowerCase();
+            cmp = nameA.localeCompare(nameB);
+          }
+          break;
+        }
+        default:
+          cmp = 0;
+      }
+      return attributionSortDirection === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [userAttributions, attributionSortColumn, attributionSortDirection]);
+
   return (
     <div className="h-full flex flex-col bg-slate-50 text-slate-900 overflow-y-auto">
       {/* Top Banner & Main Header */}
@@ -789,12 +901,12 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               <select
                 value={selectedDeveloper}
                 onChange={(e) => setSelectedDeveloper(e.target.value)}
-                className="bg-transparent text-slate-800 font-mono text-xs focus:outline-none cursor-pointer max-w-[170px] truncate"
+                className="bg-transparent text-slate-800 font-sans text-xs focus:outline-none cursor-pointer max-w-[210px] truncate font-medium"
                 title="Select Developer Account to Inspect & Manage"
               >
                 {availableDevelopers.map((d) => (
-                  <option key={d.email} value={d.email} className="bg-white text-slate-900">
-                    {d.email} ({d.badge})
+                  <option key={d.email} value={d.email} className="bg-white text-slate-900 font-sans">
+                    {d.name ? `${d.name} (${d.email})` : d.email}
                   </option>
                 ))}
               </select>
@@ -1698,18 +1810,103 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-sans">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-500 uppercase text-[10px] tracking-wider font-semibold">
-                      <th className="pb-3">User & Persona</th>
-                      <th className="pb-3">Entitlement Tier</th>
-                      <th className="pb-3">Billing Mode</th>
-                      <th className="pb-3">Total Consumed</th>
-                      <th className="pb-3">Active Balance</th>
-                      <th className="pb-3">Wallet Status & Quota</th>
+                    <tr className="border-b border-slate-200 text-slate-500 uppercase text-[10px] tracking-wider font-semibold select-none">
+                      <th
+                        onClick={() => handleAttributionSort('name')}
+                        className="pb-3 cursor-pointer hover:text-slate-900 transition group/th"
+                        title="Click to sort by User & Persona"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={attributionSortColumn === 'name' ? 'text-slate-900 font-bold' : ''}>User & Persona</span>
+                          {attributionSortColumn === 'name' ? (
+                            attributionSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover/th:text-slate-600 transition shrink-0 opacity-60 group-hover/th:opacity-100" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleAttributionSort('tier')}
+                        className="pb-3 cursor-pointer hover:text-slate-900 transition group/th"
+                        title="Click to sort by Entitlement Tier"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={attributionSortColumn === 'tier' ? 'text-slate-900 font-bold' : ''}>Entitlement Tier</span>
+                          {attributionSortColumn === 'tier' ? (
+                            attributionSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover/th:text-slate-600 transition shrink-0 opacity-60 group-hover/th:opacity-100" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleAttributionSort('billing')}
+                        className="pb-3 cursor-pointer hover:text-slate-900 transition group/th"
+                        title="Click to sort by Billing Mode"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={attributionSortColumn === 'billing' ? 'text-slate-900 font-bold' : ''}>Billing Mode</span>
+                          {attributionSortColumn === 'billing' ? (
+                            attributionSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover/th:text-slate-600 transition shrink-0 opacity-60 group-hover/th:opacity-100" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleAttributionSort('consumed')}
+                        className="pb-3 cursor-pointer hover:text-slate-900 transition group/th"
+                        title="Click to sort by Total Consumed"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={attributionSortColumn === 'consumed' ? 'text-slate-900 font-bold' : ''}>Total Consumed</span>
+                          {attributionSortColumn === 'consumed' ? (
+                            attributionSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover/th:text-slate-600 transition shrink-0 opacity-60 group-hover/th:opacity-100" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleAttributionSort('balance')}
+                        className="pb-3 cursor-pointer hover:text-slate-900 transition group/th"
+                        title="Click to sort by Active Balance"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={attributionSortColumn === 'balance' ? 'text-slate-900 font-bold' : ''}>Active Balance</span>
+                          {attributionSortColumn === 'balance' ? (
+                            attributionSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover/th:text-slate-600 transition shrink-0 opacity-60 group-hover/th:opacity-100" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleAttributionSort('quota')}
+                        className="pb-3 cursor-pointer hover:text-slate-900 transition group/th"
+                        title="Click to sort by Wallet Status & Quota"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={attributionSortColumn === 'quota' ? 'text-slate-900 font-bold' : ''}>Wallet Status & Quota</span>
+                          {attributionSortColumn === 'quota' ? (
+                            attributionSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-400 group-hover/th:text-slate-600 transition shrink-0 opacity-60 group-hover/th:opacity-100" />
+                          )}
+                        </div>
+                      </th>
                       <th className="pb-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-mono text-xs">
-                    {userAttributions.map((user) => {
+                    {sortedUserAttributions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-500 font-sans">
+                          No users or personas found matching &ldquo;{userAttributionSearch}&rdquo;
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedUserAttributions.map((user) => {
                       const isSelected = user.userEmail.toLowerCase() === selectedDeveloper.toLowerCase();
                       const isPrepaid = user.billingType === 'PREPAID';
                       const isDepleted = isPrepaid && (user.currentBalanceUsd <= 0);
@@ -1900,7 +2097,8 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           </td>
                         </tr>
                       );
-                    })}
+                    })
+                  )}
                   </tbody>
                 </table>
               </div>

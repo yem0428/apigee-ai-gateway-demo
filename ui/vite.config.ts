@@ -1853,6 +1853,13 @@ export default defineConfig(({ mode }) => {
                 })
               );
 
+              attributions.sort((a: any, b: any) => {
+                const nameA = (a.name || a.userEmail).toLowerCase();
+                const nameB = (b.name || b.userEmail).toLowerCase();
+                const cmp = nameA.localeCompare(nameB);
+                return cmp !== 0 ? cmp : a.userEmail.localeCompare(b.userEmail);
+              });
+
               res.end(JSON.stringify({ status: 'ok', attributions }));
             } catch (err: any) {
               res.statusCode = 500;

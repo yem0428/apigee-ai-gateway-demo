@@ -197,7 +197,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     if (map.size === 0 && currentUserEmail) {
       map.set(currentUserEmail.toLowerCase(), { email: currentUserEmail, name: currentUserEmail.split('@')[0] });
     }
-    return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email));
+    return Array.from(map.values()).sort((a, b) => {
+      const nameA = (a.name || a.email).toLowerCase();
+      const nameB = (b.name || b.email).toLowerCase();
+      const cmp = nameA.localeCompare(nameB);
+      return cmp !== 0 ? cmp : a.email.localeCompare(b.email);
+    });
   }, [attributions, currentUserEmail]);
 
   useEffect(() => {
@@ -657,7 +662,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                       <option value="all">All Users (Fleet)</option>
                       {userList.map((u) => (
                         <option key={u.email} value={u.email}>
-                          {u.email} {u.name ? `(${u.name})` : ''}
+                          {u.name ? `${u.name} (${u.email})` : u.email}
                         </option>
                       ))}
                     </select>

@@ -1967,6 +1967,13 @@ const server = http.createServer(async (req, res) => {
         })
       );
 
+      attributions.sort((a, b) => {
+        const nameA = (a.name || a.userEmail).toLowerCase();
+        const nameB = (b.name || b.userEmail).toLowerCase();
+        const cmp = nameA.localeCompare(nameB);
+        return cmp !== 0 ? cmp : a.userEmail.localeCompare(b.userEmail);
+      });
+
       res.end(JSON.stringify({ status: 'ok', attributions }));
     } catch (err) {
       res.statusCode = 500;
