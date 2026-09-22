@@ -10,21 +10,23 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
-  Database,
   Search,
   Calculator,
   RotateCcw,
   X,
   CreditCard,
-  ShieldCheck,
   User,
   Users,
   Box,
   Cpu,
-  Sliders,
   Check,
   Tag,
   Code2,
+  Brain,
+  Zap,
+  Route,
+  MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import {
   fetchModelRates,
@@ -51,6 +53,56 @@ import {
   ApiProduct,
 } from '../types';
 import { DEFAULT_SSO_USER } from '../services/defaultSettings';
+
+// Crisp inline Google 4-color "G" logo
+const GoogleLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-label="Google">
+    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
+    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z" />
+    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z" />
+    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
+  </svg>
+);
+
+// Crisp inline Anthropic geometric brand mark
+const AnthropicLogo = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" aria-label="Anthropic">
+    <path
+      fill="#D97706"
+      d="M13.827 2.667h-3.654l-5.6 18.666h3.654l1.32-4.4h4.907l1.32 4.4h3.653l-5.6-18.666zm-3.36 11.2l1.533-5.107 1.534 5.107h-3.067z"
+    />
+  </svg>
+);
+
+// Provider logo/mark component replacing raw GOOG/ANTH text badges
+const ModelProviderIcon = ({ model }: { model: string }) => {
+  if (model === 'auto') {
+    return (
+      <div className="w-8 h-8 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shadow-2xs shrink-0" title="Apigee Semantic Router">
+        <Route className="w-4 h-4 text-purple-600" />
+      </div>
+    );
+  }
+  if (model.startsWith('gemini') || model.startsWith('gemma')) {
+    return (
+      <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-2xs shrink-0" title="Google DeepMind / Vertex AI">
+        <GoogleLogo className="w-4 h-4" />
+      </div>
+    );
+  }
+  if (model.startsWith('claude')) {
+    return (
+      <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shadow-2xs shrink-0" title="Anthropic on Vertex AI">
+        <AnthropicLogo className="w-4 h-4" />
+      </div>
+    );
+  }
+  return (
+    <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs shrink-0" title="LLM">
+      <Cpu className="w-4 h-4 text-slate-600" />
+    </div>
+  );
+};
 
 const CATALOG_MODELS = [
   { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', provider: 'google', desc: 'Ultra-low latency, cost-effective' },
@@ -106,12 +158,12 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [, setProductDefaults] = useState<Record<string, ApiProduct>>({});
   const [editedProducts, setEditedProducts] = useState<Record<string, ApiProduct>>({});
-  const [selectedProductName, setSelectedProductName] = useState<string>('Standard AI Tier');
+  const [selectedProductName, setSelectedProductName] = useState<string>('Enterprise AI Tier');
+  const [productConfigSection, setProductConfigSection] = useState<'all' | 'models' | 'routing' | 'budget' | 'custom'>('models');
   const [productsLoading, setProductsLoading] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
   const [productResetting, setProductResetting] = useState(false);
   const [showProductResetModal, setShowProductResetModal] = useState(false);
-  const [showRawProductJson, setShowRawProductJson] = useState(false);
   const [customModelInput, setCustomModelInput] = useState('');
   const [newCustomAttrKey, setNewCustomAttrKey] = useState('');
   const [newCustomAttrVal, setNewCustomAttrVal] = useState('');
@@ -310,6 +362,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       p.attributes = p.attributes.filter((a) => a.name !== name);
     });
   };
+
+  const customAttributesList = useMemo(() => {
+    return (activeProduct?.attributes || []).filter(
+      (a: { name: string; value: string }) =>
+        !a.name.startsWith('routing.model.') &&
+        !a.name.startsWith('developer.budget.')
+    );
+  }, [activeProduct]);
 
   const budgetMicros = parseInt(getProductAttr('developer.budget.limit') || '0', 10);
   const budgetUsd = !isNaN(budgetMicros) && budgetMicros > 0 ? (budgetMicros / 1000000).toFixed(2) : '0.00';
@@ -704,42 +764,32 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   return (
     <div className="h-full flex flex-col bg-slate-50 text-slate-900 overflow-y-auto">
       {/* Top Banner & Main Header */}
-      <div className="border-b border-slate-200 bg-white/95 px-4 sm:px-6 py-4 backdrop-blur">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0 text-white">
-              <Coins className="w-5 h-5 font-bold" />
+      <div className="border-b border-slate-200 bg-white/95 px-4 sm:px-6 py-2.5 backdrop-blur">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-xs text-white shrink-0">
+              <Coins className="w-4 h-4 font-bold" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-                  Monetization & Pricing Manager
-                </h1>
-                <span className="text-[10px] bg-teal-50 text-teal-700 font-mono font-semibold px-2 py-0.5 rounded-md border border-teal-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-teal-600" />
-                  Native Rating Engine
-                </span>
-                <span className="text-[10px] bg-amber-50 text-amber-700 font-mono font-semibold px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
-                  <Database className="w-3 h-3 text-amber-600" />
-                  ai-model-rates KVM
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Manage developer prepaid wallets, token pricing rate cards, and published rate plans enforced by gateway monetization policies.
+              <h1 className="text-base font-bold text-slate-900 tracking-tight leading-tight">
+                Monetization & Pricing Manager
+              </h1>
+              <p className="text-[11px] text-slate-500">
+                Manage developer prepaid wallets, token pricing rate cards, and published rate plans enforced by gateway policies.
               </p>
             </div>
           </div>
 
           {/* Quick Header Actions: Developer Selector, Active Wallet Chip & Refresh */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Developer Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs shadow-xs">
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs shadow-2xs">
               <User className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-              <span className="text-slate-500 mr-1 text-[11px] font-semibold">Developer:</span>
+              <span className="text-slate-500 text-[11px] font-semibold">Dev:</span>
               <select
                 value={selectedDeveloper}
                 onChange={(e) => setSelectedDeveloper(e.target.value)}
-                className="bg-transparent text-slate-800 font-mono text-xs focus:outline-none cursor-pointer max-w-[190px] sm:max-w-[220px] truncate"
+                className="bg-transparent text-slate-800 font-mono text-xs focus:outline-none cursor-pointer max-w-[170px] truncate"
                 title="Select Developer Account to Inspect & Manage"
               >
                 {availableDevelopers.map((d) => (
@@ -752,17 +802,17 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
             {/* Live Wallet Chip */}
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs shadow-xs"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs shadow-2xs"
               title={`Exact balance: $${rawWalletAmountExact} USD`}
             >
               <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-slate-500 text-[11px] font-semibold">Selected Wallet:</span>
+              <span className="text-slate-500 text-[11px] font-semibold">Wallet:</span>
               <span className={`font-mono font-bold ${isSimulatingExhaustedWallet ? 'text-rose-600 line-through' : 'text-emerald-600'}`}>
                 ${displayWalletAmount} <span className="text-[10px] font-normal text-slate-500 font-sans">USD</span>
               </span>
               {isSimulatingExhaustedWallet && (
-                <span className="text-[9px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200 font-semibold">
-                  Exhausted (403)
+                <span className="text-[9px] bg-rose-50 text-rose-700 px-1 py-0.2 rounded border border-rose-200 font-semibold">
+                  403
                 </span>
               )}
             </div>
@@ -772,24 +822,23 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
               type="button"
               onClick={() => handleRefreshAll(true)}
               disabled={walletLoading || ratesLoading || plansLoading || productsLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer shadow-2xs disabled:opacity-50"
               title="Synchronize all data from Management API"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${walletLoading || ratesLoading || plansLoading || productsLoading ? 'animate-spin text-emerald-500' : 'text-slate-500'}`} />
-              <span className="hidden sm:inline">Sync</span>
             </button>
           </div>
         </div>
 
         {/* Sub-Tab Navigation Strip: Sleek Segmented Control */}
-        <div className="max-w-7xl mx-auto mt-3.5 flex items-center border-t border-slate-200 pt-3 overflow-x-auto">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs shadow-xs">
+        <div className="max-w-7xl mx-auto mt-2 flex items-center border-t border-slate-100 pt-2 overflow-x-auto">
+          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs shadow-2xs">
             <button
               type="button"
               onClick={() => setActiveSubTab('products')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeSubTab === 'products'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -803,9 +852,9 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             <button
               type="button"
               onClick={() => setActiveSubTab('wallets')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeSubTab === 'wallets'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -816,14 +865,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             <button
               type="button"
               onClick={() => setActiveSubTab('rate-cards')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeSubTab === 'rate-cards'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Coins className="w-3.5 h-3.5 text-amber-600" />
-              <span>Model Rate Cards (KVM)</span>
+              <span>Model Rate Cards</span>
               {hasRateChanges && (
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
               )}
@@ -832,9 +881,9 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             <button
               type="button"
               onClick={() => setActiveSubTab('rate-plans')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeSubTab === 'rate-plans'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -846,7 +895,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
       </div>
 
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6 flex-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 w-full space-y-3.5 flex-1">
         {/* Status Alerts */}
         {error && (
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between animate-in fade-in duration-150">
@@ -874,13 +923,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
         {/* SUB-TAB 0: AI PRODUCTS & ENTITLEMENTS */}
         {activeSubTab === 'products' && (
-          <div className="space-y-6">
-            {/* Tier Switcher Bar & Actions */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <div className="flex items-center gap-2">
-                {['Standard AI Tier', 'Enterprise AI Tier'].map((tierName) => {
+          <div className="space-y-3">
+            {/* Unified Command Bar: Tiers, Apigee Metadata & Actions */}
+            <div className="bg-white rounded-xl border border-slate-200 px-3 py-2 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+              {/* Left: Tier Switcher (Enterprise AI Tier First) */}
+              <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-lg border border-slate-200/80">
+                {['Enterprise AI Tier', 'Standard AI Tier'].map((tierName) => {
                   const isSelected = selectedProductName === tierName;
-                  const isStandard = tierName === 'Standard AI Tier';
+                  const isEnterprise = tierName === 'Enterprise AI Tier';
                   const prod = editedProducts[tierName] || products.find((p) => p.name === tierName);
                   const orig = products.find((p) => p.name === tierName);
                   const isDirty = prod && orig && JSON.stringify(prod) !== JSON.stringify(orig);
@@ -891,524 +941,670 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                       key={tierName}
                       type="button"
                       onClick={() => setSelectedProductName(tierName)}
-                      className={`flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-2.5 rounded-xl border text-left transition cursor-pointer ${
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
                         isSelected
-                          ? isStandard
-                            ? 'bg-blue-50/70 border-blue-500/50 text-blue-950 shadow-xs'
-                            : 'bg-purple-50/70 border-purple-500/50 text-purple-950 shadow-xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                          ? isEnterprise
+                            ? 'bg-purple-600 text-white shadow-2xs'
+                            : 'bg-blue-600 text-white shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
-                            isSelected
-                              ? isStandard
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-purple-600 text-white'
-                              : 'bg-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {isStandard ? 'STD' : 'ENT'}
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold flex items-center gap-1.5">
-                            <span>{tierName}</span>
-                            {isDirty && (
-                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Unsaved changes" />
-                            )}
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono">
-                            {modelCount} models • {isStandard ? '2k tpm (Haiku 50)' : '50k tpm'}
-                          </div>
-                        </div>
-                      </div>
+                      {isEnterprise ? <Sparkles className="w-3.5 h-3.5" /> : <Zap className="w-3.5 h-3.5" />}
+                      <span>{tierName}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-normal ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {modelCount} models
+                      </span>
+                      {isDirty && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Unsaved changes" />
+                      )}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                {/* Reset to Demo Defaults Button */}
+              {/* Right: Actions */}
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setShowProductResetModal(true)}
                   disabled={productResetting || productsLoading}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-semibold transition cursor-pointer shadow-2xs disabled:opacity-50"
                   title="Restore default models, rate limits, and routing from canonical demo configurations"
                 >
-                  <RotateCcw className={`w-3.5 h-3.5 ${productResetting ? 'animate-spin' : ''}`} />
-                  <span>{productResetting ? 'Resetting...' : 'Reset to Demo Defaults'}</span>
+                  <RotateCcw className={`w-3 h-3 ${productResetting ? 'animate-spin' : ''}`} />
+                  <span>{productResetting ? 'Resetting...' : 'Reset Defaults'}</span>
                 </button>
 
-                {/* Revert Unsaved */}
                 {hasProductChanges && (
                   <button
                     type="button"
                     onClick={handleRevertProduct}
                     disabled={productSaving}
-                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer"
                   >
                     <span>Revert</span>
                   </button>
                 )}
 
-                {/* Save Product to Apigee */}
                 <button
                   type="button"
                   onClick={handleSaveProduct}
                   disabled={!hasProductChanges || productSaving || productsLoading}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer ${
                     hasProductChanges && !productSaving
                       ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                   }`}
                   title="Deploy changes directly to Apigee Management API"
                 >
-                  <Save className={`w-3.5 h-3.5 ${productSaving ? 'animate-spin' : ''}`} />
-                  <span>{productSaving ? 'Saving to Apigee...' : 'Save Product to Apigee'}</span>
+                  <Save className={`w-3 h-3 ${productSaving ? 'animate-spin' : ''}`} />
+                  <span>{productSaving ? 'Saving...' : 'Save to Apigee'}</span>
                 </button>
               </div>
             </div>
 
-            {/* Live Apigee Metadata Banner */}
-            <div className="bg-slate-900 text-slate-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-white flex items-center gap-2">
-                    <span>Target: {selectedProductName}</span>
-                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                      Live on Apigee Organization
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
-                    Organization: <span className="font-mono text-slate-200">bap-apac-demo2</span> • Proxies: <span className="font-mono text-slate-200">ai-gateway-v1</span> • Envs: <span className="font-mono text-slate-200">dev, prod</span>
-                  </div>
-                </div>
-              </div>
+            {/* 4 Architectural Categories Filter Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {/* Tab 1: Whitelisted Models & Rate Limits */}
               <button
                 type="button"
-                onClick={() => setShowRawProductJson(!showRawProductJson)}
-                className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition font-mono cursor-pointer"
+                onClick={() => setProductConfigSection('models')}
+                className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                  productConfigSection === 'models'
+                    ? 'bg-blue-50/90 border-blue-500 text-blue-950 ring-2 ring-blue-500/20 shadow-xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
               >
-                <Code2 className="w-3 h-3" />
-                <span>{showRawProductJson ? 'Hide Raw JSON' : 'Inspect Product JSON'}</span>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'models' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                      <Cpu className="w-3 h-3" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 font-mono">Layer 1</span>
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    productConfigSection === 'models' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {configuredModels.length}
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-slate-900 leading-snug">Whitelisted Models & Quotas</div>
+                <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Per-model token rate limits</div>
+              </button>
+
+              {/* Tab 2: Semantic Router Intent Mapping */}
+              <button
+                type="button"
+                onClick={() => setProductConfigSection('routing')}
+                className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                  productConfigSection === 'routing'
+                    ? 'bg-purple-50/90 border-purple-500 text-purple-950 ring-2 ring-purple-500/20 shadow-xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'routing' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'}`}>
+                      <Route className="w-3 h-3" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 font-mono">Layer 2</span>
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    productConfigSection === 'routing' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    4
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-slate-900 leading-snug">Semantic Router Intents</div>
+                <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Automatic prompt intent routing</div>
+              </button>
+
+              {/* Tab 3: Developer Budget Governance */}
+              <button
+                type="button"
+                onClick={() => setProductConfigSection('budget')}
+                className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                  productConfigSection === 'budget'
+                    ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20 shadow-xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'budget' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                      <Coins className="w-3 h-3" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 font-mono">Layer 3</span>
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    productConfigSection === 'budget' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    ${budgetUsd}/mo
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-slate-900 leading-snug">Budget Governance</div>
+                <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Periodic spending limits</div>
+              </button>
+
+              {/* Tab 4: Custom Attributes */}
+              <button
+                type="button"
+                onClick={() => setProductConfigSection('custom')}
+                className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                  productConfigSection === 'custom'
+                    ? 'bg-amber-50/90 border-amber-500 text-amber-950 ring-2 ring-amber-500/20 shadow-xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'custom' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-700'}`}>
+                      <Tag className="w-3 h-3" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 font-mono">Layer 4</span>
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    productConfigSection === 'custom' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {customAttributesList.length}
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-slate-900 leading-snug">Custom Attributes</div>
+                <div className="text-[10px] text-slate-500 leading-tight mt-0.5 truncate">Key-value product metadata</div>
+              </button>
+
+              {/* Tab 5: View All Categories */}
+              <button
+                type="button"
+                onClick={() => setProductConfigSection('all')}
+                className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                  productConfigSection === 'all'
+                    ? 'bg-slate-900 border-slate-900 text-white ring-2 ring-slate-900/20 shadow-xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center ${productConfigSection === 'all' ? 'bg-white text-slate-900' : 'bg-slate-100 text-slate-700'}`}>
+                      <Layers className="w-3 h-3" />
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${productConfigSection === 'all' ? 'text-slate-300' : 'text-slate-500'}`}>Full Stack</span>
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    productConfigSection === 'all' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    All 4
+                  </span>
+                </div>
+                <div className={`text-xs font-bold leading-snug ${productConfigSection === 'all' ? 'text-white' : 'text-slate-900'}`}>View All Sections</div>
+                <div className={`text-[10px] leading-tight mt-0.5 truncate ${productConfigSection === 'all' ? 'text-slate-400' : 'text-slate-500'}`}>Display all product options</div>
               </button>
             </div>
 
-            {showRawProductJson && (
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 shadow-inner overflow-hidden">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs text-slate-400">
-                  <span className="font-mono font-semibold">Live Apigee Product Definition Payload</span>
-                  <span className="text-[10px]">Read-only timestamp fields stripped for updates</span>
+            {/* CARD 1: Whitelisted Models & Token Rate Quotas */}
+            {(productConfigSection === 'all' || productConfigSection === 'models') && (
+              <div className="bg-white rounded-xl border-2 border-blue-200/90 shadow-xs overflow-hidden">
+                <div className="bg-slate-50/90 px-4 py-2.5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Cpu className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs font-bold text-slate-900">
+                          Whitelisted Models & Rate Limits (Token Quotas)
+                        </h3>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Restricts proxy routing to allowed models and enforces per-model token rate limits for this tier.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] font-mono font-semibold text-blue-800 bg-white border border-blue-200 px-2.5 py-1 rounded-lg shrink-0 shadow-2xs self-start sm:self-auto">
+                    {configuredModels.length} active models
+                  </div>
                 </div>
-                <pre className="font-mono text-[11px] text-emerald-400 overflow-x-auto max-h-80 p-2">
-                  {JSON.stringify(activeProduct, null, 2)}
-                </pre>
+
+                <div className="p-3.5 space-y-2.5">
+                  {/* Models List */}
+                  <div className="space-y-2">
+                    {configuredModels.map((m) => {
+                      const isHaiku = m.model === 'claude-haiku-4-5@20251001';
+                      const isAuto = m.model === 'auto';
+                      const isLowLimit = parseInt(m.limit, 10) <= 100;
+
+                      return (
+                        <div
+                          key={m.model}
+                          className={`p-2.5 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                            isHaiku && isLowLimit
+                              ? 'bg-amber-50/60 border-amber-200'
+                              : 'bg-slate-50/80 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-[240px]">
+                            <ModelProviderIcon model={m.model} />
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs font-bold text-slate-900">{m.model}</span>
+                                {isAuto && (
+                                  <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.2 rounded-full border border-purple-200">
+                                    Semantic Router
+                                  </span>
+                                )}
+                                {isHaiku && isLowLimit && (
+                                  <span className="text-[10px] font-semibold bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded-full border border-rose-200">
+                                    429 Trigger (50 tpm)
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                Resource: {m.resource}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quota inputs and preset pills */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                              <span className="text-[11px] font-semibold text-slate-500">Quota:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={m.limit}
+                                onChange={(e) => handleUpdateModelQuota(m.model, 'limit', e.target.value)}
+                                className="w-16 font-mono text-xs font-bold text-slate-900 text-right bg-slate-50 rounded px-1 py-0.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <span className="text-[10px] text-slate-400">tokens /</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={m.interval}
+                                onChange={(e) => handleUpdateModelQuota(m.model, 'interval', e.target.value)}
+                                className="w-10 font-mono text-xs font-bold text-slate-900 text-center bg-slate-50 rounded px-1 py-0.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <select
+                                value={m.timeUnit}
+                                onChange={(e) => handleUpdateModelQuota(m.model, 'timeUnit', e.target.value)}
+                                className="text-xs font-mono text-slate-700 bg-transparent focus:outline-none cursor-pointer"
+                              >
+                                <option value="minute">minute</option>
+                                <option value="hour">hour</option>
+                                <option value="day">day</option>
+                                <option value="week">week</option>
+                                <option value="month">month</option>
+                              </select>
+                            </div>
+
+                            {/* Quick Presets */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateModelQuota(m.model, 'limit', '50')}
+                                className={`px-1.5 py-1 rounded-md text-[10px] font-mono font-medium transition cursor-pointer border ${
+                                  m.limit === '50'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                                title="Set to 50 tokens (triggers 429 quota exhaustion on 1 prompt)"
+                              >
+                                50 tpm
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateModelQuota(m.model, 'limit', '2000')}
+                                className={`px-1.5 py-1 rounded-md text-[10px] font-mono font-medium transition cursor-pointer border ${
+                                  m.limit === '2000'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                                title="Set to 2,000 tokens (Standard default)"
+                              >
+                                2k
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateModelQuota(m.model, 'limit', '50000')}
+                                className={`px-1.5 py-1 rounded-md text-[10px] font-mono font-medium transition cursor-pointer border ${
+                                  m.limit === '50000'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-300 font-bold'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                                title="Set to 50,000 tokens (Enterprise default)"
+                              >
+                                50k
+                              </button>
+                            </div>
+
+                            {/* Remove Button */}
+                            {!isAuto && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveModel(m.model)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                title={`Remove ${m.model} from tier`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add Models Controls */}
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <span className="text-xs font-semibold text-slate-700">Quick-Add Catalog Models:</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {CATALOG_MODELS.filter((cat) => !configuredModels.some((m) => m.model === cat.id)).map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => handleAddProductModel(cat.id, selectedProductName === 'Enterprise AI Tier' ? { limit: '50000', interval: '1', timeUnit: 'minute' } : { limit: '2000', interval: '1', timeUnit: 'minute' })}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-xs text-slate-700 transition cursor-pointer shadow-2xs"
+                          title={cat.desc}
+                        >
+                          {cat.provider === 'google' ? <GoogleLogo className="w-3.5 h-3.5 shrink-0" /> : <AnthropicLogo className="w-3.5 h-3.5 shrink-0" />}
+                          <span className="font-semibold">{cat.name}</span>
+                          <Plus className="w-3 h-3 ml-0.5 text-slate-400" />
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom Model Input */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={customModelInput}
+                        onChange={(e) => setCustomModelInput(e.target.value)}
+                        placeholder="Custom Model ID (e.g. meta/llama-3.3-70b or mistral-large)..."
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddProductModel(customModelInput)}
+                        disabled={!customModelInput.trim()}
+                        className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Model</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* CARD 1: Whitelisted Models & Token Rate Quotas */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-blue-600" />
-                    <span>Whitelisted Models & Rate Limits (Token Quotas)</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Configured in <code className="font-mono text-blue-700 font-semibold">llmOperationGroup.operationConfigs</code>. Enforced by Apigee's <code className="font-mono text-slate-800">Quota-LLM-Token</code> policy.
-                  </p>
-                </div>
-                <div className="text-[11px] font-mono text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
-                  {configuredModels.length} active models
-                </div>
-              </div>
-
-              {/* Models List */}
-              <div className="space-y-3">
-                {configuredModels.map((m) => {
-                  const isHaiku = m.model === 'claude-haiku-4-5@20251001';
-                  const isAuto = m.model === 'auto';
-                  const isGoogle = m.model.startsWith('gemini');
-                  const isAnthropic = m.model.startsWith('claude');
-                  const isLowLimit = parseInt(m.limit, 10) <= 100;
-
-                  return (
-                    <div
-                      key={m.model}
-                      className={`p-3.5 rounded-xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                        isHaiku && isLowLimit
-                          ? 'bg-amber-50/40 border-amber-200'
-                          : 'bg-slate-50/70 border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3 min-w-[240px]">
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 ${
-                            isAuto
-                              ? 'bg-purple-100 text-purple-700'
-                              : isGoogle
-                              ? 'bg-blue-100 text-blue-700'
-                              : isAnthropic
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-slate-200 text-slate-700'
-                          }`}
-                        >
-                          {isAuto ? 'RTR' : isGoogle ? 'GOOG' : isAnthropic ? 'ANTH' : 'LLM'}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-xs font-bold text-slate-900">{m.model}</span>
-                            {isAuto && (
-                              <span className="text-[10px] font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
-                                Semantic Router
-                              </span>
-                            )}
-                            {isHaiku && isLowLimit && (
-                              <span className="text-[10px] font-semibold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full border border-rose-200">
-                                429 Demo Trigger (50 tpm)
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            Resource: {m.resource}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quota inputs and preset pills */}
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
-                          <span className="text-[11px] font-semibold text-slate-500">Quota Limit:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            value={m.limit}
-                            onChange={(e) => handleUpdateModelQuota(m.model, 'limit', e.target.value)}
-                            className="w-20 font-mono text-xs font-bold text-slate-900 text-right bg-slate-50 rounded px-1.5 py-0.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <span className="text-[10px] text-slate-400">tokens /</span>
-                          <input
-                            type="number"
-                            min="1"
-                            value={m.interval}
-                            onChange={(e) => handleUpdateModelQuota(m.model, 'interval', e.target.value)}
-                            className="w-12 font-mono text-xs font-bold text-slate-900 text-center bg-slate-50 rounded px-1 py-0.5 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <select
-                            value={m.timeUnit}
-                            onChange={(e) => handleUpdateModelQuota(m.model, 'timeUnit', e.target.value)}
-                            className="text-xs font-mono text-slate-700 bg-transparent focus:outline-none cursor-pointer"
-                          >
-                            <option value="minute">min</option>
-                            <option value="hour">hour</option>
-                            <option value="day">day</option>
-                          </select>
-                        </div>
-
-                        {/* Quick Presets */}
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateModelQuota(m.model, 'limit', '50')}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-medium transition cursor-pointer border ${
-                              m.limit === '50'
-                                ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                            }`}
-                            title="Set to 50 tokens (triggers 429 quota exhaustion on 1 prompt)"
-                          >
-                            50 tpm
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateModelQuota(m.model, 'limit', '2000')}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-medium transition cursor-pointer border ${
-                              m.limit === '2000'
-                                ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                            }`}
-                            title="Set to 2,000 tokens (Standard default)"
-                          >
-                            2k
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateModelQuota(m.model, 'limit', '50000')}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-medium transition cursor-pointer border ${
-                              m.limit === '50000'
-                                ? 'bg-purple-50 text-purple-700 border-purple-300 font-bold'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                            }`}
-                            title="Set to 50,000 tokens (Enterprise default)"
-                          >
-                            50k
-                          </button>
-                        </div>
-
-                        {/* Remove Button */}
-                        {!isAuto && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveModel(m.model)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                            title={`Remove ${m.model} from tier`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Add Models Controls */}
-              <div className="pt-3 border-t border-slate-100 space-y-2">
-                <span className="text-xs font-semibold text-slate-700">Quick-Add Catalog Models:</span>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {CATALOG_MODELS.filter((cat) => !configuredModels.some((m) => m.model === cat.id)).map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => handleAddProductModel(cat.id, selectedProductName === 'Enterprise AI Tier' ? { limit: '50000', interval: '1', timeUnit: 'minute' } : { limit: '2000', interval: '1', timeUnit: 'minute' })}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-slate-200 text-[11px] font-mono text-slate-700 transition cursor-pointer"
-                      title={cat.desc}
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>{cat.id}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom Model Input */}
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    placeholder="Custom Model ID (e.g. meta/llama-3.3-70b or mistral-large)..."
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleAddProductModel(customModelInput)}
-                    disabled={!customModelInput.trim()}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Model</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* CARD 2: Semantic Router Target Mapping */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-purple-600" />
-                  <span>Semantic Router Intent Mapping (Attributes)</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  When users call <code className="font-mono text-purple-700 font-semibold">/auto</code>, Apigee's router evaluates caller prompt intent and routes the payload to these product attributes.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  {
-                    key: 'routing.model.coding',
-                    label: 'Coding & Development Intent',
-                    desc: 'Selected when prompt involves code generation, debugging, or syntax',
-                  },
-                  {
-                    key: 'routing.model.deep_reasoning',
-                    label: 'Deep Reasoning & Math Intent',
-                    desc: 'Selected for complex logic, multi-step problem solving, and math',
-                  },
-                  {
-                    key: 'routing.model.simple',
-                    label: 'Simple & Factual Lookups',
-                    desc: 'Selected for quick facts, lookups, and short queries',
-                  },
-                  {
-                    key: 'routing.model.general',
-                    label: 'General & Conversational Intent',
-                    desc: 'Default catch-all for broad creative text and dialog',
-                  },
-                ].map(({ key, label, desc }) => {
-                  const currentTarget = getProductAttr(key);
-                  return (
-                    <div key={key} className="bg-slate-50 rounded-xl border border-slate-200 p-3.5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900">{label}</span>
-                        <code className="text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 font-mono">
-                          {key}
-                        </code>
-                      </div>
-                      <p className="text-[11px] text-slate-500 leading-tight">{desc}</p>
-                      <div className="pt-1">
-                        <select
-                          value={currentTarget}
-                          onChange={(e) => setProductAttr(key, e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs cursor-pointer"
-                        >
-                          {configuredModels.filter((m) => m.model !== 'auto').map((m) => (
-                            <option key={m.model} value={m.model}>
-                              {m.model}
-                            </option>
-                          ))}
-                          {currentTarget && !configuredModels.some((m) => m.model === currentTarget) && (
-                            <option value={currentTarget}>{currentTarget}</option>
-                          )}
-                        </select>
-                      </div>
+            {(productConfigSection === 'all' || productConfigSection === 'routing') && (
+              <div className="bg-white rounded-xl border-2 border-purple-200/90 shadow-xs overflow-hidden">
+                <div className="bg-purple-50/50 px-4 py-2.5 border-b border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Route className="w-4 h-4" />
                     </div>
-                  );
-                })}
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs font-bold text-slate-900">
+                          Semantic Router Intent Mapping
+                        </h3>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        When callers request <code className="font-mono text-purple-700 font-semibold">auto</code>, the gateway analyzes prompt intent and routes the request to the designated target model.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] font-mono font-semibold text-purple-800 bg-white border border-purple-200 px-2.5 py-1 rounded-lg shrink-0 shadow-2xs self-start sm:self-auto">
+                    4 router intents
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      {
+                        key: 'routing.model.coding',
+                        badge: 'Coding',
+                        label: 'Coding & Development Intent',
+                        desc: 'Selected when prompt involves code generation, debugging, refactoring, or syntax.',
+                        icon: Code2,
+                        iconColor: 'text-blue-600 bg-blue-50 border-blue-200',
+                      },
+                      {
+                        key: 'routing.model.deep_reasoning',
+                        badge: 'Reasoning',
+                        label: 'Deep Reasoning & Math Intent',
+                        desc: 'Selected for complex logic, multi-step chain-of-thought problem solving, and math.',
+                        icon: Brain,
+                        iconColor: 'text-purple-600 bg-purple-50 border-purple-200',
+                      },
+                      {
+                        key: 'routing.model.simple',
+                        badge: 'Lookups',
+                        label: 'Simple & Factual Lookups',
+                        desc: 'Selected for quick facts, lookups, and short conversational queries.',
+                        icon: Zap,
+                        iconColor: 'text-amber-600 bg-amber-50 border-amber-200',
+                      },
+                      {
+                        key: 'routing.model.general',
+                        badge: 'General',
+                        label: 'General & Conversational Intent',
+                        desc: 'Default catch-all for broad creative text, open-ended answers, and dialogue.',
+                        icon: MessageSquare,
+                        iconColor: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+                      },
+                    ].map(({ key, badge, label, desc, icon: IconComponent, iconColor }) => {
+                      const currentTarget = getProductAttr(key);
+                      return (
+                        <div key={key} className="bg-slate-50/80 rounded-xl border border-slate-200 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-6 h-6 rounded-md flex items-center justify-center border ${iconColor}`}>
+                                <IconComponent className="w-3 h-3" />
+                              </div>
+                              <span className="text-xs font-bold text-slate-900">{label}</span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 shrink-0">
+                              {badge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">{desc}</p>
+                          <div className="pt-0.5">
+                            <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs focus-within:ring-1 focus-within:ring-purple-500">
+                              <span className="text-[11px] font-semibold text-slate-400">Target:</span>
+                              <select
+                                value={currentTarget}
+                                onChange={(e) => setProductAttr(key, e.target.value)}
+                                className="flex-1 bg-transparent text-xs font-mono font-bold text-slate-900 focus:outline-none cursor-pointer"
+                              >
+                                {configuredModels.filter((m) => m.model !== 'auto').map((m) => (
+                                  <option key={m.model} value={m.model}>
+                                    {m.model}
+                                  </option>
+                                ))}
+                                {currentTarget && !configuredModels.some((m) => m.model === currentTarget) && (
+                                  <option value={currentTarget}>{currentTarget}</option>
+                                )}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* CARD 3: Developer Monthly Budget Cap */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-emerald-600" />
-                  <span>Developer Budget Governance (Attributes)</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Stored in product attributes as <code className="font-mono text-emerald-700">developer.budget.limit</code> in micro-dollars (1 USD = 1,000,000 micro-USD).
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div>
-                  <div className="text-xs font-bold text-slate-900">Monthly Spending Ceiling</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    Standard AI Tier default: $5.00 / mo • Enterprise AI Tier default: $20.00 / mo
+            {(productConfigSection === 'all' || productConfigSection === 'budget') && (
+              <div className="bg-white rounded-xl border-2 border-emerald-200/90 shadow-xs overflow-hidden">
+                <div className="bg-emerald-50/50 px-4 py-2.5 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Coins className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs font-bold text-slate-900">
+                          Developer Budget Governance
+                        </h3>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Enforces developer spending caps and periodic budget ceilings across gateway traffic.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] font-mono font-semibold text-emerald-800 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg shrink-0 shadow-2xs self-start sm:self-auto">
+                    ${budgetUsd} USD cap
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-white border border-slate-300 rounded-xl px-3 py-1.5 shadow-2xs">
-                    <span className="text-slate-400 font-mono text-sm mr-1">$</span>
-                    <input
-                      type="number"
-                      step="0.50"
-                      min="0"
-                      value={budgetUsd}
-                      onChange={(e) => handleBudgetUsdChange(e.target.value)}
-                      className="w-20 text-xs font-mono font-bold text-slate-900 focus:outline-none"
-                    />
-                    <span className="text-[10px] text-slate-400 font-sans ml-1">USD</span>
+                <div className="p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Periodic Spending Ceiling</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Enterprise default: $20.00 / month • Standard default: $5.00 / month
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs">
+                        <span className="text-slate-400 font-mono text-xs mr-1">$</span>
+                        <input
+                          type="number"
+                          step="0.50"
+                          min="0"
+                          value={budgetUsd}
+                          onChange={(e) => handleBudgetUsdChange(e.target.value)}
+                          className="w-16 text-xs font-mono font-bold text-slate-900 focus:outline-none"
+                        />
+                        <span className="text-[10px] text-slate-400 font-sans ml-1">USD</span>
+                      </div>
+
+                      <span className="text-xs text-slate-400">per</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={getProductAttr('developer.budget.interval') || '1'}
+                        onChange={(e) => setProductAttr('developer.budget.interval', e.target.value)}
+                        className="w-10 bg-white border border-slate-300 rounded-lg px-1.5 py-1 text-xs font-mono font-bold text-slate-900 text-center shadow-2xs focus:outline-none"
+                      />
+
+                      <select
+                        value={getProductAttr('developer.budget.timeunit') || 'month'}
+                        onChange={(e) => setProductAttr('developer.budget.timeunit', e.target.value)}
+                        className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono text-slate-700 shadow-2xs focus:outline-none cursor-pointer"
+                      >
+                        <option value="minute">minute</option>
+                        <option value="hour">hour</option>
+                        <option value="day">day</option>
+                        <option value="week">week</option>
+                        <option value="month">month</option>
+                        <option value="year">year</option>
+                      </select>
+                    </div>
                   </div>
-
-                  <span className="text-xs text-slate-400">per</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={getProductAttr('developer.budget.interval') || '1'}
-                    onChange={(e) => setProductAttr('developer.budget.interval', e.target.value)}
-                    className="w-12 bg-white border border-slate-300 rounded-xl px-2 py-1.5 text-xs font-mono font-bold text-slate-900 text-center shadow-2xs focus:outline-none"
-                  />
-
-                  <select
-                    value={getProductAttr('developer.budget.timeunit') || 'month'}
-                    onChange={(e) => setProductAttr('developer.budget.timeunit', e.target.value)}
-                    className="bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-mono text-slate-700 shadow-2xs focus:outline-none cursor-pointer"
-                  >
-                    <option value="day">day</option>
-                    <option value="month">month</option>
-                    <option value="year">year</option>
-                  </select>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* CARD 4: Other Custom Attributes */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-slate-600" />
-                  <span>Other Custom Attributes</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Arbitrary key-value metadata attached to this API Product on Apigee.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                {(activeProduct?.attributes || [])
-                  .filter(
-                    (a: { name: string; value: string }) =>
-                      !a.name.startsWith('routing.model.') &&
-                      !a.name.startsWith('developer.budget.')
-                  )
-                  .map((attr: { name: string; value: string }) => (
-                    <div
-                      key={attr.name}
-                      className="flex items-center justify-between gap-3 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono"
-                    >
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="font-bold text-slate-800">{attr.name}</span>
-                        <span className="text-slate-400">=</span>
-                        <input
-                          type="text"
-                          value={attr.value}
-                          onChange={(e) => setProductAttr(attr.name, e.target.value)}
-                          className="flex-1 bg-white border border-slate-200 rounded px-2 py-0.5 text-slate-700 text-xs focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeProductAttr(attr.name)}
-                        className="text-slate-400 hover:text-rose-600 transition p-1 cursor-pointer"
-                        title="Remove attribute"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+            {(productConfigSection === 'all' || productConfigSection === 'custom') && (
+              <div className="bg-white rounded-xl border-2 border-amber-200/90 shadow-xs overflow-hidden">
+                <div className="bg-amber-50/50 px-4 py-2.5 border-b border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Tag className="w-4 h-4" />
                     </div>
-                  ))}
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs font-bold text-slate-900">
+                          Other Custom Attributes
+                        </h3>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Additional custom key-value metadata attached to this API Product for downstream governance and integrations.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] font-mono font-semibold text-amber-800 bg-white border border-amber-200 px-2.5 py-1 rounded-lg shrink-0 shadow-2xs self-start sm:self-auto">
+                    {customAttributesList.length} custom attributes
+                  </div>
+                </div>
 
-                {/* Add new attribute row */}
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    type="text"
-                    placeholder="New attribute key..."
-                    value={newCustomAttrKey}
-                    onChange={(e) => setNewCustomAttrKey(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="New attribute value..."
-                    value={newCustomAttrVal}
-                    onChange={(e) => setNewCustomAttrVal(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!newCustomAttrKey.trim()) return;
-                      setProductAttr(newCustomAttrKey.trim(), newCustomAttrVal.trim());
-                      setNewCustomAttrKey('');
-                      setNewCustomAttrVal('');
-                    }}
-                    disabled={!newCustomAttrKey.trim()}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Attribute</span>
-                  </button>
+                <div className="p-4 space-y-2.5">
+                  {customAttributesList.length === 0 ? (
+                    <div className="text-xs text-slate-400 italic py-2">
+                      No additional custom attributes defined on this product.
+                    </div>
+                  ) : (
+                    customAttributesList.map((attr: { name: string; value: string }) => (
+                      <div
+                        key={attr.name}
+                        className="flex items-center justify-between gap-2.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono"
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="font-bold text-slate-800">{attr.name}</span>
+                          <span className="text-slate-400">=</span>
+                          <input
+                            type="text"
+                            value={attr.value}
+                            onChange={(e) => setProductAttr(attr.name, e.target.value)}
+                            className="flex-1 bg-white border border-slate-200 rounded px-2 py-0.5 text-slate-700 text-xs focus:outline-none"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeProductAttr(attr.name)}
+                          className="text-slate-400 hover:text-rose-600 transition p-1 cursor-pointer"
+                          title="Remove attribute"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Add new attribute row */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      placeholder="New attribute key..."
+                      value={newCustomAttrKey}
+                      onChange={(e) => setNewCustomAttrKey(e.target.value)}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="New attribute value..."
+                      value={newCustomAttrVal}
+                      onChange={(e) => setNewCustomAttrVal(e.target.value)}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newCustomAttrKey.trim()) return;
+                        setProductAttr(newCustomAttrKey.trim(), newCustomAttrVal.trim());
+                        setNewCustomAttrKey('');
+                        setNewCustomAttrVal('');
+                      }}
+                      disabled={!newCustomAttrKey.trim()}
+                      className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -2373,7 +2569,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              This will re-apply canonical product configurations from <code className="font-mono text-slate-800 bg-slate-100 px-1 py-0.5 rounded">apigee/products/*.json</code> directly to Apigee Management API.
+              This will restore the canonical product configurations, default model rate limits, routing intents, and budget caps.
             </p>
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-600 space-y-1.5">
