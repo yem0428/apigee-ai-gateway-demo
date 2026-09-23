@@ -28,6 +28,7 @@ import {
   LIVE_PRODUCTS,
   MAX_TOOL_ITERATIONS,
   MAX_TRACKED_CHANGES,
+  TOOL_LOOP_BUDGET_MS,
   TOOL_NAMES,
   allowedTestModels,
   applyChangeSet,
@@ -51,6 +52,9 @@ import {
   toTestResult,
   validateChangeList,
   validateToolArgs,
+  humanizeChangePath,
+  summarizeDiff,
+  looksLikeToolNarration,
 } from '../server/adminAgentCore.js';
 import { createAdminAgentService, redactSecrets } from '../server/adminAgentService.js';
 import { GUARDRAIL_CONTROLS, listGuardrails } from '../server/guardrailCatalog.js';
@@ -373,16 +377,78 @@ test('applyChangeSet produces a contract-shaped diff and never mutates its input
   );
   assert.deepEqual(diff[0], {
     path: 'llmTokenQuota./models/gemini-3-flash-preview:*.limit',
+    // The card shows `label`; `path` is retained for anyone who asks where the
+    // value actually lives.
+    label: 'Token limit \u00b7 gemini-3-flash-preview',
     before: '2000',
     after: '4000',
   });
   assert.deepEqual(diff[1], {
     path: 'attributes.routing.model.simple',
+    label: 'Auto-routing \u00b7 simple lookups',
     before: null,
     after: 'gemini-3.1-flash-lite',
   });
   assert.equal(next.llmOperationGroup.operationConfigs[1].llmTokenQuota.limit, '4000');
   assert.equal(next.llmOperationGroup.operationConfigs[0].llmTokenQuota.limit, '2000', 'other ops untouched');
+});
+
+test('a narrated tool call is never surfaced as the reply', () => {
+  // Regression: the model learned the shape of our own synthetic tool turn and
+  // started emitting it as a final answer, so the admin saw
+  // `Calling get_product({"name":"Standard AI Tier (Dev)"})` in the panel.
+  assert.ok(looksLikeToolNarration('Calling get_product({"name":"Standard AI Tier"})'));
+  assert.ok(looksLikeToolNarration('<<TOOL_CALL_ISSUED get_product({})>>'));
+  assert.ok(looksLikeToolNarration('  calling list_products({})  '));
+  assert.ok(looksLikeToolNarration('TOOL RESULTS (system-generated, not typed by the user):'));
+
+  // Real answers that merely mention a tool name must still pass through.
+  assert.ok(!looksLikeToolNarration('The Standard tier allows 2,000 tokens a minute.'));
+  assert.ok(!looksLikeToolNarration('I checked the product and nothing has changed.'));
+  assert.ok(!looksLikeToolNarration(''));
+});
+
+test('the synthetic tool turn is a machine marker, not imitable prose', () => {
+  const [modelTurn] = textToolTurn({
+    results: [{ call: { name: 'get_product', args: { name: 'X' } }, response: { ok: true } }],
+  });
+  const text = modelTurn.parts[0].text;
+  assert.ok(text.startsWith('<<TOOL_CALL_ISSUED'), text);
+  // If this ever reads like a sentence again, the model will copy it.
+  assert.ok(!/^Calling /.test(text), text);
+});
+
+test('config paths are humanized for the change card, unknown shapes pass through', () => {
+  assert.equal(
+    humanizeChangePath('llmTokenQuota./models/claude-haiku-4-5@20251001:*.limit'),
+    'Token limit \u00b7 claude-haiku-4-5'
+  );
+  assert.equal(humanizeChangePath('llmTokenQuota./auto.limit'), 'Token limit \u00b7 auto-routed calls');
+  assert.equal(humanizeChangePath('attributes.developer.budget.limit'), 'Monthly spending cap');
+  assert.equal(humanizeChangePath('environments'), 'Environments');
+  // Anything unrecognised must fall back to the raw path rather than inventing
+  // a confident-sounding wrong label.
+  assert.equal(humanizeChangePath('some.future.path'), 'some.future.path');
+});
+
+test('summarizeDiff groups a bulk quota change into one readable line', () => {
+  const diff = [
+    { path: 'llmTokenQuota./auto.limit', before: '2000', after: '4000' },
+    { path: 'llmTokenQuota./models/gemini-3.1-flash-lite:*.limit', before: '2000', after: '4000' },
+    { path: 'llmTokenQuota./models/claude-haiku-4-5@20251001:*.limit', before: '50', after: '100' },
+  ];
+  const summary = summarizeDiff('Standard AI Tier (Dev)', diff);
+  assert.equal(summary, 'Raised 3 per-minute token limits on Standard AI Tier');
+  // No config paths may leak into the card summary.
+  assert.ok(!/llmTokenQuota|operationConfigs|\{"/.test(summary), summary);
+});
+
+test('summarizeDiff falls back to labelled detail for a mixed change', () => {
+  const diff = [
+    { path: 'attributes.developer.budget.limit', before: '5000000', after: '9000000' },
+  ];
+  const summary = summarizeDiff('Standard AI Tier (Dev)', diff);
+  assert.equal(summary, 'Standard AI Tier: Monthly spending cap: 5000000 \u2192 9000000');
 });
 
 test('quota resources resolve from a bare model id, and unknown ones are rejected', () => {
@@ -494,6 +560,48 @@ test('a no-op change is refused rather than recorded as an empty diff', async ()
         })
       ),
     /already in place/
+  );
+});
+
+test('a no-op is reported as a normal outcome, not as an error event', async () => {
+  // Regression: asking for a change that is already in place produced an
+  // `error` event, which the panel renders as a red failure banner directly
+  // underneath an otherwise correct reply ("that is already set to X").
+  const { service } = makeHarness({ products: { 'Standard AI Tier Dev': standardDevProduct() } });
+  const events = [];
+  const result = await service._internals.executeTool(
+    {
+      name: 'update_dev_product',
+      args: { sourceProduct: 'Standard AI Tier', changes: [{ path: 'attributes.access', value: 'private' }] },
+    },
+    events
+  );
+
+  assert.match(result.error, /already in place/);
+  assert.equal(
+    events.filter((e) => e.type === 'error').length,
+    0,
+    'a no-op must not surface as an error to the admin'
+  );
+  // The model still has to see what happened, or it cannot explain itself.
+  const toolEvent = events.find((e) => e.type === 'tool_call');
+  assert.match(toolEvent.summary, /already in place/);
+  assert.equal(toolEvent.ok, true);
+});
+
+test('a genuine tool failure still surfaces as an error event', async () => {
+  const { service } = makeHarness({ products: {} });
+  const events = [];
+  await service._internals.executeTool(
+    {
+      name: 'update_dev_product',
+      args: { sourceProduct: 'Standard AI Tier', changes: [{ path: 'attributes.access', value: 'public' }] },
+    },
+    events
+  );
+  assert.ok(
+    events.some((e) => e.type === 'error'),
+    'the no-op carve-out must not swallow real failures'
   );
 });
 
@@ -722,7 +830,10 @@ test('the default transcript encoding is text-only, because the gateway rejects 
   // ...and roles must still alternate, which is why a text stand-in replaces
   // the model's own tool-call turn.
   assert.deepEqual(sent.map((c) => c.role), ['user', 'model', 'user']);
-  assert.match(sent[1].parts[0].text, /^Calling get_product\(/);
+  // The stand-in is deliberately NOT natural prose: the model used to copy a
+  // "Calling get_product(...)" line out of its own transcript and emit it as a
+  // final answer, so the marker is now something it will never imitate.
+  assert.match(sent[1].parts[0].text, /^<<TOOL_CALL_ISSUED get_product\(/);
   assert.match(sent[2].parts[0].text, /TOOL RESULTS \(system-generated/);
   assert.match(sent[2].parts[0].text, /"limit":"2000"/);
   assert.match(sent[2].parts[0].text, /\[call_1\]/, 'the call id is preserved for correlation');
@@ -788,11 +899,14 @@ test('a throwing callModel or executeTool never escapes the loop', async () => {
   assert.ok(toolThrew.events.some((e) => e.type === 'error' && /apigee exploded/.test(e.message)));
 });
 
-test('the tool loop abandons the turn once the 30s budget is spent', async () => {
+test('the tool loop abandons the turn once the wall-clock budget is spent', async () => {
   let clock = 0;
   const result = await runToolLoop({
     contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
     tools: [],
+    // Explicit, so raising TOOL_LOOP_BUDGET_MS in production never silently
+    // turns this into an iteration-cap test instead of a budget test.
+    budgetMs: 30_000,
     now: () => clock,
     callModel: async () => {
       clock += 11_000; // three round-trips exhaust the budget
@@ -802,8 +916,19 @@ test('the tool loop abandons the turn once the 30s budget is spent', async () =>
   });
   assert.equal(result.stopReason, 'time_budget');
   assert.equal(result.iterations, 3);
-  assert.match(result.events.at(-1).message, /turn budget was reached/);
+  // The admin-facing text must stay plain English -- no budget constants leaked.
+  assert.match(result.events.at(-1).message, /took longer than expected/);
+  assert.doesNotMatch(result.events.at(-1).message, /budget|30s/);
   assert.ok(result.reply.includes('ran out of time'));
+});
+
+test('the production turn budget leaves room for a read-read-write-summarise turn', () => {
+  // Live measurement: ~13s per hop on gemini-3.8-flash including thinking tokens.
+  // A change request costs 4 hops, so anything under ~52s truncates real work.
+  assert.ok(
+    TOOL_LOOP_BUDGET_MS >= 4 * 13_000,
+    `TOOL_LOOP_BUDGET_MS (${TOOL_LOOP_BUDGET_MS}ms) is too tight for a 4-hop change turn`
+  );
 });
 
 test('describeGatewayFailure explains the failures an admin can act on', () => {

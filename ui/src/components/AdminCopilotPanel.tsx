@@ -176,7 +176,7 @@ const ChangeCard: React.FC<{
           <table className="w-full text-[10px]">
             <thead>
               <tr className="text-left text-slate-500">
-                <th className="font-semibold pb-1 pr-2">Path</th>
+                <th className="font-semibold pb-1 pr-2">What changed</th>
                 <th className="font-semibold pb-1 pr-2">Before</th>
                 <th className="font-semibold pb-1">After</th>
               </tr>
@@ -184,8 +184,13 @@ const ChangeCard: React.FC<{
             <tbody className="align-top">
               {change.diff.map((row) => (
                 <tr key={row.path} className="border-t border-slate-200/70">
-                  <td className="py-1 pr-2 font-mono font-semibold text-slate-800">
-                    {row.path}
+                  {/* Plain label by default; the exact config path is still one
+                      hover away rather than being dropped on the reader. */}
+                  <td
+                    className="py-1 pr-2 font-semibold text-slate-800"
+                    title={row.path}
+                  >
+                    {row.label || row.path}
                   </td>
                   <td className="py-1 pr-2 font-mono text-slate-400 line-through">
                     {row.before ?? '—'}
@@ -703,20 +708,14 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
                 key={entry.id}
                 className="rounded-xl border border-slate-200 bg-white shadow-2xs px-2.5 py-2"
               >
+                {/* Deliberately no per-turn usage chips. This panel showcases how
+                    easy a governance change is; the copilot's own token/cost
+                    telemetry is noise here. It is still metered and visible on
+                    the Analytics & Cost tab like any other caller, and the
+                    header chip still names the model that served the turn. */}
                 <p className="text-[11px] text-slate-700 leading-snug whitespace-pre-wrap">
                   {entry.text}
                 </p>
-                {entry.usage && (
-                  <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center gap-1 flex-wrap">
-                    <Chip label="model" value={entry.usage.model} />
-                    <Chip label="tokens" value={String(entry.usage.totalTokens ?? 0)} />
-                    <Chip label="cost" value={money(entry.usage.costUsd)} />
-                    <Chip
-                      label="latency"
-                      value={`${Math.round(entry.usage.latencyMs ?? 0)}ms`}
-                    />
-                  </div>
-                )}
               </div>
             );
           }

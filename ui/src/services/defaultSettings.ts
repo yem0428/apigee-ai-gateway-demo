@@ -411,7 +411,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     prompt: MODEL_ARMOR_EXAMPLES[0].prompt,
     badgeText: 'Blocked (400)',
     badgeColor: 'red',
-    settingsOverride: { useCache: false },
+    settingsOverride: { useCache: false, model: 'auto' },
   },
   {
     id: 'auto-routing',

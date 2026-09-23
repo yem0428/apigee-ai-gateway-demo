@@ -686,8 +686,13 @@ export function createAdminAgentService({
       }
     } catch (err) {
       const message = err instanceof AdminAgentError ? err.message : `Tool ${name} failed: ${err?.message || err}`;
-      events.push({ type: 'tool_call', name, summary: message, ok: false });
-      events.push({ type: 'error', message });
+      // "Nothing to change -- the requested values are already in place" is a
+      // correct answer, not a failure. Emitting an `error` event for it painted a
+      // red banner underneath an otherwise perfect reply, so it stays a plain
+      // tool_call: the model still sees it and can say so in its own words.
+      const benign = err instanceof AdminAgentError && err.code === 'no_op';
+      events.push({ type: 'tool_call', name, summary: message, ok: benign });
+      if (!benign) events.push({ type: 'error', message });
       return { error: message };
     }
   }

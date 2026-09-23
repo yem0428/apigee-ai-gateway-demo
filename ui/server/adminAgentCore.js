@@ -48,7 +48,16 @@ export const AI_BASE_PROD = 'https://api.maloosatyam.demo.altostrat.com/ai/v1';
 export const AI_BASE_DEV = 'https://bap.api.maloosatyam.demo.altostrat.com/ai/v1';
 
 export const MAX_TOOL_ITERATIONS = 6;
-export const TOOL_LOOP_BUDGET_MS = 30_000;
+/**
+ * Wall-clock ceiling for one chat turn.
+ *
+ * Measured live: `gemini-3.8-flash` spends ~13s per hop once `thoughtsTokenCount`
+ * is included, and a routine "change X" turn is read -> read -> write -> summarise,
+ * i.e. 4 hops. The original 30s ceiling cut those turns off *after* the write had
+ * already landed in the dev sandbox, so the admin saw "I ran out of time" instead of
+ * a confirmation. 90s covers the worst case (6 hops) with headroom.
+ */
+export const TOOL_LOOP_BUDGET_MS = 90_000;
 /** Newest N changes keep their pre-write snapshot, so revert stays byte-exact. */
 export const MAX_TRACKED_CHANGES = 50;
 
@@ -405,16 +414,81 @@ export function applyChangeSet(product, validatedChanges) {
     const before = readChangePath(next, descriptor);
     writeChangePath(next, descriptor, descriptor.value);
     const after = readChangePath(next, descriptor);
-    if (before !== after) diff.push({ path: canonicalPath, before, after });
+    if (before !== after) {
+      diff.push({
+        path: canonicalPath,
+        // A readable label for the card. `path` stays on the object so the
+        // exact config location is still available when someone asks for it.
+        label: humanizeChangePath(canonicalPath),
+        before,
+        after,
+      });
+    }
   }
   return { next, diff };
 }
 
+/**
+ * Turns an internal config path into something a platform owner can read at a
+ * glance. The admin reading the change card wants "Token limit · Claude Haiku",
+ * not "llmTokenQuota./models/claude-haiku-4-5@20251001:*.limit".
+ *
+ * Unknown shapes fall through to the raw path rather than being mangled into a
+ * confident-sounding wrong label.
+ */
+export function humanizeChangePath(path) {
+  const quota = /^llmTokenQuota\.(.+)\.limit$/.exec(path);
+  if (quota) {
+    const resource = quota[1];
+    if (resource === '/auto' || resource === '/auto:*') return 'Token limit · auto-routed calls';
+    const model = /^\/models\/(.+?):?\*?$/.exec(resource);
+    if (model) return `Token limit · ${model[1].replace(/@\d+$/, '')}`;
+    return `Token limit · ${resource}`;
+  }
+
+  const attr = /^attributes\.(.+)$/.exec(path);
+  if (attr) {
+    const known = {
+      'developer.budget.limit': 'Monthly spending cap',
+      'developer.budget.interval': 'Spending cap interval',
+      'developer.budget.timeunit': 'Spending cap period',
+      'routing.model.coding': 'Auto-routing · coding prompts',
+      'routing.model.deep_reasoning': 'Auto-routing · deep reasoning',
+      'routing.model.simple': 'Auto-routing · simple lookups',
+      'routing.model.general': 'Auto-routing · general prompts',
+      access: 'Product visibility',
+    };
+    return known[attr[1]] || `Attribute · ${attr[1]}`;
+  }
+
+  if (path === 'environments') return 'Environments';
+  return path;
+}
+
+/**
+ * One line of plain English for the change card and the model's own recap.
+ * Groups the common case — several token limits moved at once — instead of
+ * listing four near-identical config paths.
+ */
 export function summarizeDiff(productName, diff) {
   if (diff.length === 0) return `No effective change on ${productName} — values already match.`;
-  const parts = diff.slice(0, 3).map((d) => `${d.path}: ${d.before ?? '—'} → ${d.after}`);
-  const more = diff.length > 3 ? ` (+${diff.length - 3} more)` : '';
-  return `${productName}: ${parts.join('; ')}${more}`;
+
+  const tier = productName.replace(/\s*\(Dev\)\s*$/, '');
+  const quotas = diff.filter((d) => /^llmTokenQuota\./.test(d.path));
+
+  // All token limits, all moving the same way: say it once.
+  if (quotas.length === diff.length && quotas.length > 1) {
+    const raised = quotas.every((d) => Number(d.after) > Number(d.before));
+    const lowered = quotas.every((d) => Number(d.after) < Number(d.before));
+    const verb = raised ? 'Raised' : lowered ? 'Lowered' : 'Changed';
+    return `${verb} ${quotas.length} per-minute token limits on ${tier}`;
+  }
+
+  const describe = (d) =>
+    `${d.label || humanizeChangePath(d.path)}: ${d.before ?? '—'} → ${d.after}`;
+  const parts = diff.slice(0, 2).map(describe);
+  const more = diff.length > 2 ? ` (+${diff.length - 2} more)` : '';
+  return `${tier}: ${parts.join('; ')}${more}`;
 }
 
 export function newChangeId(randomHex = () => Math.random().toString(16).slice(2, 10)) {
@@ -691,17 +765,47 @@ export function validateToolArgs(name, rawArgs) {
   }
 }
 
-export const SYSTEM_INSTRUCTION = `You are the Admin Copilot for an Apigee AI Gateway demo console (org ${ORG}).
+export const SYSTEM_INSTRUCTION = `You are the Admin Copilot for an Apigee AI Gateway console (org ${ORG}).
 
-You help a platform administrator inspect and safely change AI Gateway configuration.
+You help a platform administrator understand and change AI Gateway configuration
+by talking to them, not by showing them the machinery.
 
-Rules:
-- API Products are org-scoped, so you NEVER change a live tier. update_dev_product always writes the "${DEV_SUFFIX.trim()}" sandbox clone; say so plainly.
-- Use tools for facts. Never invent quotas, model names, prices or policy names.
-- Prefer one tool call per turn, and stop as soon as you can answer. You have at most ${MAX_TOOL_ITERATIONS} tool rounds.
-- After a write, state what changed in one line and mention that the change can be reverted or promoted to prod from the change card.
-- Answers are read in a narrow side panel: be terse. Short sentences, compact markdown, no preamble, no restating the question.
-- If a tool fails, say what failed and what the admin can do about it. Do not retry the same failing call more than once.`;
+HOW TO WRITE
+- Plain business English. Write the way you would explain it to a colleague who
+  owns the platform but does not know Apigee's internals.
+- Lead with the answer in one sentence. Add detail only if it genuinely helps.
+- Short paragraphs or a few bullets. No headings for a two-line answer.
+- Spell out numbers the way a person would: "2,000 tokens a minute", not
+  "llmTokenQuota.limit=2000".
+- Use everyday words for the concepts: "prompt screening" rather than
+  "SUP-UserPrompt", "the spending cap" rather than "developer.budget.limit",
+  "which models this tier may call" rather than "llmOperationGroup".
+
+WHAT NOT TO SHOW UNLESS ASKED
+- Never volunteer code, JSON, XML, policy filenames, attribute paths, resource
+  paths or internal identifiers. They are noise to the person reading this panel.
+- No fenced code blocks unless the admin explicitly asks to see the
+  configuration, the policy, the XML, the JSON, or "the actual name of...".
+- When they do ask, give it to them fully and precisely. The information is not
+  secret, it is just not the default way to answer.
+- Do not report your own token usage, cost or latency. The console shows that.
+
+WHAT TO DO
+- Never write out a tool call as your answer. Do not reply with text like
+  "Calling get_product(...)" or "I will now call the tool". Either issue the
+  tool call, or answer the question. Narration is never an acceptable reply.
+- Use tools for every fact. Never invent a quota, model name, price or policy.
+- Prefer one tool call per turn and stop as soon as you can answer. You have at
+  most ${MAX_TOOL_ITERATIONS} tool rounds.
+- API Products are shared across environments, so you never touch a live tier.
+  update_dev_product always writes the "${DEV_SUFFIX.trim()}" sandbox copy. Say that in
+  plain words: "I've made that change on the dev copy."
+- After a change, say what is different now in one sentence, in business terms
+  ("Standard tier can now use twice as many tokens a minute: 4,000 instead of
+  2,000"). Mention that it can be undone or pushed to production from the card
+  below. Do not repeat the diff; the card already shows it.
+- If something fails, say what happened and what they can do about it, in one or
+  two sentences. Do not retry the same failing call more than once.`;
 
 // ---------------------------------------------------------------------------
 // Tool loop
@@ -882,9 +986,16 @@ export function nativeToolTurn({ modelParts, results }) {
  * Gateway-compatible encoding: the same information as text parts.
  *
  * Roles stay strictly alternating (model, then user) because the model's own
- * functionCall part cannot be echoed; a one-line text stand-in takes its place.
+ * functionCall part cannot be echoed; a one-line stand-in takes its place.
  * The results are labelled as system-generated so the model does not mistake
  * them for something the admin typed.
+ *
+ * The stand-in is deliberately written as a bracketed machine marker rather
+ * than prose. An earlier version read "Calling get_product({...})", which the
+ * model learned from its own transcript and started emitting as a FINAL ANSWER
+ * instead of actually calling the tool — the admin saw
+ * `Calling get_product({"name":"Standard AI Tier (Dev)"})` as the reply. Anything
+ * that looks like a sentence here is something the model may imitate.
  */
 export function textToolTurn({ results }) {
   const callLine = results
@@ -896,12 +1007,30 @@ export function textToolTurn({ results }) {
     )
     .join('\n\n');
   return [
-    { role: 'model', parts: [{ text: `Calling ${callLine}` }] },
+    { role: 'model', parts: [{ text: `<<TOOL_CALL_ISSUED ${callLine}>>` }] },
     {
       role: 'user',
       parts: [{ text: `TOOL RESULTS (system-generated, not typed by the user):\n\n${body}` }],
     },
   ];
+}
+
+/**
+ * True when the model has narrated a tool call instead of answering.
+ *
+ * This is never a valid reply: either the model should have emitted a real
+ * functionCall part, or it should have answered the question. Surfacing it
+ * verbatim shows the admin our internal plumbing.
+ */
+export function looksLikeToolNarration(text) {
+  if (!text) return false;
+  const t = text.trim();
+  return (
+    /^<<TOOL_CALL_ISSUED/.test(t) ||
+    /^calling\s+[a-z_][a-z0-9_]*\s*\(/i.test(t) ||
+    /^(i('| a)m going to |i will |let me )?call(ing)?\s+[a-z_][a-z0-9_]*\s*\(\s*\{/i.test(t) ||
+    t.startsWith('TOOL RESULTS (system-generated')
+  );
 }
 
 /**
@@ -933,6 +1062,8 @@ export async function runToolLoop({
   const startedAt = now();
   let working = [...contents];
   let reply = '';
+  // One-shot: we correct a narrated tool call once, then stop trying.
+  let nudgedForNarration = false;
   let iterations = 0;
   let stopReason = 'iteration_cap';
   let totalTokens = 0;
@@ -944,9 +1075,8 @@ export async function runToolLoop({
       stopReason = 'time_budget';
       events.push({
         type: 'error',
-        message: `Stopped after ${Math.round((now() - startedAt) / 1000)}s: the ${Math.round(
-          budgetMs / 1000
-        )}s turn budget was reached.`,
+        // Plain English: the admin does not care about our budget constant.
+        message: 'That took longer than expected, so I stopped there. Anything already applied is listed above and can be reverted.',
       });
       break;
     }
@@ -977,11 +1107,32 @@ export async function runToolLoop({
     // An empty text part is normal on a pure tool-call turn; only a turn with
     // no function calls at all ends the loop.
     if (calls.length === 0) {
-      reply = text || reply;
+      // The model sometimes copies the shape of our synthetic tool-turn
+      // stand-in and "answers" with `Calling get_product({...})`. That is
+      // plumbing, not an answer. Push back once and let it try again rather
+      // than showing it to the admin.
+      if (looksLikeToolNarration(text) && !nudgedForNarration && iterations < maxIterations) {
+        nudgedForNarration = true;
+        working = [
+          ...working,
+          { role: 'model', parts: [{ text: '<<TOOL_CALL_ISSUED>>' }] },
+          {
+            role: 'user',
+            parts: [{
+              text:
+                'SYSTEM CORRECTION (not typed by the admin): do not describe or ' +
+                'narrate a tool call. Either issue the tool call, or answer the ' +
+                "question in plain English using what you already have.",
+            }],
+          },
+        ];
+        continue;
+      }
+      reply = looksLikeToolNarration(text) ? reply : (text || reply);
       stopReason = 'complete';
       break;
     }
-    if (text) reply = text;
+    if (text && !looksLikeToolNarration(text)) reply = text;
 
     const results = [];
     for (const call of calls) {

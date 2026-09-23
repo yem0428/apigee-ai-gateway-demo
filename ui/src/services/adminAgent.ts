@@ -40,7 +40,8 @@ export interface Change {
   sourceProduct: string;
   env: 'dev';
   summary: string;
-  diff: { path: string; before: string | null; after: string | null }[];
+  /** `label` is the human-readable form; `path` is the exact config location. */
+  diff: { path: string; label?: string; before: string | null; after: string | null }[];
   appliedAt: string;
   status: 'applied' | 'reverted' | 'promoted';
 }

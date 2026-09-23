@@ -342,13 +342,20 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     if (e) e.stopPropagation();
     setArmorStep(step);
     const example = MODEL_ARMOR_EXAMPLES[step];
+    // Model Armor runs on the request PreFlow, before any routing decision, so
+    // the block is identical on every model. Pinning /auto demonstrates it on
+    // the endpoint real traffic actually uses, and keeps the scenario from
+    // inheriting whatever model the previous demo step happened to leave
+    // selected (a rate-limited Claude, say, which would muddy the 400 with a 429).
     const effectiveSettings: GatewaySettings = {
       ...settings,
+      model: 'auto',
       useCache: false,
       omitEmailHeader: false,
     };
     setSettings((prev) => ({
       ...prev,
+      model: 'auto',
       useCache: false,
       omitEmailHeader: false,
     }));
