@@ -4,6 +4,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createAdminAgentService } from './server/adminAgentService.js';
+import { mintSyntheticIdentityToken } from './server/adminAgentCore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, 'dist');
@@ -784,6 +786,18 @@ function getApigeeTimeRange(rangeParam) {
   return `${fmt(start)}~${fmt(now)}`;
 }
 
+// Admin Copilot backend (/api/admin-agent/*).
+//
+// The service is constructed with this file's own Apigee helpers injected
+// rather than importing them, which keeps all the credential handling in one
+// place and lets the unit tests drive the same code with fakes.
+const adminAgentService = createAdminAgentService({
+  getToken: getGcpAccessToken,
+  provisionAdmin: (org, token, email) =>
+    provisionUserDeveloperAndApp(org, token, email, '', '', '', { allowCreate: false }),
+  defaultProducts: DEFAULT_PRODUCTS,
+});
+
 // MIME Types helper
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -927,17 +941,12 @@ const server = http.createServer(async (req, res) => {
     // even though it never verifies the signature. Same shape as
     // apigee/scripts/generate_demo_traffic.py. Development affordance only --
     // see the VerifyJWT note in docs/apigee_ai_gateway_demo_design.md.
+    //
+    // The construction lives in server/adminAgentCore.js because the Admin
+    // Copilot mints the same token server-side; one definition, no drift.
     let identityToken = iapJwtHeader;
     if (!identityToken) {
-      const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-      const sig = Buffer.from('dummysignature12345678901234567890').toString('base64url');
-      identityToken = `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64({
-        email,
-        sub: email,
-        name,
-        iss: 'local-dev',
-        iat: Math.floor(Date.now() / 1000),
-      })}.${sig}`;
+      identityToken = mintSyntheticIdentityToken(email, name);
     }
 
     res.end(
@@ -2259,6 +2268,14 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: err.message }));
       }
     });
+    return;
+  }
+
+  // 14. /api/admin-agent/* -- Admin Copilot (see server/adminAgentService.js).
+  // Mounted ahead of the reverse proxies and the SPA fallback so an unknown
+  // sub-path answers with a structured JSON error instead of index.html.
+  if (pathname === '/api/admin-agent' || pathname.startsWith('/api/admin-agent/')) {
+    await adminAgentService.handleRequest(req, res, parsedUrl);
     return;
   }
 

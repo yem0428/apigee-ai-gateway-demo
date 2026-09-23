@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { GUARDRAIL_CONTROLS } from '../server/guardrailCatalog.js';
+import {
+  generateCatalogJson,
+  parseGuardrailCatalogTs,
+} from '../server/generateGuardrailCatalog.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const catalogSrc = readFileSync(join(here, '../src/data/guardrailPolicies.ts'), 'utf8');
@@ -75,3 +80,49 @@ test('Guardrails are declared against the two deployed proxies only', () => {
     'Every control must name the proxy that enforces it'
   );
 });
+
+// The Admin Copilot's `list_guardrails` tool answers from a server-side mirror
+// (server/guardrailCatalog.json), because server.js is plain Node and cannot
+// import this TypeScript module. These two tests are what stop the copilot from
+// describing a guardrail estate the console no longer shows.
+
+test('The server-side guardrail mirror has the same controls, in the same order', () => {
+  const parsed = parseGuardrailCatalogTs(catalogSrc);
+  assert.equal(
+    GUARDRAIL_CONTROLS.length,
+    parsed.length,
+    `Mirror has ${GUARDRAIL_CONTROLS.length} controls, catalog has ${parsed.length}. ` +
+      'Re-run: node server/generateGuardrailCatalog.js'
+  );
+  assert.deepEqual(
+    GUARDRAIL_CONTROLS.map((c) => c.id),
+    parsed.map((c) => c.id),
+    'Control ids drifted between guardrailPolicies.ts and server/guardrailCatalog.json. ' +
+      'Re-run: node server/generateGuardrailCatalog.js'
+  );
+  assert.deepEqual(
+    GUARDRAIL_CONTROLS.map((c) => c.id),
+    controlIds(catalogSrc),
+    'The mirror must match the ids declared in the TS source'
+  );
+});
+
+test('The server-side guardrail mirror is byte-identical to a fresh generation', () => {
+  assert.equal(
+    readFileSync(join(here, '../server/guardrailCatalog.json'), 'utf8'),
+    generateCatalogJson(),
+    'server/guardrailCatalog.json is stale. Re-run: node server/generateGuardrailCatalog.js'
+  );
+});
+
+test('Every mirrored control keeps the fields the copilot answers with', () => {
+  for (const control of GUARDRAIL_CONTROLS) {
+    for (const field of ['gateway', 'proxy', 'title', 'category', 'summary', 'attachPoint', 'onViolation', 'configSource']) {
+      assert.ok(control[field], `Mirrored control "${control.id}" is missing ${field}`);
+    }
+    assert.ok(Array.isArray(control.policies) && control.policies.length > 0);
+    // Icons are React components; they must not survive into the server mirror.
+    assert.equal(control.icon, undefined, `Mirrored control "${control.id}" should not carry an icon`);
+  }
+});
+

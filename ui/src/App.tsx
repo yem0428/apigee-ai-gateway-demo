@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { ChatPlayground } from './components/ChatPlayground';
 import { McpPlayground } from './components/McpPlayground';
 import { MonetizationManager } from './components/MonetizationManager';
+import { AdminCopilotPanel } from './components/AdminCopilotPanel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
 import { ArchitectureBlueprintModal } from './components/ArchitectureBlueprintModal';
@@ -511,15 +512,26 @@ export function App() {
             }}
           />
         ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
-          <MonetizationManager
-            currentEnv="prod"
-            settings={settings}
-            onInspectArchitecture={(flow) => {
-              setArchInitialTab(flow);
-              setArchInitialMode('full-blueprint');
-              setIsArchitectureOpen(true);
-            }}
-          />
+          /*
+            The Admin Console and its copilot share the row. MonetizationManager owns its
+            own `h-full ... overflow-y-auto` scroller, so it goes in a `min-w-0` flex child
+            rather than being given a width - otherwise its wide tables would push the
+            dock off-screen instead of scrolling.
+          */
+          <div className="h-full flex min-h-0">
+            <div className="flex-1 min-w-0 h-full">
+              <MonetizationManager
+                currentEnv="prod"
+                settings={settings}
+                onInspectArchitecture={(flow) => {
+                  setArchInitialTab(flow);
+                  setArchInitialMode('full-blueprint');
+                  setIsArchitectureOpen(true);
+                }}
+              />
+            </div>
+            <AdminCopilotPanel />
+          </div>
         ) : (
           <AnalyticsDashboard
             settings={settings}
