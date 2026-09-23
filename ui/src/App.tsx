@@ -46,12 +46,14 @@ export function App() {
     }
     return false;
   });
-  const [archInitialTab, setArchInitialTab] = useState<'ai-gateway' | 'mcp-gateway' | 'dual-pattern'>(() => {
+  const [archInitialTab, setArchInitialTab] = useState<'ai-gateway' | 'mcp-gateway' | 'overview'>(() => {
     if (typeof window !== 'undefined') {
       const flow = new URLSearchParams(window.location.search).get('flow');
-      if (flow === 'mcp-gateway' || flow === 'dual-pattern') return flow;
+      if (flow === 'mcp-gateway' || flow === 'overview') return flow;
+      // Legacy deep link from earlier demo builds
+      if (flow === 'dual-pattern') return 'overview';
     }
-    return 'ai-gateway';
+    return 'overview';
   });
   const [archInitialMode, setArchInitialMode] = useState<'request-flow' | 'full-blueprint'>(() => {
     if (typeof window !== 'undefined') {
@@ -438,7 +440,7 @@ export function App() {
         onTabChange={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenArchitecture={() => {
-          setArchInitialTab(activeTab === 'mcp-gateway' ? 'mcp-gateway' : 'ai-gateway');
+          setArchInitialTab('overview');
           setArchInitialMode('full-blueprint');
           setIsArchitectureOpen(true);
         }}

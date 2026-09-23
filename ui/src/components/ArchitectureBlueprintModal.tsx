@@ -20,6 +20,12 @@ import {
   ShieldAlert,
   Ban,
   Eye,
+  Users,
+  Bot,
+  Globe,
+  Cloud,
+  Network,
+  Building2,
 } from 'lucide-react';
 import { GatewayTelemetry, McpTelemetry } from '../types';
 import { GoogleLogo, AnthropicLogo } from './ProviderLogos';
@@ -27,11 +33,12 @@ import { GoogleLogo, AnthropicLogo } from './ProviderLogos';
 interface ArchitectureBlueprintModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'ai-gateway' | 'mcp-gateway' | 'dual-pattern';
+  initialTab?: 'ai-gateway' | 'mcp-gateway' | 'overview';
   initialMode?: 'request-flow' | 'full-blueprint';
   aiTelemetry?: GatewayTelemetry | null;
   mcpTelemetry?: McpTelemetry | null;
 }
+
 
 interface ArchStage {
   id: string;
@@ -68,7 +75,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
   aiTelemetry,
   mcpTelemetry,
 }) => {
-  const [activeFlow, setActiveFlow] = useState<'ai-gateway' | 'mcp-gateway' | 'dual-pattern'>(initialTab);
+  const [activeFlow, setActiveFlow] = useState<'ai-gateway' | 'mcp-gateway' | 'overview'>(initialTab);
   const [viewMode, setViewMode] = useState<'request-flow' | 'full-blueprint'>(initialMode);
   const [selectedStageId, setSelectedStageId] = useState<string>('ai-router');
 
@@ -517,30 +524,38 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                  {viewMode === 'request-flow'
-                    ? 'Live Request Execution Trace Flow'
-                    : 'Enterprise AI & Tools Gateway Architecture Blueprint'}
+                  {activeFlow === 'overview'
+                    ? 'Enterprise AI & Agent Platform — Solution Architecture'
+                    : viewMode === 'request-flow'
+                      ? 'Live Request Execution Trace Flow'
+                      : 'Enterprise AI & Tools Gateway Architecture Blueprint'}
                 </h2>
                 <span
                   className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${
-                    viewMode === 'request-flow'
-                      ? terminationInfo?.type === 'blocked-security' || terminationInfo?.type === 'blocked-quota'
-                        ? 'bg-rose-100 text-rose-700 border-rose-300'
-                        : 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                      : 'bg-blue-100 text-blue-700 border-blue-300'
+                    activeFlow === 'overview'
+                      ? 'bg-purple-100 text-purple-700 border-purple-300'
+                      : viewMode === 'request-flow'
+                        ? terminationInfo?.type === 'blocked-security' || terminationInfo?.type === 'blocked-quota'
+                          ? 'bg-rose-100 text-rose-700 border-rose-300'
+                          : 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                        : 'bg-blue-100 text-blue-700 border-blue-300'
                   }`}
                 >
-                  {viewMode === 'request-flow'
-                    ? terminationInfo
-                      ? terminationInfo.badgeText
-                      : 'END-TO-END EXECUTED (ALL STEPS PASSED)'
-                    : 'Interactive Demo Reference'}
+                  {activeFlow === 'overview'
+                    ? 'Start Here · High-Level View'
+                    : viewMode === 'request-flow'
+                      ? terminationInfo
+                        ? terminationInfo.badgeText
+                        : 'END-TO-END EXECUTED (ALL STEPS PASSED)'
+                      : 'Interactive Demo Reference'}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                {viewMode === 'request-flow'
-                  ? 'Showing the exact policies executed for the tested request. Downstream policies after a block or cache hit are omitted.'
-                  : 'Click any stage in the pipeline to inspect active XML policies, governance controls, and demo talking points.'}
+                {activeFlow === 'overview'
+                  ? 'How consumers, agents and enterprise systems connect through Apigee. Click the AI Gateway or MCP Gateway to drill into its pipeline.'
+                  : viewMode === 'request-flow'
+                    ? 'Showing the exact policies executed for the tested request. Downstream policies after a block or cache hit are omitted.'
+                    : 'Click any stage in the pipeline to inspect active XML policies, governance controls, and demo talking points.'}
               </p>
             </div>
           </div>
@@ -548,7 +563,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
           {/* Right Controls: View Mode Toggle + Segmented Switcher + Close Button */}
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Toggle between Actual Request Flow vs Full Blueprint */}
-            {activeFlow !== 'dual-pattern' && (
+            {activeFlow !== 'overview' && (
               <div className="flex items-center bg-slate-200/70 p-1 rounded-xl border border-slate-300/80 text-xs">
                 <button
                   type="button"
@@ -583,6 +598,19 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
             <div className="flex items-center bg-slate-200/70 p-1 rounded-xl border border-slate-300/80 text-xs">
               <button
                 type="button"
+                onClick={() => setActiveFlow('overview')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                  activeFlow === 'overview'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="High-level solution architecture — the starting point"
+              >
+                <Network className="w-3.5 h-3.5" />
+                <span>Solution Overview</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setActiveFlow('ai-gateway');
                   setSelectedStageId('ai-router');
@@ -611,18 +639,6 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                 <Terminal className="w-3.5 h-3.5" />
                 <span>MCP Tools</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveFlow('dual-pattern')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
-                  activeFlow === 'dual-pattern'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Workflow className="w-3.5 h-3.5" />
-                <span>ADK Dual-Pattern</span>
-              </button>
             </div>
 
             <button
@@ -638,160 +654,370 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
 
         {/* Modal Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1">
-          {activeFlow === 'dual-pattern' ? (
-            /* Dual-Pattern ADK Architecture View */
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-300/60 rounded-2xl p-5">
+          {activeFlow === 'overview' ? (
+            /* High-Level Solution Architecture (conversation starting point) */
+            <div className="space-y-5">
+              <div className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-300/60 rounded-2xl p-4 sm:p-5">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
-                  <Workflow className="w-4 h-4 text-purple-600" />
-                  Google ADK (Agent Development Kit) — Enterprise Dual-Pattern Architecture
+                  <Network className="w-4 h-4 text-purple-600" />
+                  One platform, two enforcement points
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Enterprise AI agents require strict governance over both <strong>Reasoning (LLM calls)</strong> and <strong>Action (Tool executions)</strong>. Instead of hardcoding direct Vertex AI or microservice credentials inside agent code, the ADK Agent routes all model calls through the <strong>AI Gateway</strong> and all tool calls through the <strong>MCP Tools Gateway</strong>.
+                  Every consumer — users, apps, agents and external MCP/A2A clients — enters through an <strong>external Apigee layer</strong>. Agents and internal apps then reach models and tools only through the <strong>internal Apigee layer</strong>, where the <strong>AI Gateway</strong> governs reasoning (LLM calls) and the <strong>MCP Gateway</strong> governs action (tool calls). No credentials, model endpoints or backend URLs are ever hardcoded in application or agent code.
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-slate-500 font-semibold">Drill down:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveFlow('ai-gateway');
+                      setViewMode('full-blueprint');
+                      setSelectedStageId('ai-router');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 transition cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    AI Gateway pipeline
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveFlow('mcp-gateway');
+                      setViewMode('full-blueprint');
+                      setSelectedStageId('mcp-rbac');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition cursor-pointer"
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                    MCP Gateway pipeline
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
 
-              {/* Dual-Pattern Visual Diagram Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-                {/* Left Column: Agent Microservice */}
-                <div className="bg-slate-50 border-2 border-purple-500/40 rounded-2xl p-5 flex flex-col justify-between">
+              {/* Layered Flow Diagram */}
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.95fr)_auto_minmax(0,1.05fr)_auto_minmax(0,1.05fr)_auto_minmax(0,1fr)] gap-3 items-stretch">
+                {/* ---------- Column 1: Consumers ---------- */}
+                <div className="flex flex-col">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Consumers</div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-2.5 space-y-2">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-900 leading-snug">External Users</div>
+                          <div className="text-[10px] text-slate-500 leading-snug">Web &amp; mobile apps</div>
+                        </div>
+                        <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">REST</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0">
+                          <Terminal className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-900 leading-snug">External MCP Clients</div>
+                          <div className="text-[10px] text-slate-500 leading-snug">Claude, IDEs, partner agents</div>
+                        </div>
+                        <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">MCP</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-900 leading-snug">External A2A Clients</div>
+                          <div className="text-[10px] text-slate-500 leading-snug">Partner agent-to-agent</div>
+                        </div>
+                        <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">A2A</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-1.5 mt-1 border-t border-dashed border-slate-300">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Internal</div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                            <Building2 className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-900 leading-snug">Internal Users</div>
+                            <div className="text-[10px] text-slate-500 leading-snug">Gemini Enterprise &amp; business apps</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden xl:flex items-center justify-center text-slate-300 pt-6">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
+
+                {/* ---------- Column 2: External Layer + Agent Runtime ---------- */}
+                <div className="flex flex-col">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">External Layer</div>
+                  <div className="rounded-2xl border-2 border-blue-500/40 bg-blue-50/50 p-3">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900">Apigee X — Edge</div>
+                        <div className="text-[10px] text-slate-500">AuthN/Z, rate limits, threat protection</div>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 rounded-lg bg-white border border-slate-200 px-2.5 py-1.5">
+                        <code className="text-[11px] font-mono font-bold text-slate-800">/rest-api/v1</code>
+                        <span className="text-[9px] text-slate-400">→ rest backend</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 rounded-lg bg-white border border-cyan-200 px-2.5 py-1.5">
+                        <code className="text-[11px] font-mono font-bold text-cyan-700">/mcp</code>
+                        <span className="text-[9px] text-slate-400">→ mcp backend</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 rounded-lg bg-white border border-purple-200 px-2.5 py-1.5">
+                        <code className="text-[11px] font-mono font-bold text-purple-700">/a2a</code>
+                        <span className="text-[9px] text-slate-400">→ agent runtime</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hidden xl:flex justify-center py-1.5 text-slate-300">
+                    <ArrowRight className="w-4 h-4 rotate-90" />
+                  </div>
+
+                  <div className="rounded-2xl border-2 border-purple-500/40 bg-purple-50/40 p-3 mt-3 xl:mt-0 flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0">
+                        <Workflow className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900">Agent Runtime</div>
+                        <div className="text-[10px] text-slate-500">Google ADK on Cloud Run</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 mb-2">
+                      <div className="rounded-lg bg-white border border-emerald-200 px-2 py-1.5 text-[11px] font-semibold text-emerald-800 text-center">
+                        Agent 1
+                      </div>
+                      <div className="rounded-lg bg-white border border-emerald-200 px-2 py-1.5 text-[11px] font-semibold text-emerald-800 text-center">
+                        Agent 2
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-500 leading-snug">
+                      Agents hold <strong>persona-scoped API keys only</strong> — every model call and every tool call exits to the internal layer.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden xl:flex items-center justify-center text-slate-300 pt-6">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
+
+                {/* ---------- Column 3: Internal Layer (governance plane) ---------- */}
+                <div className="flex flex-col">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-2">Internal Layer</div>
+                  <div className="flex-1 rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/40 p-3 flex flex-col">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900">Apigee X — Governance Plane</div>
+                        <div className="text-[10px] text-slate-500">Where AI &amp; tool policy is enforced</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 flex-1">
+                      {/* AI Gateway (clickable) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveFlow('ai-gateway');
+                          setViewMode('full-blueprint');
+                          setSelectedStageId('ai-router');
+                        }}
+                        className="w-full text-left rounded-xl bg-white border-2 border-blue-400 hover:border-blue-600 hover:shadow-md transition p-2.5 cursor-pointer group"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                            <span className="text-xs font-bold text-slate-900">AI Gateway</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-blue-600 group-hover:underline flex items-center gap-0.5">
+                            Inspect <ArrowRight className="w-3 h-3" />
+                          </span>
+                        </div>
+                        <code className="block text-[11px] font-mono font-bold text-blue-700 mb-1.5">{'/llm/<model>'}</code>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Model Armor</span>
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Semantic Cache</span>
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Auto-Routing</span>
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Token Quotas</span>
+                        </div>
+                      </button>
+
+                      {/* MCP Gateway (clickable) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveFlow('mcp-gateway');
+                          setViewMode('full-blueprint');
+                          setSelectedStageId('mcp-rbac');
+                        }}
+                        className="w-full text-left rounded-xl bg-white border-2 border-cyan-400 hover:border-cyan-600 hover:shadow-md transition p-2.5 cursor-pointer group"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <Terminal className="w-3.5 h-3.5 text-cyan-600" />
+                            <span className="text-xs font-bold text-slate-900">MCP Gateway</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-cyan-600 group-hover:underline flex items-center gap-0.5">
+                            Inspect <ArrowRight className="w-3 h-3" />
+                          </span>
+                        </div>
+                        <code className="block text-[11px] font-mono font-bold text-cyan-700 mb-1.5">/mcp</code>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">JSON-RPC 2.0</span>
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Persona RBAC</span>
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">REST → MCP</span>
+                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Tool Catalog</span>
+                        </div>
+                      </button>
+
+                      <div className="flex items-center justify-between gap-2 rounded-xl bg-white border border-slate-200 px-2.5 py-1.5">
+                        <code className="text-[11px] font-mono font-bold text-slate-700">/rest-api/v1</code>
+                        <span className="text-[9px] text-slate-400">system APIs</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 mt-2.5 pt-2.5 border-t border-emerald-200">
+                      <div className="flex items-center justify-center gap-1 rounded-lg bg-white border border-slate-200 py-1 text-[9px] font-semibold text-slate-600">
+                        <Lock className="w-3 h-3" /> Security
+                      </div>
+                      <div className="flex items-center justify-center gap-1 rounded-lg bg-white border border-slate-200 py-1 text-[9px] font-semibold text-slate-600">
+                        <Coins className="w-3 h-3" /> Analytics
+                      </div>
+                      <div className="flex items-center justify-center gap-1 rounded-lg bg-white border border-slate-200 py-1 text-[9px] font-semibold text-slate-600">
+                        <FileCode2 className="w-3 h-3" /> Registry
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden xl:flex items-center justify-center text-slate-300 pt-6">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
+
+                {/* ---------- Column 4: Upstream Providers & Systems ---------- */}
+                <div className="flex flex-col gap-3">
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-purple-100 text-purple-700 border border-purple-300">
-                        Cloud Run Microservice
-                      </span>
-                      <span className="text-xs font-mono text-slate-400">Python FastAPI</span>
-                    </div>
-                    <h4 className="text-base font-bold text-slate-900 mb-1">
-                      Google ADK Agent Runtime
-                    </h4>
-                    <p className="text-xs text-slate-500 mb-4">
-                      Orchestrates multi-step reasoning loops, state management, and tool invocation using unified developer credentials.
-                    </p>
-                    <div className="space-y-2.5 text-xs">
-                      <div className="p-3 rounded-xl bg-white border border-slate-200">
-                        <div className="font-semibold text-slate-800 mb-0.5">1. Northbound Ingress</div>
-                        <div className="text-slate-500 text-[11px]">Fronted by Enterprise API Gateway for client authentication & rate limiting.</div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white border border-slate-200">
-                        <div className="font-semibold text-slate-800 mb-0.5">2. Zero Hardcoded Keys</div>
-                        <div className="text-slate-500 text-[11px]">Uses persona-scoped API Keys (Admin, Sales Agent, Loans Agent) injected at runtime.</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Models &amp; Tools</div>
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50/40 p-2.5">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-blue-600 mb-1.5">Foundation Models</div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
+                          <GoogleLogo className="w-4 h-4 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-bold text-slate-800 leading-snug">Vertex AI — Gemini</div>
+                            <div className="text-[9px] text-slate-500 leading-snug">Flash-Lite, Flash &amp; Pro</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
+                          <AnthropicLogo className="w-4 h-4 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-bold text-slate-800 leading-snug">Anthropic — Claude</div>
+                            <div className="text-[9px] text-slate-500 leading-snug">Haiku &amp; Opus via Vertex</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-purple-600 font-semibold">
-                    <span>Dual Outbound Channels</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
-                </div>
-
-                {/* Middle Column: Two Gateways */}
-                <div className="space-y-4 flex flex-col justify-between">
-                  {/* Pattern A: AI Gateway */}
-                  <div
-                    onClick={() => setActiveFlow('ai-gateway')}
-                    className="bg-blue-50/50 border-2 border-blue-500/40 hover:border-blue-500 rounded-2xl p-4 cursor-pointer transition group"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-blue-600 text-white">
-                        Channel 1: Model Calls
-                      </span>
-                      <span className="text-[11px] font-semibold text-blue-600 group-hover:underline flex items-center gap-1">
-                        Inspect Pipeline <ArrowRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                    <h5 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mb-1">
-                      <Sparkles className="w-4 h-4 text-blue-500" />
-                      AI Gateway (ai-gateway-v1)
-                    </h5>
-                    <p className="text-xs text-slate-600 mb-2">
-                      Intercepts agent LLM prompts for safety, caching, smart routing, and token quota governance.
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Model Armor</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Semantic Cache</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Auto-Router</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Token Quotas</span>
+                  <div className="rounded-2xl border border-cyan-200 bg-cyan-50/40 p-2.5">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-cyan-700 mb-1.5">Enterprise APIs → MCP</div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
+                        <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                          <Server className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold text-slate-800 leading-snug">Sales &amp; Inventory API</div>
+                          <div className="text-[9px] text-slate-500 leading-snug">REST bridged to MCP tools</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
+                        <div className="w-6 h-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                          <Building2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold text-slate-800 leading-snug">Loans &amp; Banking Core</div>
+                          <div className="text-[9px] text-slate-500 leading-snug">REST bridged to MCP tools</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Pattern B: MCP Gateway */}
-                  <div
-                    onClick={() => setActiveFlow('mcp-gateway')}
-                    className="bg-cyan-50/50 border-2 border-cyan-500/40 hover:border-cyan-500 rounded-2xl p-4 cursor-pointer transition group"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-cyan-600 text-white">
-                        Channel 2: Tool Execution
-                      </span>
-                      <span className="text-[11px] font-semibold text-cyan-600 group-hover:underline flex items-center gap-1">
-                        Inspect Pipeline <ArrowRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                    <h5 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mb-1">
-                      <Terminal className="w-4 h-4 text-cyan-500" />
-                      MCP Tools Gateway (/mcp)
-                    </h5>
-                    <p className="text-xs text-slate-600 mb-2">
-                      Serves native JSON-RPC 2.0 MCP tools with persona-based RBAC catalog filtering and REST bridging.
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">JSON-RPC 2.0</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Persona RBAC</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">REST Bridge</span>
-                      <span className="px-2 py-0.5 text-[10px] rounded bg-white border border-slate-200 text-slate-700">Rate Limiting</span>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 flex-1">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Third-Party MCP Servers</div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
+                        <div className="w-6 h-6 rounded-md bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                          <Cloud className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold text-slate-800 leading-snug">Salesforce</div>
+                          <div className="text-[9px] text-slate-500 leading-snug">CRM records &amp; opportunities</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
+                        <div className="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                          <Database className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold text-slate-800 leading-snug">BigQuery</div>
+                          <div className="text-[9px] text-slate-500 leading-snug">Governed analytics queries</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Right Column: Upstream Providers & Enterprise Systems */}
-                <div className="space-y-4 flex flex-col justify-between">
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Upstream Foundation Models</div>
-                    <div className="space-y-2">
-                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">Vertex AI Gemini 2.5</div>
-                          <div className="text-[11px] text-slate-500">Flash, Flash-Lite & Pro</div>
-                        </div>
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">
-                          <GoogleLogo className="w-3 h-3" />
-                          <span>Google Cloud</span>
-                        </span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">Anthropic Claude 4.5</div>
-                          <div className="text-[11px] text-slate-500">Haiku & Sonnet via Vertex</div>
-                        </div>
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold rounded bg-stone-100 text-slate-800 border border-stone-200">
-                          <AnthropicLogo className="w-3 h-3" />
-                          <span>Anthropic</span>
-                        </span>
-                      </div>
-                    </div>
+              {/* Legend / talking points */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 mb-1">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Reasoning is governed
                   </div>
-
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-2">Enterprise Backend Systems</div>
-                    <div className="space-y-2">
-                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">Sales & Inventory API</div>
-                          <div className="text-[11px] text-slate-500">Discounts & SKU Catalog</div>
-                        </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 text-emerald-700">REST / JSON</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">Loans & Banking Core</div>
-                          <div className="text-[11px] text-slate-500">Underwriting & Loan Status</div>
-                        </div>
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-purple-100 text-purple-700">Core Banking</span>
-                      </div>
-                    </div>
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    Prompts are screened, cached and routed to the cheapest capable model, with token quotas per product tier.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 mb-1">
+                    <Terminal className="w-3.5 h-3.5 text-cyan-600" /> Action is governed
                   </div>
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    Existing REST APIs are exposed as MCP tools, alongside third-party MCP servers, filtered per persona.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 mb-1">
+                    <Key className="w-3.5 h-3.5 text-amber-600" /> One identity everywhere
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    The same API key drives entitlements, spend and audit across models and tools — no provider keys in code.
+                  </p>
                 </div>
               </div>
             </div>
