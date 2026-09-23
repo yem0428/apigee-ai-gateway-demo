@@ -45,12 +45,23 @@ export const SANDBOX_APP_NAME = 'admin-copilot-dev';
  * metered and shows up in the demo's analytics. Claude cannot be substituted:
  * the proxy's Gemini->Claude bridge drops `tools` and discards `tool_use`.
  *
- * gemini-3.8-flash is entitled on the Enterprise AI Tier only, which is what
- * the admin key carries. It is roughly 20x the cost per turn of the fallback
- * because it emits far more thinking tokens -- hence the strict iteration cap.
- * Both models are verified to return functionCall parts through the gateway.
+ * Model chosen by benchmark, not by reputation. All four Gemini candidates were
+ * driven through the real gateway with this file's own SYSTEM_INSTRUCTION and
+ * tool declarations, 3 trials each:
+ *
+ *   model                   plain     tool turn   tools  thinking  cost/call
+ *   gemini-3.1-flash-lite   2334ms    2212ms      3/3    0         $0.000101
+ *   gemini-3-flash-preview  3747ms    2690ms      3/3    55        $0.000235
+ *   gemini-3.7-flash        3648ms    3249ms      3/3    48        $0.002414
+ *   gemini-3.8-flash        504 Gateway Timeout
+ *
+ * gemini-3.8-flash -- the previous choice -- now times out at the gateway under
+ * a tool-bearing request. flash-lite answers a tool turn in ~2.2s, calls tools
+ * just as reliably, emits no thinking tokens, and costs ~24x less than 3.7 and
+ * ~240x less than 3.8 did per turn. It is also entitled on BOTH tiers, so the
+ * fallback below is now genuinely a last resort rather than a routine path.
  */
-export const AGENT_MODEL = 'gemini-3.8-flash';
+export const AGENT_MODEL = 'gemini-3.1-flash-lite';
 /** Used only if the primary model turns out not to be entitled (403/404). */
 export const AGENT_FALLBACK_MODEL = 'gemini-3-flash-preview';
 export const AI_BASE_PROD = 'https://api.maloosatyam.demo.altostrat.com/ai/v1';
@@ -60,13 +71,13 @@ export const MAX_TOOL_ITERATIONS = 6;
 /**
  * Wall-clock ceiling for one chat turn.
  *
- * Measured live: `gemini-3.8-flash` spends ~13s per hop once `thoughtsTokenCount`
- * is included, and a routine "change X" turn is read -> read -> write -> summarise,
- * i.e. 4 hops. The original 30s ceiling cut those turns off *after* the write had
- * already landed in the dev sandbox, so the admin saw "I ran out of time" instead of
- * a confirmation. 90s covers the worst case (6 hops) with headroom.
+ * At ~2.5s per hop on gemini-3.1-flash-lite, the worst case (6 hops) is ~15s.
+ * 45s leaves roughly 3x headroom for a slow upstream without making a wedged
+ * turn feel hung. This was 90s when the agent ran on gemini-3.8-flash at ~13s
+ * per hop; leaving it there would just mean waiting longer to find out a turn
+ * had failed.
  */
-export const TOOL_LOOP_BUDGET_MS = 90_000;
+export const TOOL_LOOP_BUDGET_MS = 45_000;
 /** Newest N changes keep their pre-write snapshot, so revert stays byte-exact. */
 export const MAX_TRACKED_CHANGES = 50;
 
@@ -814,12 +825,20 @@ WHAT TO DO
   git. If the admin asks you to promote, publish, or apply something to prod,
   tell them plainly that the change is ready on dev and that going live needs a
   pull request. Do not treat this as a failure -- it is how the platform works.
+- Never guess a model id. Model names carry versions and suffixes that you will
+  get wrong from memory. Read the product first and use the exact id it returns.
+- If a tool fails and the error message lists the valid values, immediately
+  retry once with the correct value. Do not ask the admin for permission to use
+  a name the system just handed you -- they cannot be expected to know it, and
+  asking wastes their turn. Only come back to them if the retry also fails.
+- Write numbers as digits: "50 tokens a minute", never "fifty tokens a minute".
 - After a change, say what is different now in one sentence, in business terms
   ("Standard tier can now use twice as many tokens a minute: 4,000 instead of
   2,000"). Mention that it can be undone from the card below. Do not repeat the
   diff; the card already shows it.
-- If something fails, say what happened and what they can do about it, in one or
-  two sentences. Do not retry the same failing call more than once.`;
+- If something fails for a reason you cannot correct, say what happened and what
+  they can do about it, in one or two sentences. Never retry the same failing
+  call with the same arguments.`;
 
 // ---------------------------------------------------------------------------
 // Tool loop

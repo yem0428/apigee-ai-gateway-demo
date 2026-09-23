@@ -101,11 +101,6 @@ const DEFAULT_PRODUCTS = {
         },
         {
           apiSource: 'ai-gateway-v1',
-          llmOperations: [{ resource: '/auto:*', methods: ['POST'], model: 'auto' }],
-          llmTokenQuota: { limit: '2000', interval: '1', timeUnit: 'minute' },
-        },
-        {
-          apiSource: 'ai-gateway-v1',
           llmOperations: [{ resource: '/models/gemini-3.1-flash-lite:*', methods: ['POST'], model: 'gemini-3.1-flash-lite' }],
           llmTokenQuota: { limit: '2000', interval: '1', timeUnit: 'minute' },
         },
@@ -142,11 +137,6 @@ const DEFAULT_PRODUCTS = {
         {
           apiSource: 'ai-gateway-v1',
           llmOperations: [{ resource: '/auto', methods: ['POST'], model: 'auto' }],
-          llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
-        },
-        {
-          apiSource: 'ai-gateway-v1',
-          llmOperations: [{ resource: '/auto:*', methods: ['POST'], model: 'auto' }],
           llmTokenQuota: { limit: '10000', interval: '1', timeUnit: 'minute' },
         },
         {

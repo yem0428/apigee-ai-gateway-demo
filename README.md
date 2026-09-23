@@ -151,7 +151,7 @@ The inline `count="1000"` / `1` / `minute` values are fallback defaults only —
 
 **`claude-haiku-4-5@20251001` is the deliberate token-limit demo model at 50 tokens / 1 minute.**
 Every other operation in [standard_ai_tier.json](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)
-is 2000 tokens / 1 minute. The product declares **5 `operationConfigs` across 4 models**, exactly
+is 2000 tokens / 1 minute. The product declares **4 `operationConfigs` across 4 models**, exactly
 one `llmOperation` per config (the Management API rejects more with
 `Operations must contain exactly one entity`, and rejects an empty config with
 `Operations must contain exactly one entity but found 0 entities` — which is why retiring a model
@@ -160,10 +160,20 @@ means deleting its whole wrapper, not just its operation):
 | Resource | Model | Token quota |
 | :--- | :--- | :--- |
 | `/auto` | `auto` | 2000 / 1 min |
-| `/auto:*` | `auto` | 2000 / 1 min |
 | `/models/gemini-3.1-flash-lite:*` | `gemini-3.1-flash-lite` | 2000 / 1 min |
 | `/models/gemini-3-flash-preview:*` | `gemini-3-flash-preview` | 2000 / 1 min |
 | **`/models/claude-haiku-4-5@20251001:*`** | `claude-haiku-4-5@20251001` | **50 / 1 min** |
+
+> [!NOTE]
+> **Auto-routing is one resource, not two.** These products used to declare `/auto` *and* `/auto:*`
+> as separate `operationConfigs`, each with its own quota. Because the Management API forbids two
+> operations in one config, there was no way to make them share a number — so the two could drift
+> apart, and did: a single quota change once left one route at 3000 and the other at 2000, giving
+> the confusing state "3,000 tokens a minute (2,000 at base route)".
+>
+> `/auto:*` was dead config. The clients only ever call `/ai/v1/auto` with no method suffix, and a
+> live test with `/auto:*` deleted confirmed real `/auto` traffic still meters normally (HTTP 200,
+> tokens counted). It has been removed from all four products, so auto-routing is now a single knob.
 
 Enforcement is wired through the dedicated `LLMTokenLimitFlow` conditional flow, which fires on
 `/models/claude-haiku-4-5@20251001:generateContent`, on
@@ -301,20 +311,25 @@ globs** — both were removed. Each model gets a single gateway-shaped resource:
 
 | Product | Models | Resources | Token quota |
 | :--- | :--- | :--- | :--- |
-| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **4** | 5 `operationConfigs` | 2000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
-| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 4 plus `gemini-3.1-pro-preview`, `gemini-3.7-flash`, `gemini-3.8-flash` and `claude-opus-4-5@20251101` — **8** | 9 `operationConfigs` | 10000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
+| **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **4** | 4 `operationConfigs` | 2000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
+| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 4 plus `gemini-3.1-pro-preview`, `gemini-3.7-flash`, `gemini-3.8-flash` and `claude-opus-4-5@20251101` — **8** | 8 `operationConfigs` | 10000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
 
-`auto` is special-cased with **two exact resources** in both products:
+`auto` is granted as **one exact resource** in both products:
 
 ```
-/auto        /auto:*
+/auto
 ```
 
 Apigee's `*` matches within a single path segment and requires **at least one character**, so
 `/auto*` does **not** match a bare `/auto` — hence `/auto` must be granted as its own exact
-resource. The tightened `:*` suffix form is deliberate too: a trailing `*` placed directly after a
-model name leaks siblings (`/models/gemini-2.5-flash*` also granted `gemini-2.5-flash-lite`),
-whereas `:*` only absorbs the `:generateContent` / `:streamGenerateContent` suffix.
+resource. The tightened `:*` suffix form used for models is deliberate too: a trailing `*` placed
+directly after a model name leaks siblings (`/models/gemini-2.5-flash*` also granted
+`gemini-2.5-flash-lite`), whereas `:*` only absorbs the `:generateContent` /
+`:streamGenerateContent` suffix.
+
+A companion `/auto:*` resource used to be granted alongside it. It was removed: no client ever
+calls that shape, and carrying it as a second `operationConfig` meant auto-routing had two
+independently editable quotas that could silently disagree.
 
 Bare `/auto` is the only auto surface: `AutoRoutingFlow` matches
 `proxy.pathsuffix MatchesPath "/auto*"` or the regex `^/auto.*`, and that is what the UI calls.
@@ -378,6 +393,75 @@ record has an empty `model`, which is why `requestedModel` is logged and why the
 
 ---
 
+### 9. 🤖 Admin Agent — conversational governance
+
+A chat panel docked to the right of the **Admin Console** that reads and changes gateway
+configuration in plain English. It is itself a customer of the gateway it administers: every turn
+goes out through `/ai/v1`, is metered, and shows up in the demo's own analytics alongside user
+traffic.
+
+**It can only ever change dev.** `update_dev_product` writes a `(Dev)` clone of a tier, never the
+live product — the guard is
+[`assertWritableDevProduct`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server/adminAgentCore.js),
+and a unit test asserts no `PUT` is ever addressed to a live tier. There is deliberately **no
+promote-to-prod path**: production is changed by raising a pull request against
+[`apigee/products/`](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products). `POST
+/api/admin-agent/promote` is still routed, but only to return a `403` that explains this — deleting
+it would give a stale browser tab an opaque `404`.
+
+| Concern | How it is handled |
+| :--- | :--- |
+| Blast radius | Writes land on `… (Dev)` clones pinned to `environments: ['dev']` |
+| Undo | Byte-exact pre-write snapshot per change; `POST /revert` restores it |
+| Going live | Pull request against the product JSON — not available to the agent |
+| Secrets | The sandbox consumer key never leaves the server; responses pass through `redactSecrets()` |
+| Runaway loops | 6 tool rounds and a 45s wall-clock ceiling per turn, and the loop never throws |
+
+**Tools:** `list_products`, `get_product`, `list_guardrails`, `get_rate_card`,
+`update_dev_product`, `run_dev_test`, `revert_change`.
+
+`run_dev_test` fires a real metered prompt at the dev gateway with the sandbox key, which is why the
+test card is the one place the panel still shows tokens, cost and latency — there, the telemetry
+*is* the answer. Ordinary chat turns show none.
+
+#### Model selection
+
+Chosen by benchmark against the live gateway, using the agent's own system instruction and tool
+declarations, 3 trials each:
+
+| Model | Plain answer | Tool turn | Tool calls | Thinking tokens | Cost / call |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`gemini-3.1-flash-lite`** ✅ | 2334 ms | **2212 ms** | 3/3 | 0 | **$0.000101** |
+| `gemini-3-flash-preview` | 3747 ms | 2690 ms | 3/3 | 55 | $0.000235 |
+| `gemini-3.7-flash` | 3648 ms | 3249 ms | 3/3 | 48 | $0.002414 |
+| `gemini-3.8-flash` | **504 Gateway Timeout** | — | — | — | — |
+
+`gemini-3.8-flash` was the original choice and now times out at the gateway under a tool-bearing
+request. `gemini-3.1-flash-lite` is entitled on **both** tiers, so
+[`AGENT_FALLBACK_MODEL`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server/adminAgentCore.js)
+(`gemini-3-flash-preview`, used on a 403/404 entitlement failure) is now a genuine last resort.
+
+> [!NOTE]
+> A smaller model needs firmer instructions. flash-lite initially guessed a model id
+> (`claude-3-haiku`) instead of reading the product, then *asked permission* to retry with the
+> correct name the error had just handed it. Two system-instruction rules fixed it: never guess a
+> model id, and self-correct immediately when an error lists the valid values.
+
+#### Endpoints
+
+All under `/api/admin-agent/*`, served by
+[`adminAgentService.js`](file:///Users/maloosatyam/Codebase/AI%20Code/ui/server/adminAgentService.js):
+`GET /sandbox`, `POST /sandbox/provision`, `POST /chat`, `GET /changes`, `POST /revert`,
+`POST /test`, and the deliberately-disabled `POST /promote`.
+
+> [!IMPORTANT]
+> The sandbox app's Apigee resource name is `admin-copilot-dev`, from before the feature was renamed
+> from Admin Copilot. An Apigee app name cannot be edited in place, so renaming it would orphan the
+> provisioned consumer key. Only the resource id is frozen — its DisplayName reads
+> *Admin Agent Dev Sandbox*.
+
+---
+
 ## 📁 Repository Structure
 
 ```
@@ -431,6 +515,12 @@ record has an empty `model`, which is why `requestedModel` is logged and why the
 └── ui/                                    # React 18 + Vite 5 + Tailwind demo studio
     ├── Dockerfile                         # node:20-alpine, serves dist/ via server.js
     ├── server.js                          # Production Node server: static + /api/* + reverse proxy
+    ├── server/                             # Server-side modules (MUST be COPYed by the Dockerfile)
+    │   ├── adminAgentCore.js              # Admin Agent pure logic: guards, diffs, tool loop
+    │   ├── adminAgentService.js           # Admin Agent Apigee/gateway I/O + /api/admin-agent/*
+    │   ├── guardrailCatalog.js            # Guardrail control catalogue loader
+    │   ├── guardrailCatalog.json          # Generated catalogue (read from disk at runtime)
+    │   └── generateGuardrailCatalog.js    # Regenerates the JSON from guardrailPolicies.ts
     ├── vite.config.ts                     # Dev server (port 3000) + dev-only /api/* middleware
     ├── index.html                         # <title>AI &amp; Tools Gateway - Live Playground</title>
     ├── package.json
@@ -464,11 +554,12 @@ record has an empty `model`, which is why `requestedModel` is logged and why the
 ### UI navigation
 
 [Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) renders four
-primary tabs: **AI Gateway**, **MCP Gateway**, **Analytics & Cost**, and **Monetization**
-(the last is admin-view only), plus an interactive **Architecture** button that opens
-[ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive 3-tab reference diagram (**AI Gateway Flow**, **MCP Tools Flow**, and **ADK Dual-Pattern**) with clickable policy XML inspection and live trace status correlation. Additionally, every tested request in `ChatPlayground` (`Target URL:`) and `McpTraceViewer` (`JSON-RPC 2.0`) includes a **`Request Flow`** button that opens the modal in **`⚡ Tested Request Flow`** mode, dynamically short-circuiting the pipeline diagram at the exact stopping policy (e.g., red perimeter block at Model Armor or green short-circuit at Semantic Cache HIT) and omitting bypassed downstream stages. The underlying `AppTab` union in
+primary tabs: **AI Gateway**, **MCP Gateway**, **Analytics & Cost**, and **Admin Console**
+(the last is admin-view only, and hosts Developer Wallets, Token Pricing, Rate Plans,
+**Guardrails & Policies**, and the docked **Admin Agent** panel), plus an interactive **Architecture** button that opens
+[ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive reference diagram opening on **Solution Overview** (a high-level view whose AI Gateway and MCP Gateway boxes drill down), alongside **AI Gateway Flow** and **MCP Tools Flow** with clickable policy XML inspection and live trace status correlation. Additionally, every tested request in `ChatPlayground` (`Target URL:`) and `McpTraceViewer` (`JSON-RPC 2.0`) includes a **`Request Flow`** button that opens the modal in **`⚡ Tested Request Flow`** mode, dynamically short-circuiting the pipeline diagram at the exact stopping policy (e.g., red perimeter block at Model Armor or green short-circuit at Semantic Cache HIT) and omitting bypassed downstream stages. The underlying `AppTab` union in
 [types/index.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L131) also carries
-`kvm-pricing` and `rate-cards`, which render inside the Monetization surface.
+`kvm-pricing` and `rate-cards`, which render inside the Admin Console surface.
 
 ### First-run developer onboarding
 

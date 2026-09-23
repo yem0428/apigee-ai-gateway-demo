@@ -933,11 +933,16 @@ test('the tool loop abandons the turn once the wall-clock budget is spent', asyn
 });
 
 test('the production turn budget leaves room for a read-read-write-summarise turn', () => {
-  // Live measurement: ~13s per hop on gemini-3.8-flash including thinking tokens.
-  // A change request costs 4 hops, so anything under ~52s truncates real work.
+  // Benchmarked: ~2.5s per hop on gemini-3.1-flash-lite. A change request costs
+  // 4 hops, so the floor is ~10s; the ceiling keeps a wedged turn from feeling
+  // hung. Both bounds are asserted so a future model swap has to revisit this.
   assert.ok(
-    TOOL_LOOP_BUDGET_MS >= 4 * 13_000,
+    TOOL_LOOP_BUDGET_MS >= 4 * 2_500 * 3,
     `TOOL_LOOP_BUDGET_MS (${TOOL_LOOP_BUDGET_MS}ms) is too tight for a 4-hop change turn`
+  );
+  assert.ok(
+    TOOL_LOOP_BUDGET_MS <= 60_000,
+    `TOOL_LOOP_BUDGET_MS (${TOOL_LOOP_BUDGET_MS}ms) makes a failed turn feel hung`
   );
 });
 
@@ -1181,8 +1186,10 @@ test('newChangeId always produces the contract id shape', () => {
 // Agent model selection
 // ---------------------------------------------------------------------------
 
-test('the agent runs on gemini-3.8-flash and downgrades only on an entitlement failure', async () => {
-  assert.equal(AGENT_MODEL, 'gemini-3.8-flash');
+test('the agent runs on gemini-3.1-flash-lite and downgrades only on an entitlement failure', async () => {
+  // Chosen by benchmark: ~2.2s tool turns, 3/3 tool calls, no thinking tokens.
+  // The previous pick (gemini-3.8-flash) started returning 504s at the gateway.
+  assert.equal(AGENT_MODEL, 'gemini-3.1-flash-lite');
   assert.equal(AGENT_FALLBACK_MODEL, 'gemini-3-flash-preview');
 
   const seen = [];

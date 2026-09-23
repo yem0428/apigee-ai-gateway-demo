@@ -209,5 +209,5 @@ export function runDevTest(
  * if the Enterprise entitlement fails, and reports whatever actually served the
  * turn in `usage.model`. Prefer that over this constant once a turn has landed.
  */
-export const AGENT_MODEL = 'gemini-3.8-flash';
+export const AGENT_MODEL = 'gemini-3.1-flash-lite';
 
