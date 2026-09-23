@@ -1,6 +1,6 @@
 /**
  * Derives the server-side guardrail catalog from the single source of truth,
- * ui/src/data/guardrailPolicies.ts, so the copilot's `list_guardrails` tool can
+ * ui/src/data/guardrailPolicies.ts, so the agent's `list_guardrails` tool can
  * never drift from what the Admin Console and the Architecture blueprint show.
  *
  * The TS module cannot be imported by the plain-Node server (it is TypeScript,

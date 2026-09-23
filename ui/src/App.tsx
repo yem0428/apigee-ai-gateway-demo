@@ -4,7 +4,7 @@ import { Navbar } from './components/Navbar';
 import { ChatPlayground } from './components/ChatPlayground';
 import { McpPlayground } from './components/McpPlayground';
 import { MonetizationManager } from './components/MonetizationManager';
-import { AdminCopilotPanel } from './components/AdminCopilotPanel';
+import { AdminAgentPanel } from './components/AdminAgentPanel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { GatewaySettingsModal } from './components/GatewaySettingsModal';
 import { ArchitectureBlueprintModal } from './components/ArchitectureBlueprintModal';
@@ -513,7 +513,7 @@ export function App() {
           />
         ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
           /*
-            The Admin Console and its copilot share the row. MonetizationManager owns its
+            The Admin Console and its agent share the row. MonetizationManager owns its
             own `h-full ... overflow-y-auto` scroller, so it goes in a `min-w-0` flex child
             rather than being given a width - otherwise its wide tables would push the
             dock off-screen instead of scrolling.
@@ -530,7 +530,7 @@ export function App() {
                 }}
               />
             </div>
-            <AdminCopilotPanel />
+            <AdminAgentPanel />
           </div>
         ) : (
           <AnalyticsDashboard

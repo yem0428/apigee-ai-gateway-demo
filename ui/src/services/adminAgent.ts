@@ -1,9 +1,9 @@
-// Typed client for the Admin Copilot endpoints served by `ui/server.js`.
+// Typed client for the Admin Agent endpoints served by `ui/server.js`.
 //
 // Every call is relative: the sandbox consumer key, the admin identity token and
 // the gateway host all stay server-side, so nothing here embeds a credential.
 //
-// Shapes are frozen by `admin_copilot_contract.md`. The backend is built in
+// Shapes are frozen by `admin_agent_contract.md`. The backend is built in
 // parallel against the same contract, so each helper tolerates a missing or
 // half-written endpoint by throwing an `AdminAgentError` the panel can render
 // inline instead of blanking out.
@@ -209,11 +209,11 @@ export function runDevTest(
 }
 
 /**
- * The model the copilot is configured to run on.
+ * The model the agent is configured to run on.
  *
  * Only a pre-flight default: the backend falls back to `gemini-3-flash-preview`
  * if the Enterprise entitlement fails, and reports whatever actually served the
  * turn in `usage.model`. Prefer that over this constant once a turn has landed.
  */
-export const COPILOT_MODEL = 'gemini-3.8-flash';
+export const AGENT_MODEL = 'gemini-3.8-flash';
 

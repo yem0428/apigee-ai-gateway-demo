@@ -1,5 +1,5 @@
 /**
- * Admin Copilot -- Apigee / AI Gateway I/O and the /api/admin-agent/* routes.
+ * Admin Agent -- Apigee / AI Gateway I/O and the /api/admin-agent/* routes.
  *
  * All the pure logic lives in adminAgentCore.js. This module is the thin, but
  * carefully defensive, shell around it:
@@ -15,8 +15,8 @@ import {
   AI_BASE_DEV,
   AI_BASE_PROD,
   AdminAgentError,
-  COPILOT_MODEL,
-  COPILOT_FALLBACK_MODEL,
+  AGENT_MODEL,
+  AGENT_FALLBACK_MODEL,
   RATE_LIMIT_UPSTREAM_CAPACITY,
   ChangeStore,
   DEV_PRODUCTS,
@@ -53,7 +53,7 @@ import { listGuardrails } from './guardrailCatalog.js';
 const APIGEE_BASE = 'https://apigee.googleapis.com/v1/organizations';
 const RATE_KVM = 'ai-model-rates';
 const RATE_KVM_ENTRY = 'rate_card';
-const COPILOT_TIMEOUT_MS = 25_000;
+const AGENT_TIMEOUT_MS = 25_000;
 const DEV_TEST_TIMEOUT_MS = 20_000;
 /** Backoff before the single retry of a transient Vertex capacity 429. */
 const UPSTREAM_RETRY_DELAY_MS = 1_500;
@@ -121,8 +121,8 @@ export function createAdminAgentService({
   adminEmail = process.env.SSO_USER_EMAIL || process.env.VITE_SSO_USER_EMAIL || 'maloosatyam@google.com',
   aiBaseProd = AI_BASE_PROD,
   aiBaseDev = AI_BASE_DEV,
-  copilotModel = COPILOT_MODEL,
-  fallbackModel = COPILOT_FALLBACK_MODEL,
+  agentModel = AGENT_MODEL,
+  fallbackModel = AGENT_FALLBACK_MODEL,
   now = () => Date.now(),
   randomHex,
   // Injectable so the retry path is unit-testable without a real 1.5s wait.
@@ -134,7 +134,7 @@ export function createAdminAgentService({
   const secrets = { adminKey: '', sandboxKey: '' };
   const tools = [{ functionDeclarations: buildFunctionDeclarations() }];
   /** The model currently serving turns; only ever downgraded, never upgraded. */
-  let activeModel = copilotModel;
+  let activeModel = agentModel;
 
   // -------------------------------------------------------------------------
   // Apigee management API
@@ -277,7 +277,7 @@ export function createAdminAgentService({
    *
    * Existing clones are healed (environments/approvalType) rather than
    * overwritten, so re-provisioning does not silently discard changes the
-   * copilot already applied to the sandbox.
+   * agent already applied to the sandbox.
    */
   async function provisionSandbox() {
     const notes = [];
@@ -315,8 +315,8 @@ export function createAdminAgentService({
           // Apps reference the Apigee resource names, not the logical ones.
           apiProducts: DEV_PRODUCTS.map(apigeeProductName),
           attributes: [
-            { name: 'DisplayName', value: 'Admin Copilot Dev Sandbox' },
-            { name: 'persona', value: 'admin-copilot' },
+            { name: 'DisplayName', value: 'Admin Agent Dev Sandbox' },
+            { name: 'persona', value: 'admin-agent' },
           ],
         },
       });
@@ -390,7 +390,7 @@ export function createAdminAgentService({
   }
 
   /**
-   * The copilot's own model call -- metered like any other gateway consumer.
+   * The agent's own model call -- metered like any other gateway consumer.
    *
    * gemini-3.8-flash is an Enterprise-tier entitlement. The admin key is
    * Enterprise, so this should always hold, but an entitlement failure must
@@ -398,7 +398,7 @@ export function createAdminAgentService({
    * turn. The model that actually served is reported back so `usage.model`
    * (and the UI chip) never claims something untrue.
    */
-  async function callCopilotModel({ contents, systemInstruction, tools: toolDefs }) {
+  async function callAgentModel({ contents, systemInstruction, tools: toolDefs }) {
     const apiKey = await adminConsumerKey();
     const body = {
       // No `role` here: the gateway's OAS-ValidateRequest policy rejects
@@ -412,7 +412,7 @@ export function createAdminAgentService({
       gatewayCall({
         url: `${aiBaseProd}/models/${model}:generateContent`,
         apiKey,
-        timeoutMs: COPILOT_TIMEOUT_MS,
+        timeoutMs: AGENT_TIMEOUT_MS,
         body,
       });
 
@@ -445,7 +445,7 @@ export function createAdminAgentService({
       const retry = await attempt(fallbackModel);
       if (retry.ok) {
         // Only make the downgrade stick when it actually worked; a 403 from an
-        // exhausted wallet must not silently pin the copilot to a lesser model.
+        // exhausted wallet must not silently pin the agent to a lesser model.
         activeModel = fallbackModel;
         return { ...retry, model: fallbackModel };
       }
@@ -703,7 +703,7 @@ export function createAdminAgentService({
       contents,
       systemInstruction: SYSTEM_INSTRUCTION,
       tools,
-      callModel: callCopilotModel,
+      callModel: callAgentModel,
       executeTool,
       maxIterations: MAX_TOOL_ITERATIONS,
       budgetMs: TOOL_LOOP_BUDGET_MS,
@@ -864,7 +864,7 @@ export function createAdminAgentService({
       chat,
       sandboxStatus,
       provisionSandbox,
-      callCopilotModel,
+      callAgentModel,
       readProduct,
       identityToken,
     },

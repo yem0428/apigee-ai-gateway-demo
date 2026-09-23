@@ -1,5 +1,5 @@
 /**
- * Admin Copilot route wiring.
+ * Admin Agent route wiring.
  *
  * The unit tests drive the handler directly; this one proves the routes are
  * actually mounted in ui/server.js, on a real socket, ahead of the SPA

@@ -786,7 +786,7 @@ function getApigeeTimeRange(rangeParam) {
   return `${fmt(start)}~${fmt(now)}`;
 }
 
-// Admin Copilot backend (/api/admin-agent/*).
+// Admin Agent backend (/api/admin-agent/*).
 //
 // The service is constructed with this file's own Apigee helpers injected
 // rather than importing them, which keeps all the credential handling in one
@@ -943,7 +943,7 @@ const server = http.createServer(async (req, res) => {
     // see the VerifyJWT note in docs/apigee_ai_gateway_demo_design.md.
     //
     // The construction lives in server/adminAgentCore.js because the Admin
-    // Copilot mints the same token server-side; one definition, no drift.
+    // Agent mints the same token server-side; one definition, no drift.
     let identityToken = iapJwtHeader;
     if (!identityToken) {
       identityToken = mintSyntheticIdentityToken(email, name);
@@ -2271,7 +2271,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 14. /api/admin-agent/* -- Admin Copilot (see server/adminAgentService.js).
+  // 14. /api/admin-agent/* -- Admin Agent (see server/adminAgentService.js).
   // Mounted ahead of the reverse proxies and the SPA fallback so an unknown
   // sub-path answers with a structured JSON error instead of index.html.
   if (pathname === '/api/admin-agent' || pathname.startsWith('/api/admin-agent/')) {

@@ -1,5 +1,5 @@
 /**
- * Admin Copilot -- pure logic.
+ * Admin Agent -- pure logic.
  *
  * Everything in this module is deliberately free of I/O: no fetch, no fs, no
  * clock beyond an injectable `now`. The Apigee management API and the AI
@@ -12,7 +12,7 @@
 export const ORG = 'bap-apac-demo2';
 
 /**
- * Every copilot write lands on a product whose name ends in this suffix.
+ * Every agent write lands on a product whose name ends in this suffix.
  *
  * This is the *logical* name: the one the contract, the UI and the model all
  * use. Apigee itself rejects parentheses in an API product `name`
@@ -29,10 +29,19 @@ export const DEV_PRODUCTS = LIVE_PRODUCTS.map((n) => `${n}${DEV_SUFFIX}`);
 /** The only four products any tool call is allowed to name. */
 export const KNOWN_PRODUCTS = [...LIVE_PRODUCTS, ...DEV_PRODUCTS];
 
+/**
+ * Resource name of the sandbox developer app in Apigee.
+ *
+ * This deliberately still reads "copilot" after the Admin Copilot -> Admin Agent
+ * rename: the app is already provisioned in the org and holds the sandbox
+ * consumer key. Renaming it would orphan that key and force a re-provision, and
+ * an Apigee app name cannot be edited in place. The user-facing DisplayName
+ * attribute says "Admin Agent Dev Sandbox"; only the resource id is frozen.
+ */
 export const SANDBOX_APP_NAME = 'admin-copilot-dev';
 
 /**
- * The copilot runs on the same gateway it administers, so its own usage is
+ * The agent runs on the same gateway it administers, so its own usage is
  * metered and shows up in the demo's analytics. Claude cannot be substituted:
  * the proxy's Gemini->Claude bridge drops `tools` and discards `tool_use`.
  *
@@ -41,9 +50,9 @@ export const SANDBOX_APP_NAME = 'admin-copilot-dev';
  * because it emits far more thinking tokens -- hence the strict iteration cap.
  * Both models are verified to return functionCall parts through the gateway.
  */
-export const COPILOT_MODEL = 'gemini-3.8-flash';
+export const AGENT_MODEL = 'gemini-3.8-flash';
 /** Used only if the primary model turns out not to be entitled (403/404). */
-export const COPILOT_FALLBACK_MODEL = 'gemini-3-flash-preview';
+export const AGENT_FALLBACK_MODEL = 'gemini-3-flash-preview';
 export const AI_BASE_PROD = 'https://api.maloosatyam.demo.altostrat.com/ai/v1';
 export const AI_BASE_DEV = 'https://bap.api.maloosatyam.demo.altostrat.com/ai/v1';
 
@@ -159,7 +168,7 @@ export function assertWritableDevProduct(name) {
   const trimmed = typeof name === 'string' ? name.trim() : '';
   if (!isDevProductName(trimmed)) {
     throw new AdminAgentError(
-      `Refusing to write "${trimmed}": the copilot may only modify dev sandbox products ` +
+      `Refusing to write "${trimmed}": the agent may only modify dev sandbox products ` +
         `(names ending in "${DEV_SUFFIX}").`,
       'forbidden_target'
     );
@@ -548,17 +557,17 @@ export class ChangeStore {
 /**
  * Build the dev clone of a live tier: same attributes and llmOperationGroup,
  * but pinned to the dev environment with auto approval. API Products are
- * org-scoped, which is exactly why the copilot never writes the live tiers.
+ * org-scoped, which is exactly why the agent never writes the live tiers.
  */
 export function buildDevClone(liveProduct, devName = devNameFor(liveProduct?.name)) {
   const source = stripServerFields(liveProduct || {});
   return {
     // `name` is the Apigee resource id and may not contain parentheses;
-    // `displayName` is what the console and the copilot show.
+    // `displayName` is what the console and the agent show.
     name: apigeeProductName(devName),
     displayName: devName,
     description:
-      `Admin Copilot dev sandbox clone of "${liveProduct?.name || ''}". ` +
+      `Admin Agent dev sandbox clone of "${liveProduct?.name || ''}". ` +
       'Safe to modify: not attached to prod.',
     approvalType: 'auto',
     environments: ['dev'],
@@ -765,7 +774,7 @@ export function validateToolArgs(name, rawArgs) {
   }
 }
 
-export const SYSTEM_INSTRUCTION = `You are the Admin Copilot for an Apigee AI Gateway console (org ${ORG}).
+export const SYSTEM_INSTRUCTION = `You are the Admin Agent for an Apigee AI Gateway console (org ${ORG}).
 
 You help a platform administrator understand and change AI Gateway configuration
 by talking to them, not by showing them the machinery.
@@ -813,7 +822,7 @@ WHAT TO DO
 
 /**
  * True when a 4xx is Apigee's Model Armor guardrail rather than a client error.
- * Shared by the copilot's own error reporting and by TestResult mapping so the
+ * Shared by the agent's own error reporting and by TestResult mapping so the
  * two can never disagree about what counts as a guardrail block.
  */
 export function isModelArmorBlock(status, json, text) {
@@ -892,7 +901,7 @@ export function describeGatewayFailure(res) {
     '';
 
   if (isModelArmorBlock(status, res.json, res.text)) {
-    // The copilot is governed by the very guardrail it exists to explain.
+    // The agent is governed by the very guardrail it exists to explain.
     // Observed behaviour: this template's prompt-injection filter can match on
     // benign security vocabulary, and it is not fully deterministic -- the same
     // prompt is sometimes allowed. So suggest a rephrase rather than asserting
@@ -907,10 +916,10 @@ export function describeGatewayFailure(res) {
     );
   }
   if (status === 400 && /OASValidation|not allowed by the schema/i.test(detail)) {
-    return `The gateway's request schema rejected the copilot's payload: ${detail}`;
+    return `The gateway's request schema rejected the agent's payload: ${detail}`;
   }
   if (status === 401 || status === 403) {
-    return `The AI Gateway rejected the copilot's credentials (HTTP ${status})${detail ? `: ${detail}` : ''}.`;
+    return `The AI Gateway rejected the agent's credentials (HTTP ${status})${detail ? `: ${detail}` : ''}.`;
   }
   if (status === 429) {
     const kind = classifyRateLimit(res);
@@ -924,7 +933,7 @@ export function describeGatewayFailure(res) {
     }
     if (kind === RATE_LIMIT_APIGEE_QUOTA) {
       return (
-        "The gateway's own governance stopped this call (HTTP 429): the copilot's " +
+        "The gateway's own governance stopped this call (HTTP 429): the agent's " +
         `token quota or prepaid wallet budget is exhausted.${detail ? ` ${detail}` : ''} ` +
         'Raise the quota on the API Product or top up the developer wallet.'
       );
@@ -1068,7 +1077,7 @@ export async function runToolLoop({
   let stopReason = 'iteration_cap';
   let totalTokens = 0;
   let costUsd = 0;
-  let model = COPILOT_MODEL;
+  let model = AGENT_MODEL;
 
   for (let i = 0; i < maxIterations; i += 1) {
     if (now() - startedAt >= budgetMs) {

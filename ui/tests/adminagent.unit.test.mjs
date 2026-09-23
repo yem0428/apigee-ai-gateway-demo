@@ -1,5 +1,5 @@
 /**
- * Admin Copilot backend unit tests.
+ * Admin Agent backend unit tests.
  *
  * Neither Apigee nor the AI Gateway is reachable from CI, so the service is
  * built with a fake `fetchImpl` backed by an in-memory product store, and the
@@ -14,8 +14,8 @@ import assert from 'node:assert/strict';
 
 import {
   AdminAgentError,
-  COPILOT_MODEL,
-  COPILOT_FALLBACK_MODEL,
+  AGENT_MODEL,
+  AGENT_FALLBACK_MODEL,
   ChangeStore,
   DEV_PRODUCTS,
   KNOWN_PRODUCTS,
@@ -75,7 +75,7 @@ function standardDevProduct() {
     displayName: 'Standard AI Tier (Dev)',
     approvalType: 'auto',
     environments: ['dev'],
-    // A field the copilot knows nothing about. Revert must bring it back
+    // A field the agent knows nothing about. Revert must bring it back
     // untouched -- that is the difference between a snapshot and a reset.
     createdAt: '1700000000000',
     someUnknownField: { keep: 'me' },
@@ -523,7 +523,7 @@ test('revert restores the exact pre-change bytes, not the demo defaults', async 
   assert.deepEqual(
     state.products['Standard AI Tier Dev'].someUnknownField,
     { keep: 'me' },
-    'fields the copilot never knew about survive a revert'
+    'fields the agent never knew about survive a revert'
   );
   assert.equal(service._internals.changes.get(change.changeId).change.status, 'reverted');
 });
@@ -932,7 +932,7 @@ test('the production turn budget leaves room for a read-read-write-summarise tur
 });
 
 test('describeGatewayFailure explains the failures an admin can act on', () => {
-  assert.match(describeGatewayFailure({ status: 401 }), /rejected the copilot's credentials/);
+  assert.match(describeGatewayFailure({ status: 401 }), /rejected the agent's credentials/);
   assert.match(describeGatewayFailure({ status: 503 }), /failing upstream/);
   assert.match(describeGatewayFailure({ status: 0, error: 'ETIMEDOUT' }), /Could not reach the AI Gateway/);
   assert.match(describeGatewayFailure(null), /no response/);
@@ -1167,18 +1167,18 @@ test('newChangeId always produces the contract id shape', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Copilot model selection
+// Agent model selection
 // ---------------------------------------------------------------------------
 
-test('the copilot runs on gemini-3.8-flash and downgrades only on an entitlement failure', async () => {
-  assert.equal(COPILOT_MODEL, 'gemini-3.8-flash');
-  assert.equal(COPILOT_FALLBACK_MODEL, 'gemini-3-flash-preview');
+test('the agent runs on gemini-3.8-flash and downgrades only on an entitlement failure', async () => {
+  assert.equal(AGENT_MODEL, 'gemini-3.8-flash');
+  assert.equal(AGENT_FALLBACK_MODEL, 'gemini-3-flash-preview');
 
   const seen = [];
   const { service } = makeHarness({
     gateway: (url) => {
       seen.push(url);
-      if (url.includes(COPILOT_MODEL)) {
+      if (url.includes(AGENT_MODEL)) {
         return fakeResponse(403, { fault: { faultstring: 'model not entitled' } });
       }
       return fakeResponse(200, { candidates: [{ content: { parts: [{ text: 'hi' }] } }] }, {
@@ -1187,16 +1187,16 @@ test('the copilot runs on gemini-3.8-flash and downgrades only on an entitlement
     },
   });
 
-  const first = await service._internals.callCopilotModel({ contents: [], systemInstruction: 's', tools: [] });
+  const first = await service._internals.callAgentModel({ contents: [], systemInstruction: 's', tools: [] });
   assert.equal(first.ok, true);
-  assert.equal(first.model, COPILOT_FALLBACK_MODEL, 'usage.model must name the model that served');
+  assert.equal(first.model, AGENT_FALLBACK_MODEL, 'usage.model must name the model that served');
   assert.equal(seen.length, 2);
 
   // The downgrade sticks, so the dead model is not retried on every turn.
-  const second = await service._internals.callCopilotModel({ contents: [], systemInstruction: 's', tools: [] });
-  assert.equal(second.model, COPILOT_FALLBACK_MODEL);
+  const second = await service._internals.callAgentModel({ contents: [], systemInstruction: 's', tools: [] });
+  assert.equal(second.model, AGENT_FALLBACK_MODEL);
   assert.equal(seen.length, 3);
-  assert.ok(seen.every((u, i) => (i === 0 ? true : u.includes(COPILOT_FALLBACK_MODEL))));
+  assert.ok(seen.every((u, i) => (i === 0 ? true : u.includes(AGENT_FALLBACK_MODEL))));
 });
 
 test('a 429 on the primary model is not mistaken for an entitlement failure', async () => {
@@ -1207,9 +1207,9 @@ test('a 429 on the primary model is not mistaken for an entitlement failure', as
       return fakeResponse(429, { fault: { faultstring: 'Token quota exceeded' } });
     },
   });
-  const res = await service._internals.callCopilotModel({ contents: [], systemInstruction: 's', tools: [] });
+  const res = await service._internals.callAgentModel({ contents: [], systemInstruction: 's', tools: [] });
   assert.equal(res.status, 429);
-  assert.equal(res.model, COPILOT_MODEL, 'a wallet/quota 429 must not silently downgrade the model');
+  assert.equal(res.model, AGENT_MODEL, 'a wallet/quota 429 must not silently downgrade the model');
   assert.equal(seen.length, 1, 'no pointless retry on a quota failure');
 });
 
@@ -1306,11 +1306,11 @@ test('a Vertex capacity 429 is retried exactly once, with backoff', async () => 
     sleep: async (ms) => slept.push(ms),
   });
 
-  const res = await service._internals.callCopilotModel({ contents: [], systemInstruction: 's', tools: [] });
+  const res = await service._internals.callAgentModel({ contents: [], systemInstruction: 's', tools: [] });
   assert.equal(res.ok, true, 'the retry should have succeeded');
   assert.equal(seen.length, 2, 'exactly one retry');
   assert.deepEqual(slept, [1500], 'backoff before the retry');
-  assert.equal(res.model, COPILOT_MODEL, 'a transient upstream 429 must not downgrade the model');
+  assert.equal(res.model, AGENT_MODEL, 'a transient upstream 429 must not downgrade the model');
 });
 
 test('a persistent Vertex capacity 429 gives up after one retry and says so', async () => {
@@ -1324,7 +1324,7 @@ test('a persistent Vertex capacity 429 gives up after one retry and says so', as
     sleep: async (ms) => slept.push(ms),
   });
 
-  const res = await service._internals.callCopilotModel({ contents: [], systemInstruction: 's', tools: [] });
+  const res = await service._internals.callAgentModel({ contents: [], systemInstruction: 's', tools: [] });
   assert.equal(res.status, 429);
   assert.equal(seen.length, 2, 'one retry, not a retry storm');
   assert.equal(res.retriedUpstream, true);
@@ -1347,7 +1347,7 @@ test('an Apigee quota 429 is never retried — that failure is the governance st
     sleep: async (ms) => slept.push(ms),
   });
 
-  const res = await service._internals.callCopilotModel({ contents: [], systemInstruction: 's', tools: [] });
+  const res = await service._internals.callAgentModel({ contents: [], systemInstruction: 's', tools: [] });
   assert.equal(res.status, 429);
   assert.equal(seen.length, 1, 'fail fast: no retry, no delay');
   assert.deepEqual(slept, []);

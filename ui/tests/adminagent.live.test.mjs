@@ -1,5 +1,5 @@
 /**
- * Admin Copilot live end-to-end test.
+ * Admin Agent live end-to-end test.
  *
  * This one really does spend money: it drives a full chat turn through the prod
  * AI Gateway on the admin key, and a dev-gateway test call on the sandbox key.

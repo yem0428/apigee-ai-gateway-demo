@@ -81,9 +81,9 @@ test('Guardrails are declared against the two deployed proxies only', () => {
   );
 });
 
-// The Admin Copilot's `list_guardrails` tool answers from a server-side mirror
+// The Admin Agent's `list_guardrails` tool answers from a server-side mirror
 // (server/guardrailCatalog.json), because server.js is plain Node and cannot
-// import this TypeScript module. These two tests are what stop the copilot from
+// import this TypeScript module. These two tests are what stop the agent from
 // describing a guardrail estate the console no longer shows.
 
 test('The server-side guardrail mirror has the same controls, in the same order', () => {
@@ -115,7 +115,7 @@ test('The server-side guardrail mirror is byte-identical to a fresh generation',
   );
 });
 
-test('Every mirrored control keeps the fields the copilot answers with', () => {
+test('Every mirrored control keeps the fields the agent answers with', () => {
   for (const control of GUARDRAIL_CONTROLS) {
     for (const field of ['gateway', 'proxy', 'title', 'category', 'summary', 'attachPoint', 'onViolation', 'configSource']) {
       assert.ok(control[field], `Mirrored control "${control.id}" is missing ${field}`);

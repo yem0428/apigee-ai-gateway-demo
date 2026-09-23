@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import {
-  COPILOT_MODEL,
+  AGENT_MODEL,
   fetchSandbox,
   provisionSandbox,
   promoteChange,
@@ -32,7 +32,7 @@ import {
 } from '../services/adminAgent';
 
 /**
- * A single row in the transcript. The copilot's writes are auto-applied by the
+ * A single row in the transcript. The agent's writes are auto-applied by the
  * backend, so a `change` entry is a *notification with an undo*, never an
  * approval prompt - the card says so in as many words.
  */
@@ -93,7 +93,7 @@ const ToolChip: React.FC<{ name: string; summary: string; ok: boolean }> = ({
   ok,
 }) => (
   <div
-    data-copilot-tool
+    data-agent-tool
     className="flex items-center gap-1.5 text-[11px] text-slate-600 px-2 py-1 rounded-lg border border-slate-200 bg-slate-50/80"
   >
     <Wrench className="w-3 h-3 text-slate-400 shrink-0" />
@@ -141,7 +141,7 @@ const ChangeCard: React.FC<{
 
   return (
     <div
-      data-copilot-change
+      data-agent-change
       className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden"
     >
       <div className="px-2.5 py-2 border-b border-slate-100">
@@ -214,7 +214,7 @@ const ChangeCard: React.FC<{
       <div className="px-2.5 py-1.5 flex items-center gap-1.5">
         <button
           type="button"
-          data-copilot-revert
+          data-agent-revert
           disabled={busy !== null || change.status === 'reverted'}
           onClick={() => run('revert', onRevert)}
           className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -228,7 +228,7 @@ const ChangeCard: React.FC<{
         </button>
         <button
           type="button"
-          data-copilot-promote
+          data-agent-promote
           disabled={busy !== null || change.status !== 'applied'}
           onClick={() => run('promote', onPromote)}
           className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600 border border-blue-600 text-[11px] font-semibold text-white hover:bg-blue-500 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -258,7 +258,7 @@ const TestCard: React.FC<{ result: TestResult }> = ({ result }) => {
 
   return (
     <div
-      data-copilot-test
+      data-agent-test
       className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden"
     >
       <div className="px-2.5 py-2 border-b border-slate-100">
@@ -284,12 +284,12 @@ const TestCard: React.FC<{ result: TestResult }> = ({ result }) => {
   );
 };
 
-interface AdminCopilotPanelProps {
+interface AdminAgentPanelProps {
   /** Rendered only beside the Admin Console; the caller owns that decision. */
   className?: string;
 }
 
-export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className = '' }) => {
+export const AdminAgentPanel: React.FC<AdminAgentPanelProps> = ({ className = '' }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
 
@@ -350,7 +350,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
       push({
         kind: 'assistant',
         id: nextId(),
-        text: 'Dev sandbox ready. Product clones and the copilot app are provisioned; every write I make lands on the (Dev) products only.',
+        text: 'Dev sandbox ready. Product clones and the agent app are provisioned; every write I make lands on the (Dev) products only.',
       });
     } catch (err) {
       setSandboxError(err instanceof Error ? err.message : String(err));
@@ -496,15 +496,15 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
   if (collapsed) {
     return (
       <aside
-        data-copilot-panel
-        data-copilot-collapsed="true"
+        data-agent-panel
+        data-agent-collapsed="true"
         className={`h-full w-11 shrink-0 border-l border-slate-200 bg-white flex flex-col items-center py-2.5 gap-2 ${className}`}
       >
         <button
           type="button"
-          data-copilot-toggle
+          data-agent-toggle
           onClick={() => setCollapsed(false)}
-          title="Expand Admin Copilot"
+          title="Expand Admin Agent"
           className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 transition cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -513,7 +513,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
           className="text-[10px] font-semibold text-slate-500 tracking-wide"
           style={{ writingMode: 'vertical-rl' }}
         >
-          Admin Copilot
+          Admin Agent
         </div>
         {entries.length > 0 && (
           <span className="mt-auto text-[10px] font-semibold text-slate-400">
@@ -540,15 +540,15 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
 
   return (
     <aside
-      data-copilot-panel
-      data-copilot-collapsed="false"
-      data-copilot-width={width}
+      data-agent-panel
+      data-agent-collapsed="false"
+      data-agent-width={width}
       style={{ width }}
       className={`relative h-full shrink-0 border-l border-slate-200 bg-white flex flex-col min-h-0 ${className}`}
     >
       {/* Drag handle. Arrow keys work too, so the width is reachable without a mouse. */}
       <div
-        data-copilot-resize
+        data-agent-resize
         role="separator"
         aria-orientation="vertical"
         tabIndex={0}
@@ -570,16 +570,16 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
             <Sparkles className="w-3.5 h-3.5 text-blue-600" />
           </div>
           <div className="leading-tight min-w-0">
-            <div className="text-xs font-bold text-slate-900">Admin Copilot</div>
+            <div className="text-xs font-bold text-slate-900">Admin Agent</div>
             <div className="text-[10px] text-slate-500">
               Changes auto-apply to the dev sandbox
             </div>
           </div>
           <button
             type="button"
-            data-copilot-toggle
+            data-agent-toggle
             onClick={() => setCollapsed(true)}
-            title="Collapse Admin Copilot"
+            title="Collapse Admin Agent"
             className="ml-auto p-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 transition cursor-pointer"
           >
             <PanelRight className="w-3.5 h-3.5" />
@@ -588,15 +588,15 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
 
         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
           <span
-            data-copilot-model
+            data-agent-model
             className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-mono font-semibold text-slate-600"
           >
-            {servedModel ?? COPILOT_MODEL} · via AI Gateway
+            {servedModel ?? AGENT_MODEL} · via AI Gateway
           </span>
-          {servedModel && servedModel !== COPILOT_MODEL && (
+          {servedModel && servedModel !== AGENT_MODEL && (
             <span
               className="px-1.5 py-0.5 rounded border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-800"
-              title={`Configured for ${COPILOT_MODEL}; the last turn was served by ${servedModel}.`}
+              title={`Configured for ${AGENT_MODEL}; the last turn was served by ${servedModel}.`}
             >
               fallback
             </span>
@@ -610,8 +610,8 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
         */}
         <div
           className="mt-2 flex items-center gap-1.5 flex-wrap"
-          data-copilot-sandbox
-          data-copilot-sandbox-state={sandboxState}
+          data-agent-sandbox
+          data-agent-sandbox-state={sandboxState}
         >
           {sandboxState === 'checking' ? (
             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-semibold text-slate-600">
@@ -626,7 +626,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
               </span>
               <button
                 type="button"
-                data-copilot-sandbox-retry
+                data-agent-sandbox-retry
                 onClick={() => void loadSandbox()}
                 disabled={sandboxBusy}
                 className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-semibold text-slate-600 hover:border-slate-300 transition cursor-pointer disabled:opacity-50"
@@ -658,7 +658,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
               </span>
               <button
                 type="button"
-                data-copilot-provision
+                data-agent-provision
                 onClick={() => void handleProvision()}
                 disabled={sandboxBusy}
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-blue-600 bg-blue-600 text-[10px] font-semibold text-white hover:bg-blue-500 transition cursor-pointer disabled:opacity-50"
@@ -674,7 +674,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
 
       {/* Transcript */}
       <div
-        data-copilot-messages
+        data-agent-messages
         className="flex-1 min-h-0 overflow-y-auto px-3 py-2.5 space-y-2 bg-slate-50/50"
       >
         {entries.length === 0 && (
@@ -709,7 +709,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
                 className="rounded-xl border border-slate-200 bg-white shadow-2xs px-2.5 py-2"
               >
                 {/* Deliberately no per-turn usage chips. This panel showcases how
-                    easy a governance change is; the copilot's own token/cost
+                    easy a governance change is; the agent's own token/cost
                     telemetry is noise here. It is still metered and visible on
                     the Analytics & Cost tab like any other caller, and the
                     header chip still names the model that served the turn. */}
@@ -746,8 +746,8 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
           return (
             <div
               key={entry.id}
-              data-copilot-error
-              data-copilot-error-tone={entry.tone}
+              data-agent-error
+              data-agent-error-tone={entry.tone}
               className={`rounded-xl border px-2.5 py-2 ${
                 isBlock ? 'border-amber-200 bg-amber-50' : 'border-rose-200 bg-rose-50'
               }`}
@@ -763,7 +763,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
                     isBlock ? 'text-amber-900' : 'text-rose-800'
                   }`}
                 >
-                  {isBlock ? 'Blocked by Model Armor' : 'Copilot request failed'}
+                  {isBlock ? 'Blocked by Model Armor' : 'Agent request failed'}
                 </span>
                 {isBlock && (
                   <span className="px-1.5 py-0.5 rounded border border-amber-300 bg-white text-[10px] font-semibold text-amber-800">
@@ -786,7 +786,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
                 entry.retry && (
                   <button
                     type="button"
-                    data-copilot-rephrase
+                    data-agent-rephrase
                     onClick={() => {
                       setInput(entry.retry as string);
                       inputRef.current?.focus();
@@ -800,7 +800,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
                 entry.retry && (
                   <button
                     type="button"
-                    data-copilot-retry
+                    data-agent-retry
                     disabled={busy}
                     onClick={() => void send(entry.retry as string)}
                     className="mt-1.5 px-2 py-0.5 rounded border border-rose-300 bg-white text-[10px] font-semibold text-rose-700 hover:border-rose-400 transition cursor-pointer disabled:opacity-50"
@@ -834,7 +834,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
             <button
               key={s}
               type="button"
-              data-copilot-suggestion
+              data-agent-suggestion
               onClick={() => {
                 setInput(s);
                 inputRef.current?.focus();
@@ -848,7 +848,7 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
         <div className="flex items-end gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 focus-within:border-blue-300 transition">
           <textarea
             ref={inputRef}
-            data-copilot-input
+            data-agent-input
             value={input}
             rows={2}
             onChange={(e) => setInput(e.target.value)}
@@ -858,12 +858,12 @@ export const AdminCopilotPanel: React.FC<AdminCopilotPanelProps> = ({ className 
                 void send(input);
               }
             }}
-            placeholder="Ask the copilot to inspect or change a tier…"
+            placeholder="Ask the agent to inspect or change a tier…"
             className="flex-1 bg-transparent text-[11px] text-slate-800 resize-none focus:outline-none placeholder:text-slate-400 leading-snug"
           />
           <button
             type="button"
-            data-copilot-send
+            data-agent-send
             onClick={() => void send(input)}
             disabled={busy || !input.trim()}
             className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
