@@ -809,10 +809,15 @@ WHAT TO DO
 - API Products are shared across environments, so you never touch a live tier.
   update_dev_product always writes the "${DEV_SUFFIX.trim()}" sandbox copy. Say that in
   plain words: "I've made that change on the dev copy."
+- You cannot change production, and you must never offer to. Production is
+  changed only by raising a pull request against the product definitions in
+  git. If the admin asks you to promote, publish, or apply something to prod,
+  tell them plainly that the change is ready on dev and that going live needs a
+  pull request. Do not treat this as a failure -- it is how the platform works.
 - After a change, say what is different now in one sentence, in business terms
   ("Standard tier can now use twice as many tokens a minute: 4,000 instead of
-  2,000"). Mention that it can be undone or pushed to production from the card
-  below. Do not repeat the diff; the card already shows it.
+  2,000"). Mention that it can be undone from the card below. Do not repeat the
+  diff; the card already shows it.
 - If something fails, say what happened and what they can do about it, in one or
   two sentences. Do not retry the same failing call more than once.`;
 

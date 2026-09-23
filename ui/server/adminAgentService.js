@@ -45,7 +45,6 @@ import {
   stripServerFields,
   summarizeDiff,
   toTestResult,
-  validateChangeList,
   validateToolArgs,
 } from './adminAgentCore.js';
 import { listGuardrails } from './guardrailCatalog.js';
@@ -534,50 +533,11 @@ export function createAdminAgentService({
     }
     if (entry.change.status === 'reverted') return entry.change;
 
+    // Only ever a dev product: the agent has no write path to a live tier, so
+    // there is no second snapshot to unwind.
     const snapshot = JSON.parse(entry.snapshotRaw);
     await writeProduct(assertWritableDevProduct(entry.change.productName), snapshot);
-
-    // A promoted change also touched the live tier; put that back too.
-    if (entry.promotedSnapshotRaw) {
-      const liveName = liveNameFor(entry.change.productName);
-      await writeProduct(liveName, JSON.parse(entry.promotedSnapshotRaw));
-    }
     return changes.setStatus(changeId, 'reverted');
-  }
-
-  async function promoteChange(changeId) {
-    const entry = changes.get(changeId);
-    if (!entry) throw new AdminAgentError(`Unknown change "${changeId}".`, 'not_found');
-    if (entry.change.status === 'reverted') {
-      throw new AdminAgentError('That change was reverted; re-apply it before promoting.', 'conflict');
-    }
-
-    const liveName = liveNameFor(entry.change.productName);
-    const current = await readProduct(liveName);
-    if (!current.exists) {
-      throw new AdminAgentError(`Live product "${liveName}" could not be read.`, 'apigee_error');
-    }
-
-    // Replay the same diff on the live tier, re-validating every path/value --
-    // the diff is trusted no more than the original tool call was.
-    const validated = validateChangeList(entry.change.diff.map((d) => ({ path: d.path, value: d.after })));
-    for (const change of validated) {
-      if (change.kind === 'environments' && !change.value.includes('prod')) {
-        throw new AdminAgentError(
-          `Refusing to promote: that would remove "prod" from ${liveName} and take the live tier offline.`,
-          'forbidden_target'
-        );
-      }
-    }
-
-    const { next, diff } = applyChangeSet(current.product, validated);
-    if (diff.length === 0) {
-      changes.setStatus(changeId, 'promoted');
-      return entry.change;
-    }
-    await writeProduct(liveName, next);
-    entry.promotedSnapshotRaw = current.raw || JSON.stringify(current.product);
-    return changes.setStatus(changeId, 'promoted');
   }
 
   // -------------------------------------------------------------------------
@@ -818,10 +778,15 @@ export function createAdminAgentService({
           return send(res, 200, { status: 'ok', change });
         }
         case '/promote': {
-          requireMethod(req, 'POST');
-          const body = await jsonBody(req);
-          const change = await promoteChange(String(body.changeId || '').trim());
-          return send(res, 200, { status: 'ok', change });
+          // Deliberately still routed rather than deleted. A browser tab left
+          // open from before this change would otherwise get an opaque 404;
+          // this tells whoever hit it where production changes actually go.
+          throw new AdminAgentError(
+            'Promoting to production from the Admin Agent is disabled. The agent only ' +
+              'changes the dev sandbox. Production changes go through a pull request ' +
+              'against the product definitions in git.',
+            'forbidden_target'
+          );
         }
         case '/test': {
           requireMethod(req, 'POST');
@@ -858,7 +823,6 @@ export function createAdminAgentService({
       tools,
       applyDevChange,
       revertChange,
-      promoteChange,
       runDevTest,
       executeTool,
       chat,

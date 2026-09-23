@@ -4,7 +4,7 @@ import {
   PanelRight,
   Wrench,
   Undo2,
-  Rocket,
+  GitPullRequest,
   FlaskConical,
   Send,
   Loader2,
@@ -20,7 +20,6 @@ import {
   AGENT_MODEL,
   fetchSandbox,
   provisionSandbox,
-  promoteChange,
   revertChange,
   sendChat,
   type AdminAgentEvent,
@@ -110,24 +109,21 @@ const ToolChip: React.FC<{ name: string; summary: string; ok: boolean }> = ({
 const STATUS_TONE: Record<Change['status'], string> = {
   applied: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   reverted: 'border-slate-200 bg-slate-100 text-slate-600',
-  promoted: 'border-blue-200 bg-blue-50 text-blue-700',
 };
 
 const STATUS_LABEL: Record<Change['status'], string> = {
   applied: 'Applied to dev sandbox',
   reverted: 'Reverted',
-  promoted: 'Promoted to prod',
 };
 
 const ChangeCard: React.FC<{
   change: Change;
   onRevert: (id: string) => Promise<void>;
-  onPromote: (id: string) => Promise<void>;
-}> = ({ change, onRevert, onPromote }) => {
-  const [busy, setBusy] = useState<'revert' | 'promote' | null>(null);
+}> = ({ change, onRevert }) => {
+  const [busy, setBusy] = useState<'revert' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (kind: 'revert' | 'promote', fn: (id: string) => Promise<void>) => {
+  const run = async (kind: 'revert', fn: (id: string) => Promise<void>) => {
     setBusy(kind);
     setError(null);
     try {
@@ -226,20 +222,14 @@ const ChangeCard: React.FC<{
           )}
           Revert
         </button>
-        <button
-          type="button"
-          data-agent-promote
-          disabled={busy !== null || change.status !== 'applied'}
-          onClick={() => run('promote', onPromote)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600 border border-blue-600 text-[11px] font-semibold text-white hover:bg-blue-500 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {busy === 'promote' ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : (
-            <Rocket className="w-3 h-3" />
-          )}
-          Promote to Prod
-        </button>
+        {/* No promote control by design: the agent's writes stop at dev, and
+            production is changed by raising a PR against the product
+            definitions in git. Saying so here is more useful than a button
+            that would bypass review. */}
+        <span className="flex items-center gap-1 text-[10px] text-slate-500">
+          <GitPullRequest className="w-3 h-3 text-slate-400" />
+          Production changes go through a PR
+        </span>
         <span className="ml-auto text-[10px] text-slate-400">
           {change.appliedAt ? new Date(change.appliedAt).toLocaleTimeString() : ''}
         </span>
@@ -446,10 +436,6 @@ export const AdminAgentPanel: React.FC<AdminAgentPanelProps> = ({ className = ''
     mutateChange(res.change);
   };
 
-  const handlePromote = async (changeId: string) => {
-    const res = await promoteChange(changeId);
-    mutateChange(res.change);
-  };
 
   /* ---------------------------------------------------------------- resize */
 
@@ -686,8 +672,9 @@ export const AdminAgentPanel: React.FC<AdminAgentPanelProps> = ({ className = ''
               I can read the API products, guardrails and rate card, edit the{' '}
               <span className="font-mono text-slate-700">(Dev)</span> product clones, and
               run a real metered call against the dev gateway. Every edit lands
-              immediately and arrives here with a diff and a Revert button — nothing
-              touches a live tier until you press Promote.
+              immediately and arrives here with a diff and a Revert button. I only
+              ever write the dev sandbox — production is changed by raising a pull
+              request against the product definitions in git.
             </p>
           </div>
         )}
@@ -735,7 +722,6 @@ export const AdminAgentPanel: React.FC<AdminAgentPanelProps> = ({ className = ''
                 key={entry.id}
                 change={entry.change}
                 onRevert={handleRevert}
-                onPromote={handlePromote}
               />
             );
           }

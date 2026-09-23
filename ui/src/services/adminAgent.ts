@@ -43,7 +43,9 @@ export interface Change {
   /** `label` is the human-readable form; `path` is the exact config location. */
   diff: { path: string; label?: string; before: string | null; after: string | null }[];
   appliedAt: string;
-  status: 'applied' | 'reverted' | 'promoted';
+  // No 'promoted': the agent's writes stop at the dev sandbox. Production is
+  // changed by raising a PR against the product definitions in git.
+  status: 'applied' | 'reverted';
 }
 
 export interface TestResult {
@@ -185,14 +187,6 @@ export function fetchChanges(): Promise<{ status: string; changes: Change[] }> {
 export function revertChange(changeId: string): Promise<{ status: string; change: Change }> {
   return request<{ status: string; change: Change }>(
     '/api/admin-agent/revert',
-    jsonPost({ changeId })
-  );
-}
-
-/** POST /api/admin-agent/promote */
-export function promoteChange(changeId: string): Promise<{ status: string; change: Change }> {
-  return request<{ status: string; change: Change }>(
-    '/api/admin-agent/promote',
     jsonPost({ changeId })
   );
 }

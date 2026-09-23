@@ -605,7 +605,10 @@ test('a genuine tool failure still surfaces as an error event', async () => {
   );
 });
 
-test('promote replays the diff on the live tier and refuses to take prod offline', async () => {
+test('there is no promote path: the live tier is never written', async () => {
+  // Promotion to prod was removed on purpose. Production is changed only by a
+  // pull request against the product definitions in git, so the agent must have
+  // no code path -- and no API surface -- that writes a live product.
   const live = {
     name: 'Standard AI Tier',
     environments: ['dev', 'prod'],
@@ -616,51 +619,58 @@ test('promote replays the diff on the live tier and refuses to take prod offline
     products: { 'Standard AI Tier Dev': standardDevProduct(), 'Standard AI Tier': live },
   });
 
+  assert.equal(
+    service._internals.promoteChange,
+    undefined,
+    'promoteChange must not exist on the service'
+  );
+
   const change = await service._internals.applyDevChange(
     validateToolArgs('update_dev_product', {
       sourceProduct: 'Standard AI Tier',
       changes: [{ path: 'llmTokenQuota.gemini-3-flash-preview.limit', value: '7777' }],
     })
   );
-  const promoted = await service._internals.promoteChange(change.changeId);
-  assert.equal(promoted.status, 'promoted');
+  assert.equal(change.status, 'applied');
+
+  // The dev clone moved...
   assert.equal(
-    state.products['Standard AI Tier'].llmOperationGroup.operationConfigs[1].llmTokenQuota.limit,
+    state.products['Standard AI Tier Dev'].llmOperationGroup.operationConfigs[1].llmTokenQuota.limit,
     '7777'
   );
-
-  // Reverting a promoted change puts both products back.
-  await service._internals.revertChange(change.changeId);
+  // ...and the live tier did not.
   assert.equal(
     state.products['Standard AI Tier'].llmOperationGroup.operationConfigs[1].llmTokenQuota.limit,
     '2000'
   );
 
-  const envChange = await service._internals.applyDevChange(
-    validateToolArgs('update_dev_product', {
-      sourceProduct: 'Standard AI Tier',
-      changes: [{ path: 'environments', value: '["dev"]' }],
-    })
-  ).catch((err) => err);
-  // environments is already ["dev"] on the clone, so that is a no-op; build the
-  // dangerous case directly instead.
-  assert.ok(envChange instanceof AdminAgentError);
-
-  const store = service._internals.changes;
-  store.record(
-    {
-      changeId: 'chg_deadbeef',
-      productName: 'Standard AI Tier (Dev)',
-      sourceProduct: 'Standard AI Tier',
-      env: 'dev',
-      summary: 'test',
-      diff: [{ path: 'environments', before: '["dev","prod"]', after: '["dev"]' }],
-      appliedAt: new Date().toISOString(),
-      status: 'applied',
-    },
-    JSON.stringify(standardDevProduct())
+  // No write of any kind may have been addressed to the live product.
+  const liveWrites = state.calls.filter(
+    (c) => (c.method === 'PUT' || c.method === 'POST') && /apiproducts\/Standard AI Tier$/.test(decodeURIComponent(c.url))
   );
-  await assert.rejects(() => service._internals.promoteChange('chg_deadbeef'), /take the live tier offline/);
+  assert.equal(liveWrites.length, 0, 'the agent must never PUT a live tier');
+
+  // Revert only unwinds the dev clone.
+  await service._internals.revertChange(change.changeId);
+  assert.equal(
+    state.products['Standard AI Tier Dev'].llmOperationGroup.operationConfigs[1].llmTokenQuota.limit,
+    '2000'
+  );
+});
+
+test('the /promote endpoint explains the git flow instead of 404ing', async () => {
+  // A browser tab opened before promotion was removed will still POST here.
+  const { service } = makeHarness({ products: { 'Standard AI Tier Dev': standardDevProduct() } });
+  const res = fakeRes();
+  await service.handleRequest(
+    fakeReq('POST', JSON.stringify({ changeId: 'chg_00000000' })),
+    res,
+    new URL('http://x/api/admin-agent/promote')
+  );
+  assert.equal(res.statusCode, 403);
+  const parsed = JSON.parse(res.body);
+  assert.match(parsed.error, /pull request/i);
+  assert.doesNotMatch(parsed.error, /unknown admin-agent route/i);
 });
 
 test('revert of an unknown change id fails cleanly', async () => {
@@ -1067,7 +1077,8 @@ test('handlers answer with structured JSON errors, never a throw', async () => {
     { path: '/api/admin-agent/chat', method: 'POST', body: 'not json', status: 400 },
     { path: '/api/admin-agent/chat', method: 'POST', body: '{"messages":[]}', status: 400 },
     { path: '/api/admin-agent/revert', method: 'POST', body: '{"changeId":"chg_11111111"}', status: 404 },
-    { path: '/api/admin-agent/promote', method: 'POST', body: '{}', status: 404 },
+    // Promotion is disabled, not missing: 403 with an explanation, not a 404.
+    { path: '/api/admin-agent/promote', method: 'POST', body: '{}', status: 403 },
     { path: '/api/admin-agent/test', method: 'POST', body: '{}', status: 400 },
     { path: '/api/admin-agent/nope', method: 'GET', body: undefined, status: 404 },
   ];

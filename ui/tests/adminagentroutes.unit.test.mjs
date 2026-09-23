@@ -82,7 +82,9 @@ test('every /api/admin-agent/* route answers with JSON, not the SPA fallback', a
     { path: '/api/admin-agent/chat', method: 'POST', body: '{"messages":[]}', expect: 400 },
     { path: '/api/admin-agent/chat', method: 'GET', expect: 405 },
     { path: '/api/admin-agent/revert', method: 'POST', body: '{"changeId":"chg_00000000"}', expect: 404 },
-    { path: '/api/admin-agent/promote', method: 'POST', body: '{"changeId":"chg_00000000"}', expect: 404 },
+    // Disabled on purpose: production goes through a git PR, so this is a
+    // deliberate 403 with an explanation rather than a missing route.
+    { path: '/api/admin-agent/promote', method: 'POST', body: '{"changeId":"chg_00000000"}', expect: 403 },
     { path: '/api/admin-agent/test', method: 'POST', body: '{"prompt":""}', expect: 400 },
     { path: '/api/admin-agent/unknown-subpath', method: 'GET', expect: 404 },
   ];
