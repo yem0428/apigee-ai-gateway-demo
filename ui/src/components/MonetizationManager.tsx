@@ -30,6 +30,7 @@ import {
   ChevronUp,
   ChevronDown,
   ArrowUpDown,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   fetchModelRates,
@@ -57,6 +58,7 @@ import {
 } from '../types';
 import { DEFAULT_SSO_USER } from '../services/defaultSettings';
 import { GoogleLogo, AnthropicLogo } from './ProviderLogos';
+import { GuardrailsPoliciesView } from './GuardrailsPoliciesView';
 
 // Provider logo/mark component replacing raw GOOG/ANTH text badges
 const ModelProviderIcon = ({ model }: { model: string }) => {
@@ -103,18 +105,21 @@ const CATALOG_MODELS = [
 interface MonetizationManagerProps {
   currentEnv?: 'dev' | 'prod';
   settings?: GatewaySettings;
+  /** Opens the Architecture blueprint on a specific gateway pipeline. */
+  onInspectArchitecture?: (flow: 'ai-gateway' | 'mcp-gateway') => void;
 }
 
-type MonetizationSubTab = 'products' | 'wallets' | 'rate-cards' | 'rate-plans';
+type MonetizationSubTab = 'products' | 'wallets' | 'rate-cards' | 'rate-plans' | 'policies';
 
 export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   currentEnv = 'prod',
   settings,
+  onInspectArchitecture,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<MonetizationSubTab>(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search).get('subtab') as MonetizationSubTab;
-      if (p && ['products', 'wallets', 'rate-cards', 'rate-plans'].includes(p)) {
+      if (p && ['products', 'wallets', 'rate-cards', 'rate-plans', 'policies'].includes(p)) {
         return p;
       }
     }
@@ -919,45 +924,63 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600" />
                 <span>Product Rate Plans & Subscriptions</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('policies')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer shrink-0 ${
+                  activeSubTab === 'policies'
+                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-rose-600" />
+                <span>Guardrails & Policies</span>
+              </button>
             </div>
           </div>
 
           {/* Quick Header Actions: Developer Selector, Active Wallet Chip & Refresh */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Developer Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs shadow-2xs">
-              <User className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-              <span className="text-slate-500 text-[11px] font-semibold">Dev:</span>
-              <select
-                value={selectedDeveloper}
-                onChange={(e) => setSelectedDeveloper(e.target.value)}
-                className="bg-transparent text-slate-800 font-sans text-xs focus:outline-none cursor-pointer max-w-[210px] truncate font-medium"
-                title="Select Developer Account to Inspect & Manage"
-              >
-                {availableDevelopers.map((d) => (
-                  <option key={d.email} value={d.email} className="bg-white text-slate-900 font-sans">
-                    {d.name ? `${d.name} (${d.email})` : d.email}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Developer account context is only meaningful on the wallets sub-tab */}
+            {activeSubTab === 'wallets' && (
+              <>
+                {/* Developer Selector */}
+                <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs shadow-2xs">
+                  <User className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="text-slate-500 text-[11px] font-semibold">Dev:</span>
+                  <select
+                    value={selectedDeveloper}
+                    onChange={(e) => setSelectedDeveloper(e.target.value)}
+                    className="bg-transparent text-slate-800 font-sans text-xs focus:outline-none cursor-pointer max-w-[210px] truncate font-medium"
+                    title="Select Developer Account to Inspect & Manage"
+                  >
+                    {availableDevelopers.map((d) => (
+                      <option key={d.email} value={d.email} className="bg-white text-slate-900 font-sans">
+                        {d.name ? `${d.name} (${d.email})` : d.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {/* Live Wallet Chip */}
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs shadow-2xs"
-              title={`Exact balance: $${rawWalletAmountExact} USD`}
-            >
-              <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-slate-500 text-[11px] font-semibold">Wallet:</span>
-              <span className={`font-mono font-bold ${isSimulatingExhaustedWallet ? 'text-rose-600 line-through' : 'text-emerald-600'}`}>
-                ${displayWalletAmount} <span className="text-[10px] font-normal text-slate-500 font-sans">USD</span>
-              </span>
-              {isSimulatingExhaustedWallet && (
-                <span className="text-[9px] bg-rose-50 text-rose-700 px-1 py-0.2 rounded border border-rose-200 font-semibold">
-                  403
-                </span>
-              )}
-            </div>
+                {/* Live Wallet Chip */}
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs shadow-2xs"
+                  title={`Exact balance: $${rawWalletAmountExact} USD`}
+                >
+                  <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-slate-500 text-[11px] font-semibold">Wallet:</span>
+                  <span className={`font-mono font-bold ${isSimulatingExhaustedWallet ? 'text-rose-600 line-through' : 'text-emerald-600'}`}>
+                    ${displayWalletAmount} <span className="text-[10px] font-normal text-slate-500 font-sans">USD</span>
+                  </span>
+                  {isSimulatingExhaustedWallet && (
+                    <span className="text-[9px] bg-rose-50 text-rose-700 px-1 py-0.2 rounded border border-rose-200 font-semibold">
+                      403
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Quick Refresh */}
             <button
@@ -2316,6 +2339,10 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         )}
 
         {/* SUB-TAB 3: PRODUCT RATE PLANS & SUBSCRIPTIONS */}
+        {activeSubTab === 'policies' && (
+          <GuardrailsPoliciesView onInspectArchitecture={onInspectArchitecture} />
+        )}
+
         {activeSubTab === 'rate-plans' && (
           <div className="space-y-6">
             <div className="rounded-2xl bg-white border border-slate-200 p-5 space-y-4 shadow-xs">

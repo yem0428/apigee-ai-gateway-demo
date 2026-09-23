@@ -511,7 +511,15 @@ export function App() {
             }}
           />
         ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
-          <MonetizationManager currentEnv="prod" settings={settings} />
+          <MonetizationManager
+            currentEnv="prod"
+            settings={settings}
+            onInspectArchitecture={(flow) => {
+              setArchInitialTab(flow);
+              setArchInitialMode('full-blueprint');
+              setIsArchitectureOpen(true);
+            }}
+          />
         ) : (
           <AnalyticsDashboard
             settings={settings}
