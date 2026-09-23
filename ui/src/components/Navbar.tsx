@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   X,
   Terminal,
-  Coins,
   BarChart3,
   Users,
   User,
@@ -188,7 +187,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <BarChart3 className="w-3.5 h-3.5" />
               <span className="hidden min-[1400px]:inline">Analytics & Cost</span>
             </button>
-            {/* 4th Tab: Monetization - Strictly visible ONLY in Admin view */}
+            {/* 4th Tab: Admin Console - Strictly visible ONLY in Admin view */}
             {isAdminView && (
               <button
                 type="button"
@@ -199,10 +198,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ? 'bg-amber-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
-                title="Native Monetization: Prepaid Wallets, Published Rate Plans, Subscriptions & KVM Token Rates"
+                title="Admin Console: AI Products & Entitlements, Prepaid Wallets, Model Rate Cards, Rate Plans & Gateway Policies"
               >
-                <Coins className="w-3.5 h-3.5" />
-                <span className="hidden min-[1400px]:inline">Monetization</span>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="hidden min-[1400px]:inline">Admin Console</span>
               </button>
             )}
           </div>
@@ -303,13 +302,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </>
           ) : activeTab === 'monetization' || activeTab === 'kvm-pricing' || activeTab === 'rate-cards' ? (
-            /* Monetization is strictly Admin View */
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                Admin Console
-              </span>
-            </div>
+            /* Admin Console owns its own in-page controls; the nav tab already
+               marks this as the admin-only area, so no extra badge here. */
+            null
           ) : (
             <>
               {/* User Persona / Entitlement Tier Segmented Control.

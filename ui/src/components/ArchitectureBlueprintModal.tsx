@@ -771,7 +771,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                         <Globe className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900">Apigee X — Edge</div>
+                        <div className="text-xs font-bold text-slate-900">Apigee X</div>
                         <div className="text-[10px] text-slate-500">AuthN/Z, rate limits, threat protection</div>
                       </div>
                     </div>
