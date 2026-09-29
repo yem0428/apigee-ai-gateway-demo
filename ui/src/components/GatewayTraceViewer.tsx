@@ -26,6 +26,7 @@ interface GatewayTraceViewerProps {
   /** True when the inspector is showing an earlier call rather than the most recent one. */
   isHistorical?: boolean;
   onReturnToLatest?: () => void;
+  onRequestQuotaIncrease?: () => void;
 }
 
 export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
@@ -34,6 +35,7 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
   onToggleCache,
   isHistorical = false,
   onReturnToLatest,
+  onRequestQuotaIncrease,
 }) => {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -114,16 +116,13 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
       <div className="p-3 space-y-2">
         {/*
           1. Model Routing
-
-          Highlighted only when the router actually picked the model, i.e. a /auto call
-          that reached a model. On a direct /models/<name> call there is no routing
-          decision to celebrate, and on an unattributed cache hit no model ran at all -
-          `autoRouted` is already false for both, so the card stays quiet.
         */}
         <div
           data-tour-id="telemetry-model-routing"
-          className={`p-2.5 border rounded-xl space-y-1 shadow-2xs transition ${
-            telemetry.autoRouted
+          className={`p-2.5 border rounded-xl space-y-1.5 shadow-2xs transition ${
+            telemetry.overrideApplied
+              ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-200'
+              : telemetry.autoRouted
               ? 'bg-purple-50/70 border-purple-300 ring-1 ring-purple-200'
               : 'bg-white border-slate-200'
           }`}
@@ -135,12 +134,17 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
                 Model Routing
               </span>
             </div>
-            {telemetry.autoRouted && (
+            {telemetry.overrideApplied ? (
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                Gateway Override
+              </span>
+            ) : telemetry.autoRouted ? (
               <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
                 Auto-Routed
               </span>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-0.5">
@@ -159,13 +163,8 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
                     <span>{telemetry.provider || (telemetry.model.startsWith('claude') ? 'Anthropic' : 'Google')}</span>
                   </span>
                 ) : isCacheHit ? (
-                  // The cache keys on the prompt alone and the router is skipped on a
-                  // hit, so the gateway names no model and neither do we.
                   <span>No model invoked &middot; semantic cache</span>
                 ) : (
-                  // Not a cache hit and still no model: the request did not get far
-                  // enough to be routed - a rejected identity, a blocked prompt. Saying
-                  // "served from cache" here would invent a mechanism that never ran.
                   <span>Request did not reach a model</span>
                 )}
                 {telemetry.costTier && (
@@ -192,6 +191,25 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
               </div>
             )}
           </div>
+
+          {telemetry.overrideApplied && (
+            <div className="mt-1 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-900 space-y-1">
+              <div className="font-mono font-bold flex items-center gap-1 flex-wrap">
+                <span className="line-through text-rose-600">{telemetry.requestedModel}</span>
+                <span>➔</span>
+                <span className="text-emerald-700">{telemetry.model}</span>
+              </div>
+              {telemetry.overrideReason && (
+                <div className="text-[9.5px] text-amber-800 leading-snug">{telemetry.overrideReason}</div>
+              )}
+            </div>
+          )}
+
+          {telemetry.vertexTenancy && (
+            <div className="mt-1 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[9.5px] font-mono text-emerald-800 font-semibold">
+              🔒 Tenancy: {telemetry.vertexTenancy}
+            </div>
+          )}
         </div>
 
         {/* 2. Token (renamed from Token Quotas & Accounting) */}
@@ -217,9 +235,21 @@ export const GatewayTraceViewer: React.FC<GatewayTraceViewerProps> = ({
           </div>
 
           {telemetry.status === 429 ? (
-            <div className="p-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-900 font-medium">
-              Token rate quota exceeded. The per-minute LLM token limit for this
-              model is defined by your API product tier.
+            <div className="space-y-2">
+              <div className="p-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-900 font-medium">
+                Token rate quota exceeded. The per-minute LLM token limit for this
+                model is defined by your API product tier (Person / Team Quota).
+              </div>
+              {onRequestQuotaIncrease && (
+                <button
+                  type="button"
+                  onClick={onRequestQuotaIncrease}
+                  className="w-full py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-[10.5px] transition cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                >
+                  <Zap className="w-3 h-3" />
+                  <span>Request Quota Increase (Person / Team)</span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[11px]">

@@ -62,7 +62,24 @@ def sync_product(org, token, filepath):
         print(f"  [CREATED] API Product: {name}")
     return name
 
+def ensure_developer(org, dev, token):
+    enc_dev = quote(dev)
+    url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers/{enc_dev}"
+    chk_cmd = ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-H", f"Authorization: Bearer {token}", url]
+    status = subprocess.check_output(chk_cmd).decode().strip()
+    if status != "200":
+        uname = dev.split("@")[0] or "admin"
+        post_url = f"https://apigee.googleapis.com/v1/organizations/{org}/developers"
+        run_curl(post_url, method="POST", data={
+            "email": dev,
+            "firstName": uname.capitalize(),
+            "lastName": "Admin",
+            "userName": uname
+        }, token=token)
+        print(f"  [CREATED] Developer: {dev}")
+
 def sync_app(org, dev, token, filepath):
+    ensure_developer(org, dev, token)
     with open(filepath) as f:
         app_data = json.load(f)
     app_name = app_data["name"]
@@ -219,8 +236,8 @@ def sync_monetization(org, dev, token):
 
 def main():
     parser = argparse.ArgumentParser(description="Provision Apigee Unified Products and Apps")
-    parser.add_argument("--org", default="bap-apac-demo2", help="Apigee Organization name")
-    parser.add_argument("--dev", default="maloosatyam@google.com", help="Developer email")
+    parser.add_argument("--org", default="sgx-totc-apigee", help="Apigee Organization name")
+    parser.add_argument("--dev", default="admin@yem.altostrat.com", help="Developer email")
     args = parser.parse_args()
 
     print(f"=== Apigee Unified Credential Provisioning ===")

@@ -27,9 +27,9 @@ if [ -f "${ROOT_DIR}/.env" ]; then
   set +a
 fi
 
-ORG="${APIGEE_ORG:-${ORG:-bap-apac-demo2}}"
+ORG="${APIGEE_ORG:-${ORG:-sgx-totc-apigee}}"
 ENV="${APIGEE_ENV:-${ENV:-prod}}"
-DEV_EMAIL="${DEV_EMAIL:-${APIGEE_DEVELOPER:-maloosatyam@google.com}}"
+DEV_EMAIL="${DEV_EMAIL:-${APIGEE_DEVELOPER:-admin@yem.altostrat.com}}"
 PROXY_NAME="${PROXY_NAME:-ai-gateway-v1}"
 SKIP_PROXY=false
 SKIP_CREDS=false

@@ -229,7 +229,7 @@ async function getGcpAccessToken(): Promise<string> {
   try {
     try {
       cachedToken = execSync(
-        'gcloud auth print-access-token --impersonate-service-account=apigee-ui-mgmt-sa@bap-apac-demo2.iam.gserviceaccount.com 2>/dev/null'
+        'gcloud auth print-access-token --impersonate-service-account=apigee-ui-mgmt-sa@sgx-totc-apigee.iam.gserviceaccount.com 2>/dev/null'
       )
         .toString()
         .trim();
@@ -323,7 +323,7 @@ async function parseEmailHandleWithGemini(
     // the API Products does not stop it -- it would just have started 404ing on
     // gemini-2.5-flash's 2026-10-20 end of life, silently degrading sign-in names.
     const url =
-      'https://aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent';
+      'https://aiplatform.googleapis.com/v1/projects/sgx-totc-apigee/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent';
     const prompt = `Extract the likely human First Name and Last Name from this corporate email address: "${email}".
 Rules:
 1. Strip prefixes like "the", "mr", "ms", "iam", "official" if they precede a clear given name (e.g., "theankitgoel" -> First: "Ankit", Last: "Goel").
@@ -848,7 +848,7 @@ export default defineConfig(({ mode }) => {
                   return;
                 }
 
-                const org = 'bap-apac-demo2';
+                const org = 'sgx-totc-apigee';
                 const provResult = await provisionUserDeveloperAndApp(
                   org,
                   saToken,
@@ -919,7 +919,7 @@ export default defineConfig(({ mode }) => {
             let suggestedLastName = resolvedName.lastName || '';
 
             if (saToken && email) {
-              const org = 'bap-apac-demo2';
+              const org = 'sgx-totc-apigee';
               const provResult = await provisionUserDeveloperAndApp(
                 org,
                 saToken,
@@ -970,7 +970,7 @@ export default defineConfig(({ mode }) => {
             const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
             const envParam = parsedUrl.searchParams.get('env') || 'prod';
             const apigeeEnv = envParam === 'dev' || envParam === 'bap' ? 'dev' : 'prod';
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
             const kvmName = 'ai-model-rates';
             const entryKey = 'rate_card';
 
@@ -1079,7 +1079,7 @@ export default defineConfig(({ mode }) => {
 
             const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
             const dev = parsedUrl.searchParams.get('dev') || env.DEV_EMAIL || 'maloosatyam@google.com';
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
 
             try {
               const apiRes = await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(dev)}/balance`, {
@@ -1195,7 +1195,7 @@ export default defineConfig(({ mode }) => {
                 const payload = JSON.parse(body || '{}');
                 const dev = payload.developer || env.DEV_EMAIL || 'maloosatyam@google.com';
                 const units = String(payload.units || '50');
-                const org = 'bap-apac-demo2';
+                const org = 'sgx-totc-apigee';
                 const txId = `topup-${Date.now()}`;
 
                 const creditUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(dev)}/balance:credit`;
@@ -1245,7 +1245,7 @@ export default defineConfig(({ mode }) => {
               return;
             }
 
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
             const products = ['Standard AI Tier', 'Enterprise AI Tier'];
 
             try {
@@ -1298,7 +1298,7 @@ export default defineConfig(({ mode }) => {
 
             const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
             const dev = parsedUrl.searchParams.get('dev') || env.DEV_EMAIL || 'maloosatyam@google.com';
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
 
             if (req.method === 'GET') {
               try {
@@ -1367,7 +1367,7 @@ export default defineConfig(({ mode }) => {
 
             const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
             const dev = parsedUrl.searchParams.get('dev') || env.DEV_EMAIL || 'maloosatyam@google.com';
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
             const cfgUrl = `https://apigee.googleapis.com/v1/organizations/${org}/developers/${encodeURIComponent(dev)}/monetizationConfig`;
 
             if (req.method === 'GET') {
@@ -1426,7 +1426,7 @@ export default defineConfig(({ mode }) => {
             const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
             const rangeParam = parsedUrl.searchParams.get('timeRange') || '7d';
             const envParam = parsedUrl.searchParams.get('env') || 'prod';
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
             const apigeeEnv = envParam === 'dev' || envParam === 'bap' ? 'dev' : 'prod';
             const apigeeTimeRange = getApigeeTimeRange(rangeParam);
 
@@ -1687,7 +1687,7 @@ export default defineConfig(({ mode }) => {
               return;
             }
 
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
             try {
               const devListRes = await fetch(`https://apigee.googleapis.com/v1/organizations/${org}/developers`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -1888,7 +1888,7 @@ export default defineConfig(({ mode }) => {
               return;
             }
 
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
             let body = '';
             req.on('data', (c) => { body += c; });
             req.on('end', async () => {
@@ -1949,7 +1949,7 @@ export default defineConfig(({ mode }) => {
               return;
             }
 
-            const org = 'bap-apac-demo2';
+            const org = 'sgx-totc-apigee';
             const names = ['Standard AI Tier', 'Enterprise AI Tier'];
 
             if (req.method === 'GET') {

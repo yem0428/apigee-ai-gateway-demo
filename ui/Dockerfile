@@ -1,3 +1,10 @@
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
 FROM node:20-alpine
 
 WORKDIR /app
@@ -7,7 +14,7 @@ ENV PORT=8080
 # runtime dependencies, so there is no install step. Without it the image would
 # rely on Node's ESM syntax auto-detection to run server.js.
 COPY package.json ./
-COPY dist ./dist
+COPY --from=builder /app/dist ./dist
 COPY server.js ./
 # server/ holds the admin-agent modules and guardrailCatalog.json, which is read
 # from disk at runtime. Omitting it makes the container exit on import.

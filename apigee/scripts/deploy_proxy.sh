@@ -13,7 +13,7 @@ if [ -f "${ROOT_DIR}/.env" ]; then
 fi
 
 # Default variables (can be set via .env, exported env vars, or CLI flags)
-ORG="${APIGEE_ORG:-${ORG:-bap-apac-demo2}}"
+ORG="${APIGEE_ORG:-${ORG:-sgx-totc-apigee}}"
 ENV="${APIGEE_ENV:-${ENV:-prod}}"
 PROXY_NAME="${PROXY_NAME:-ai-gateway-v1}"
 SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-ai-client@${ORG}.iam.gserviceaccount.com}"

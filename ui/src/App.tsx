@@ -393,7 +393,7 @@ export function App() {
       const v = new URLSearchParams(window.location.search).get('view');
       if (v === 'admin' || v === 'user') return v;
     }
-    return 'user';
+    return 'admin';
   });
   const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
   const [analyticsLoading, setAnalyticsLoading] = useState(false);

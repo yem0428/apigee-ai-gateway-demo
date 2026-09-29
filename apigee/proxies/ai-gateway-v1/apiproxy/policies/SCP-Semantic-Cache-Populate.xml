@@ -4,7 +4,7 @@
   <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
   <SimilaritySearch>
     <VertexAI>
-      <URL>https://asia-southeast1-aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/asia-southeast1/indexes/3211563513570918400:upsertDatapoints</URL>
+      <URL>https://asia-southeast1-aiplatform.googleapis.com/v1/projects/sgx-totc-apigee/locations/asia-southeast1/indexes/3211563513570918400:upsertDatapoints</URL>
     </VertexAI>
   </SimilaritySearch>
   <TTLInSeconds>600</TTLInSeconds>

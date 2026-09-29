@@ -15,18 +15,18 @@ export const ENVIRONMENTS: Record<string, EnvironmentInfo> = {
     id: 'dev',
     name: 'Dev Gateway',
     proxyPath: '/api/ai-dev',
-    upstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/ai/v1',
+    upstreamUrl: 'https://bap.api.136.81.199.107.nip.io/ai/v1',
     mcpProxyPath: '/api/mcp-dev',
-    mcpUpstreamUrl: 'https://bap.api.maloosatyam.demo.altostrat.com/mcp',
+    mcpUpstreamUrl: 'https://bap.api.136.81.199.107.nip.io/mcp',
     tag: 'Dev',
   },
   prod: {
     id: 'prod',
     name: 'Production Gateway',
     proxyPath: '/api/ai-prod',
-    upstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/ai/v1',
+    upstreamUrl: 'https://api.136.81.199.107.nip.io/ai/v1',
     mcpProxyPath: '/api/mcp-prod',
-    mcpUpstreamUrl: 'https://api.maloosatyam.demo.altostrat.com/mcp',
+    mcpUpstreamUrl: 'https://api.136.81.199.107.nip.io/mcp',
     tag: 'Prod',
   },
   custom: {
@@ -141,7 +141,7 @@ export const createSsoUserFromEmail = (
   };
 };
 
-const defaultInitialEmail = getRuntimeEnv('SSO_USER_EMAIL', 'maloosatyam@google.com');
+const defaultInitialEmail = getRuntimeEnv('SSO_USER_EMAIL', 'admin@yem.altostrat.com');
 export const DEFAULT_SSO_USER: SsoUser = createSsoUserFromEmail(defaultInitialEmail);
 
 // NOTE: `apiKey` is intentionally empty here and is populated at runtime from
@@ -152,7 +152,7 @@ export const USERS: Record<UserPersona, UserInfo> = {
   admin: {
     id: 'admin',
     name: 'Admin User',
-    email: getRuntimeEnv('ADMIN_USER_EMAIL', 'admin.user@google.com'),
+    email: getRuntimeEnv('ADMIN_USER_EMAIL', 'admin@yem.altostrat.com'),
     apiKey: '',
     badge: 'Admin',
   },
@@ -233,7 +233,7 @@ export const DEFAULT_SETTINGS: GatewaySettings = {
   apiKey: USERS.admin.apiKey,
   userEmail: DEFAULT_SSO_USER.email,
   ssoUser: DEFAULT_SSO_USER,
-  projectId: 'bap-apac-demo2',
+  projectId: 'sgx-totc-apigee',
   location: 'global',
   model: 'auto',
   useCache: false,
@@ -259,6 +259,37 @@ export const AVAILABLE_MODELS = [
   { id: 'gemini-3.1-ultra', name: 'gemini-3.1-ultra', tag: 'Restricted (Not Entitled)' },
   { id: 'claude-haiku-4-5@20251001', name: 'claude-haiku-4-5@20251001', tag: 'Rate Limited (50 tok/min)' },
   { id: 'claude-opus-4-5@20251101', name: 'claude-opus-4-5@20251101', tag: 'Claude Opus' },
+  { id: 'deepseek-v4', name: 'deepseek-v4', tag: 'DeepSeek V4 (Vertex SGX Tenancy)' },
+  { id: 'kimi-k3', name: 'kimi-k3', tag: 'Kimi K3 (Vertex SGX Tenancy)' },
+  { id: 'glm-5.3', name: 'glm-5.3', tag: 'GLM 5.3 (Vertex SGX Tenancy)' },
+];
+
+export const CLAUDE_CLI_OVERRIDE_EXAMPLES = [
+  {
+    step: 1,
+    id: 'claude-cli-confirm',
+    title: 'Claude Code CLI: Simple Query on Opus 4.5 (Confirm Switch)',
+    tag: 'Confirm Mode',
+    prompt: 'What is the git command to rename the current local branch?',
+    description:
+      'Developer in Claude Code CLI targets expensive claude-opus-4-5 ($15/$75) for a trivial query. Gateway intercepts and prompts developer to confirm switching to gemini-3.1-flash-lite or deepseek-v4 (99.5% savings).',
+    requestedModel: 'claude-opus-4-5@20251101',
+    suggestedModel: 'gemini-3.1-flash-lite',
+    mode: 'confirm' as const,
+  },
+  {
+    step: 2,
+    id: 'claude-subagent-override',
+    title: 'Claude Code Subagent: Unattended Policy Auto-Override',
+    tag: 'Subagent Override',
+    prompt: 'Write a Python helper function to parse ISO-8601 timestamps into UTC epoch milliseconds.',
+    description:
+      'Claude Code subagent (subagent:code-worker) requests claude-opus-4-5, but Gateway Policy automatically overrides to deepseek-v4 on Vertex SGX Tenancy (98.2% cost savings) without blocking execution.',
+    requestedModel: 'claude-opus-4-5@20251101',
+    suggestedModel: 'deepseek-v4',
+    subagentName: 'subagent:code-worker',
+    mode: 'auto-override' as const,
+  },
 ];
 
 export const AUTO_ROUTING_EXAMPLES = [
@@ -353,14 +384,6 @@ export const UNAUTHORIZED_401_EXAMPLES = [
     prompt:
       'Compare three multi-region failover architectures for a payments platform, model the cost and latency trade-offs of each, and recommend one with a staged migration plan.',
     description: 'A legitimate deep-reasoning request aimed at a model no API Product entitles. Blocked on entitlement, not on content.',
-    // Uses the admin (Enterprise AI Tier) key on purpose: the strongest
-    // credential in the demo still cannot reach a model that is not named in
-    // its product. This keeps the scenario deterministic instead of depending
-    // on the sales key resolving.
-    //
-    // `VA-VerifyAPIKey` runs at PreFlow step 10, ahead of `SUP-UserPrompt`
-    // (Model Armor) at step 11, so the 401 fires on entitlement regardless of
-    // prompt content and cannot be masked by a 400 from the safety filter.
     settingsOverride: { activeUser: 'admin', model: 'gemini-3.1-ultra', useCache: false },
   },
 ];
@@ -394,6 +417,16 @@ export const MODEL_ARMOR_EXAMPLES = [
 
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
+    id: 'claude-cli-override',
+    title: 'Claude Code & Subagent Override',
+    category: 'Routing',
+    description: 'Intercept expensive Claude Code CLI calls (Confirm vs Unattended Subagent Auto-Override to Flash Lite / DeepSeek V4).',
+    prompt: CLAUDE_CLI_OVERRIDE_EXAMPLES[0].prompt,
+    badgeText: 'Confirm / Override',
+    badgeColor: 'amber',
+    settingsOverride: { model: 'claude-opus-4-5@20251101', useCache: false, activeUser: 'admin' },
+  },
+  {
     id: 'unauthorized-toggle',
     title: 'Access Control',
     category: 'Access Control',
@@ -425,11 +458,11 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   },
   {
     id: 'token-limit-toggle',
-    title: 'Tokenomics',
+    title: 'Tokenomics & Quota Request',
     category: 'Tokenomics',
-    description: 'Prevent abuse through granular token limits on every LLM call.',
+    description: 'Enforce person/team token limits (429) with inbuilt requests to increase quota.',
     prompt: TOKEN_LIMIT_EXAMPLES[0].prompt,
-    badgeText: 'Pass → Limit',
+    badgeText: 'Pass → 429 → Increase',
     badgeColor: 'emerald',
     settingsOverride: { model: 'claude-haiku-4-5@20251001', useCache: false, activeUser: 'admin' },
   },

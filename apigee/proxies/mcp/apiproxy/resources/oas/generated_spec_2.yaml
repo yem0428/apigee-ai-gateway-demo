@@ -92,4 +92,4 @@ paths:
                     description: Internal server error.
             summary: Get Discount Price for a Specific Part by Part SKU
 servers:
-    - url: https://api.maloosatyam.demo.altostrat.com
+    - url: https://bap.api.136.81.199.107.nip.io

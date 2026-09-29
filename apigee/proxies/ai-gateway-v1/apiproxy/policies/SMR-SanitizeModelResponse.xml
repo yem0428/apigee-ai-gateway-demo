@@ -3,7 +3,7 @@
   <DisplayName>SMR-SanitizeModelResponse</DisplayName>
   <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
   <ModelArmor>
-    <TemplateName>projects/bap-apac-demo2/locations/asia-southeast1/templates/apigee-sanitize-model-response</TemplateName>
+    <TemplateName>projects/sgx-totc-apigee/locations/asia-southeast1/templates/apigee-sanitize-model-response</TemplateName>
   </ModelArmor>
   <ModelResponseSource>{response.content}</ModelResponseSource>
 </SanitizeModelResponse>

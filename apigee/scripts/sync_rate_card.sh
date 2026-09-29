@@ -67,7 +67,11 @@ if [[ "$DRY_RUN" == "1" ]]; then
   exit 0
 fi
 
-TOKEN="$(gcloud auth print-access-token)"
+TOKEN="$(gcloud auth application-default print-access-token 2>/dev/null || gcloud auth print-access-token)"
+KVM_URL="https://apigee.googleapis.com/v1/organizations/$ORG/environments/$ENVIRONMENT/keyvaluemaps"
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"ai-model-rates","encrypted":false}' "$KVM_URL" >/dev/null || true
+
 BASE="https://apigee.googleapis.com/v1/organizations/$ORG/environments/$ENVIRONMENT/keyvaluemaps/ai-model-rates/entries"
 
 BODY="$(python3 -c 'import json,sys;print(json.dumps({"name":"rate_card","value":sys.argv[1]}))' "$PAYLOAD")"

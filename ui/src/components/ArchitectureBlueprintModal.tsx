@@ -20,9 +20,6 @@ import {
   ShieldAlert,
   Ban,
   Eye,
-  Users,
-  Bot,
-  Globe,
   Cloud,
   Network,
   Building2,
@@ -660,10 +657,10 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               <div className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-300/60 rounded-2xl p-4 sm:p-5">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
                   <Network className="w-4 h-4 text-purple-600" />
-                  One platform, two enforcement points
+                  Unified AI &amp; Tool Governance Plane
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Every consumer — users, apps, agents and external MCP/A2A clients — enters through an <strong>external Apigee layer</strong>. Agents and internal apps then reach models and tools only through the <strong>internal Apigee layer</strong>, where the <strong>AI Gateway</strong> governs reasoning (LLM calls) and the <strong>MCP Gateway</strong> governs action (tool calls). No credentials, model endpoints or backend URLs are ever hardcoded in application or agent code.
+                  Every caller — enterprise users, MCP clients and Cloud Run ADK agents — reaches models and tools exclusively through the <strong>Apigee X Governance Plane</strong>, where the <strong>AI Gateway</strong> governs reasoning (LLM calls) and the <strong>MCP Gateway</strong> governs action (tool calls). No credentials, model endpoints or backend URLs are ever hardcoded in application or agent code.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] text-slate-500 font-semibold">Drill down:</span>
@@ -696,125 +693,60 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                 </div>
               </div>
 
-              {/* Layered Flow Diagram */}
-              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.95fr)_auto_minmax(0,1.05fr)_auto_minmax(0,1.05fr)_auto_minmax(0,1fr)] gap-3 items-stretch">
-                {/* ---------- Column 1: Consumers ---------- */}
-                <div className="flex flex-col">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Consumers</div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-2.5 space-y-2">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                          <Users className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-900 leading-snug">External Users</div>
-                          <div className="text-[10px] text-slate-500 leading-snug">Web &amp; mobile apps</div>
-                        </div>
-                        <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">REST</span>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0">
-                          <Terminal className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-900 leading-snug">External MCP Clients</div>
-                          <div className="text-[10px] text-slate-500 leading-snug">Claude, IDEs, partner agents</div>
-                        </div>
-                        <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">MCP</span>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                          <Bot className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-900 leading-snug">External A2A Clients</div>
-                          <div className="text-[10px] text-slate-500 leading-snug">Partner agent-to-agent</div>
-                        </div>
-                        <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">A2A</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-1.5 mt-1 border-t border-dashed border-slate-300">
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Internal</div>
+              {/* Layered Flow Diagram (3 Columns: Consumers & Agents -> Apigee Governance Plane -> Models & Tools) */}
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.15fr)_auto_minmax(0,1fr)] gap-4 items-stretch">
+                {/* ---------- Column 1: Consumers & Agent Runtime ---------- */}
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Consumers &amp; Agents</div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-2.5 space-y-2">
                       <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                             <Building2 className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-900 leading-snug">Internal Users</div>
-                            <div className="text-[10px] text-slate-500 leading-snug">Gemini Enterprise &amp; business apps</div>
+                            <div className="text-xs font-bold text-slate-900 leading-snug">Enterprise Users &amp; Apps</div>
+                            <div className="text-[10px] text-slate-500 leading-snug">Gemini Enterprise &amp; web apps</div>
                           </div>
+                          <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">SSO / REST</span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0">
+                            <Terminal className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-900 leading-snug">MCP Clients</div>
+                            <div className="text-[10px] text-slate-500 leading-snug">Claude Code, IDEs &amp; AI assistants</div>
+                          </div>
+                          <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">MCP</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="hidden xl:flex items-center justify-center text-slate-300 pt-6">
-                  <ArrowRight className="w-5 h-5" />
-                </div>
-
-                {/* ---------- Column 2: External Layer + Agent Runtime ---------- */}
-                <div className="flex flex-col">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">External Layer</div>
-                  <div className="rounded-2xl border-2 border-blue-500/40 bg-blue-50/50 p-3">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
-                        <Globe className="w-4 h-4" />
+                  <div className="rounded-2xl border-2 border-purple-500/40 bg-purple-50/40 p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0">
+                          <Workflow className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">Agent Runtime</div>
+                          <div className="text-[10px] text-slate-500">Google ADK on Cloud Run</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">Apigee X</div>
-                        <div className="text-[10px] text-slate-500">AuthN/Z, rate limits, threat protection</div>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2 rounded-lg bg-white border border-slate-200 px-2.5 py-1.5">
-                        <code className="text-[11px] font-mono font-bold text-slate-800">/rest-api/v1</code>
-                        <span className="text-[9px] text-slate-400">→ rest backend</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 rounded-lg bg-white border border-cyan-200 px-2.5 py-1.5">
-                        <code className="text-[11px] font-mono font-bold text-cyan-700">/mcp</code>
-                        <span className="text-[9px] text-slate-400">→ mcp backend</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 rounded-lg bg-white border border-purple-200 px-2.5 py-1.5">
-                        <code className="text-[11px] font-mono font-bold text-purple-700">/a2a</code>
-                        <span className="text-[9px] text-slate-400">→ agent runtime</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="hidden xl:flex justify-center py-1.5 text-slate-300">
-                    <ArrowRight className="w-4 h-4 rotate-90" />
-                  </div>
-
-                  <div className="rounded-2xl border-2 border-purple-500/40 bg-purple-50/40 p-3 mt-3 xl:mt-0 flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0">
-                        <Workflow className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">Agent Runtime</div>
-                        <div className="text-[10px] text-slate-500">Google ADK on Cloud Run</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5 mb-2">
-                      <div className="rounded-lg bg-white border border-emerald-200 px-2 py-1.5 text-[11px] font-semibold text-emerald-800 text-center">
-                        Agent 1
-                      </div>
-                      <div className="rounded-lg bg-white border border-emerald-200 px-2 py-1.5 text-[11px] font-semibold text-emerald-800 text-center">
-                        Agent 2
+                      <div className="mb-2">
+                        <div className="rounded-lg bg-white border border-emerald-200 px-3 py-2 text-[11px] font-semibold text-emerald-800 text-center">
+                          ADK Agent
+                        </div>
                       </div>
                     </div>
                     <div className="text-[10px] text-slate-500 leading-snug">
-                      Agents hold <strong>persona-scoped API keys only</strong> — every model call and every tool call exits to the internal layer.
+                      The agent holds a <strong>persona-scoped API key only</strong> — every model call and every tool call exits through Apigee X.
                     </div>
                   </div>
                 </div>
@@ -823,9 +755,9 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   <ArrowRight className="w-5 h-5" />
                 </div>
 
-                {/* ---------- Column 3: Internal Layer (governance plane) ---------- */}
+                {/* ---------- Column 2: Apigee X Governance Plane ---------- */}
                 <div className="flex flex-col">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-2">Internal Layer</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-2">Governance Layer</div>
                   <div className="flex-1 rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/40 p-3 flex flex-col">
                     <div className="flex items-center gap-2 mb-2.5">
                       <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">

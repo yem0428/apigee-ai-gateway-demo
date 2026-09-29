@@ -214,9 +214,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   // Active consumption records based on Admin Fleet vs Personal User viewMode and userFilter
   const activeConsumptionRecords: UserConsumptionRecord[] = useMemo(() => {
     if (viewMode === 'user') {
-      return allConsumptionRecords.filter(
+      const direct = allConsumptionRecords.filter(
         (r) => r.userEmail.toLowerCase() === currentUserEmail.toLowerCase()
       );
+      if (direct.length > 0) return direct;
+      return allConsumptionRecords
+        .filter((r) => r.userEmail.toLowerCase() === 'admin@yem.altostrat.com')
+        .map((r) => ({ ...r, userEmail: currentUserEmail }));
     }
     if (userFilter && userFilter !== 'all') {
       return allConsumptionRecords.filter(
@@ -334,7 +338,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
     if (fleetData?.userCacheStats) {
       targetEmails.forEach((email) => {
-        const stat = fleetData.userCacheStats?.[email];
+        const stat =
+          fleetData.userCacheStats?.[email] ||
+          (viewMode === 'user' ? fleetData.userCacheStats?.['admin@yem.altostrat.com'] : undefined);
         if (stat) {
           userHits += stat.hits || 0;
           userMisses += stat.misses || 0;
@@ -436,6 +442,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       'gemini-3.8-flash': { color: '#c2410c', badge: 'F8' },         // Orange-700
       'gemini-3.1-pro-preview': { color: '#4f46e5', badge: 'Pr' },   // Indigo
       'gemini-2.5-pro': { color: '#6366f1', badge: 'P2' },          // Indigo-500
+      'deepseek-v4': { color: '#0891b2', badge: 'DS' },             // Cyan-600
+      'kimi-k3': { color: '#d97706', badge: 'KK' },                 // Amber-600
+      'glm-5.3': { color: '#16a34a', badge: 'GL' },                 // Green-600
+      'llama-4-maverick': { color: '#2563eb', badge: 'L4' },        // Blue-600
+      'qwen-3-235b': { color: '#7c3aed', badge: 'QW' },             // Violet-600
       'unknown-model': { color: '#94a3b8', badge: 'BL' },           // Slate-400 (Blocked / Unrouted)
     };
 

@@ -322,7 +322,7 @@ export const ModelRateCardView: React.FC<ModelRateCardViewProps> = ({ currentEnv
               KVM Scope
             </div>
             <div className="text-sm font-bold text-slate-100 font-mono">
-              bap-apac-demo2 / {env}
+              sgx-totc-apigee / {env}
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
               Map: <span className="font-mono text-slate-300">ai-model-rates</span> • Entry: <span className="font-mono text-slate-300">rate_card</span>

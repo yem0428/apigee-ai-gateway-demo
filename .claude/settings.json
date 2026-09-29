@@ -1,0 +1,20 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://apigee-ai-gateway-ui-142670223749.asia-southeast1.run.app/api/claude-code",
+    "ANTHROPIC_MODEL": "claude-opus-4-5@20251101",
+    "SGX_APIGEE_TENANCY": "sgx-totc-apigee (asia-southeast1)"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/apigee_cost_guardrail.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

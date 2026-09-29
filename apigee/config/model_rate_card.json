@@ -70,6 +70,24 @@
     "provider": "anthropic",
     "tier": "high"
   },
+  "deepseek-v4": {
+    "input": 0.27,
+    "output": 1.10,
+    "provider": "vertex-oss",
+    "tier": "low"
+  },
+  "kimi-k3": {
+    "input": 0.40,
+    "output": 1.60,
+    "provider": "vertex-oss",
+    "tier": "medium"
+  },
+  "glm-5.3": {
+    "input": 0.25,
+    "output": 1.00,
+    "provider": "vertex-oss",
+    "tier": "low"
+  },
   "default": {
     "input": 0.15,
     "output": 0.6,

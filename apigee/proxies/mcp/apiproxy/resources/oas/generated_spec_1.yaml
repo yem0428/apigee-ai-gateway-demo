@@ -429,7 +429,7 @@ paths:
             tags:
                 - Loan Applications
 servers:
-    - url: https://api.maloosatyam.demo.altostrat.com
+    - url: https://bap.api.136.81.199.107.nip.io
 tags:
     - description: Operations related to managing loan applications.
       name: Loan Applications

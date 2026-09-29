@@ -5,12 +5,12 @@
   <UserPromptSource>{flow.userPrompt}</UserPromptSource>
   <Embeddings>
     <VertexAI>
-      <URL>https://asia-southeast1-aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/asia-southeast1/publishers/google/models/text-embedding-004:predict</URL>
+      <URL>https://asia-southeast1-aiplatform.googleapis.com/v1/projects/sgx-totc-apigee/locations/asia-southeast1/publishers/google/models/text-embedding-004:predict</URL>
     </VertexAI>
   </Embeddings>
   <SimilaritySearch>
     <VertexAI>
-      <URL>https://1573705641.asia-southeast1-1058667481809.vdb.vertexai.goog/v1/projects/bap-apac-demo2/locations/asia-southeast1/indexEndpoints/3889166141490200576:findNeighbors</URL>
+      <URL>https://1573705641.asia-southeast1-1058667481809.vdb.vertexai.goog/v1/projects/sgx-totc-apigee/locations/asia-southeast1/indexEndpoints/3889166141490200576:findNeighbors</URL>
       <DeployedIndexID>semantic_cache</DeployedIndexID>
       <Threshold>0.95</Threshold>
     </VertexAI>

@@ -177,6 +177,57 @@
           "interval": "1",
           "timeUnit": "minute"
         }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/deepseek-v4:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "deepseek-v4"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/kimi-k3:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "kimi-k3"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
+      },
+      {
+        "apiSource": "ai-gateway-v1",
+        "llmOperations": [
+          {
+            "resource": "/models/glm-5.3:*",
+            "methods": [
+              "POST"
+            ],
+            "model": "glm-5.3"
+          }
+        ],
+        "llmTokenQuota": {
+          "limit": "10000",
+          "interval": "1",
+          "timeUnit": "minute"
+        }
       }
     ]
   }

@@ -43,6 +43,10 @@ export interface GatewaySettings {
   model: string;
   useCache: boolean;
   omitEmailHeader?: boolean;
+  clientSource?: string;
+  subagentName?: string;
+  overrideMode?: 'auto-override' | 'confirmed-switch' | 'confirmed-keep';
+  originalRequestedModel?: string;
 }
 
 export interface GatewayTelemetry {
@@ -56,6 +60,11 @@ export interface GatewayTelemetry {
   model?: string;
   requestedModel?: string;
   autoRouted?: boolean;
+  overrideApplied?: boolean;
+  overrideReason?: string;
+  clientSource?: string;
+  subagentName?: string;
+  vertexTenancy?: string;
   environment: GatewayEnvironment;
   user?: string;
   userEmail?: string;

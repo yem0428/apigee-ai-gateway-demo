@@ -83,6 +83,13 @@ const ModelProviderIcon = ({ model }: { model: string }) => {
       </div>
     );
   }
+  if (model.startsWith('deepseek') || model.startsWith('kimi') || model.startsWith('glm') || model.startsWith('llama') || model.startsWith('qwen')) {
+    return (
+      <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-2xs shrink-0 font-mono text-[10px] font-bold" title="Vertex AI Model Garden (SGX Dedicated Tenancy)">
+        OSS
+      </div>
+    );
+  }
   return (
     <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs shrink-0" title="LLM">
       <Cpu className="w-4 h-4 text-slate-600" />
@@ -91,6 +98,11 @@ const ModelProviderIcon = ({ model }: { model: string }) => {
 };
 
 const CATALOG_MODELS = [
+  { id: 'deepseek-v4', name: 'DeepSeek V4+ (Vertex SGX Tenancy)', provider: 'deepseek', desc: 'Open-Weight Reasoning & Coding via Vertex Model Garden (SGX Dedicated Tenancy)' },
+  { id: 'kimi-k3', name: 'Kimi K3 (Vertex SGX Tenancy)', provider: 'moonshot-vertex', desc: 'Ultra-Long Context 2M Window via Vertex Model Garden (SGX Dedicated Tenancy)' },
+  { id: 'glm-5.3', name: 'GLM 5.3 (Vertex SGX Tenancy)', provider: 'zhipu-vertex', desc: 'Bilingual Enterprise Agentic Model via Vertex Model Garden (SGX Dedicated Tenancy)' },
+  { id: 'llama-4-maverick', name: 'Llama 4 Maverick (Vertex SGX Tenancy)', provider: 'meta-vertex', desc: 'Meta Open-Weight Multimodal MoE on Vertex AI Model Garden' },
+  { id: 'qwen-3-235b', name: 'Qwen 3 235B (Vertex SGX Tenancy)', provider: 'qwen-vertex', desc: 'Alibaba Qwen 3 235B Coding & Math Specialist on Vertex AI Model Garden' },
   { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', provider: 'google', desc: 'Ultra-low latency, cost-effective' },
   { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', provider: 'google', desc: 'Flagship fast multimodal reasoning' },
   { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', provider: 'google', desc: 'Frontier reasoning & advanced coding' },
@@ -98,8 +110,6 @@ const CATALOG_MODELS = [
   { id: 'claude-opus-4-5@20251101', name: 'Claude 4.5 Opus', provider: 'anthropic', desc: 'Anthropic flagship reasoning model' },
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', provider: 'google', desc: 'Hybrid reasoning model' },
   { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', provider: 'google', desc: 'Next-gen flash model' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'google', desc: 'Stable legacy flash model' },
-  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'google', desc: 'Stable legacy pro model' },
 ];
 
 interface MonetizationManagerProps {
@@ -402,15 +412,15 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
   const [ratesLoading, setRatesLoading] = useState(false);
   const [ratesSaving, setRatesSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterProvider, setFilterProvider] = useState<'all' | 'google' | 'anthropic'>('all');
+  const [filterProvider, setFilterProvider] = useState<'all' | 'google' | 'anthropic' | 'open-weight'>('all');
 
   // Add Model Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [newModelId, setNewModelId] = useState('');
-  const [newProvider, setNewProvider] = useState<'google' | 'anthropic'>('google');
+  const [newProvider, setNewProvider] = useState<'google' | 'anthropic' | 'deepseek' | 'moonshot-vertex' | 'zhipu-vertex' | 'meta-vertex' | 'qwen-vertex'>('deepseek');
   const [newTier, setNewTier] = useState<'low' | 'medium' | 'high'>('medium');
-  const [newInputRate, setNewInputRate] = useState('0.15');
-  const [newOutputRate, setNewOutputRate] = useState('0.60');
+  const [newInputRate, setNewInputRate] = useState('0.27');
+  const [newOutputRate, setNewOutputRate] = useState('1.10');
 
   // Interactive Calculator State
   const [calcModel, setCalcModel] = useState<string>('gemini-3-flash-preview');
@@ -673,17 +683,53 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
     setShowAddModal(false);
     setNewModelId('');
-    setNewInputRate('0.15');
-    setNewOutputRate('0.60');
+    setNewInputRate('0.27');
+    setNewOutputRate('1.10');
+  };
+
+  const handleQuickOnboardModelGarden = async (
+    modelId: string,
+    provider: string,
+    tier: 'low' | 'medium' | 'high',
+    inputRate: number,
+    outputRate: number
+  ) => {
+    const nextRates = {
+      ...rates,
+      [modelId]: {
+        input: inputRate,
+        output: outputRate,
+        provider,
+        tier,
+      },
+    };
+    setRates(nextRates);
+    handleAddProductModel(modelId, { limit: '50000', interval: '1', timeUnit: 'minute' });
+    setRatesSaving(true);
+    try {
+      await updateModelRates(env, nextRates);
+      setInitialRates(JSON.parse(JSON.stringify(nextRates)));
+      setSuccessMessage(
+        `Onboarded ${modelId} from Vertex AI Model Garden (SGX Dedicated Tenancy • asia-southeast1) to KVM Rate Card & Enterprise AI Tier!`
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync rate card');
+    } finally {
+      setRatesSaving(false);
+    }
   };
 
   // Filtered Model Rates
   const filteredModels = useMemo(() => {
     return Object.entries(rates).filter(([id, data]) => {
       const matchesSearch = id.toLowerCase().includes(searchQuery.toLowerCase());
+      const prov = (data.provider || '').toLowerCase();
       const matchesProvider =
         filterProvider === 'all' ||
-        (data.provider && data.provider.toLowerCase() === filterProvider.toLowerCase());
+        (filterProvider === 'open-weight'
+          ? prov !== 'google' && prov !== 'anthropic'
+          : prov === filterProvider.toLowerCase());
       return matchesSearch && matchesProvider;
     });
   }, [rates, searchQuery, filterProvider]);
@@ -1370,7 +1416,15 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                           className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-xs text-slate-700 transition cursor-pointer shadow-2xs"
                           title={cat.desc}
                         >
-                          {cat.provider === 'google' ? <GoogleLogo className="w-3.5 h-3.5 shrink-0" /> : <AnthropicLogo className="w-3.5 h-3.5 shrink-0" />}
+                          {cat.provider === 'google' ? (
+                            <GoogleLogo className="w-3.5 h-3.5 shrink-0" />
+                          ) : cat.provider === 'anthropic' ? (
+                            <AnthropicLogo className="w-3.5 h-3.5 shrink-0" />
+                          ) : (
+                            <span className="text-[9px] font-mono font-bold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              OSS
+                            </span>
+                          )}
                           <span className="font-semibold">{cat.name}</span>
                           <Plus className="w-3 h-3 ml-0.5 text-slate-400" />
                         </button>
@@ -1383,7 +1437,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                         type="text"
                         value={customModelInput}
                         onChange={(e) => setCustomModelInput(e.target.value)}
-                        placeholder="Custom Model ID (e.g. meta/llama-3.3-70b or mistral-large)..."
+                        placeholder="Custom Model ID from Vertex Model Garden (e.g. deepseek-v4, kimi-k3, glm-5.3, llama-4-maverick)..."
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <button
@@ -1395,6 +1449,53 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                         <Plus className="w-3 h-3" />
                         <span>Add Model</span>
                       </button>
+                    </div>
+                  </div>
+
+                  {/* SGX Quotas by Person / by Team & Self-Service Quota Increase Governance */}
+                  <div className="pt-3 border-t border-slate-200 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-indigo-600" />
+                        <span className="text-xs font-bold text-slate-900">
+                          SGX Quotas by Person & by Team (with Inbuilt Self-Service Quota Increase)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
+                        Identifier: x-user-email / x-team-id
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800">👤 Person Quota (SSO Caller)</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">Per-User</span>
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-600">{defaultEmail}</div>
+                        <div className="text-[10px] text-slate-500">
+                          Enforces individual token/min & monthly spend limits for Claude Code CLI & workbench sessions.
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800">👥 Team Quota Pool</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">Per-Team</span>
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-600">SGX Quantitative Engineering</div>
+                        <div className="text-[10px] text-slate-500">
+                          Shared 250,000 tok/min pool across team developers and unattended background subagents.
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-amber-900">⚡ Inbuilt Quota Increase</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">Live Flow</span>
+                        </div>
+                        <div className="text-[11px] font-mono text-amber-800">POST /api/quotas/request-increase</div>
+                        <div className="text-[10px] text-amber-900/80">
+                          When a developer hits HTTP 429 in Playground or Claude Code CLI, they can request an immediate Person/Team quota elevation in 1 click.
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2053,6 +2154,84 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
         {/* SUB-TAB 2: KVM MODEL RATE CARDS */}
         {activeSubTab === 'rate-cards' && (
           <div className="space-y-6">
+            {/* Vertex AI Model Garden (SGX Dedicated Tenancy) 1-Click Onboarding Banner */}
+            <div className="p-4 rounded-2xl border-2 border-emerald-200 bg-gradient-to-r from-emerald-50/90 via-white to-indigo-50/70 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-mono text-[10px] font-bold uppercase">
+                      Vertex AI Model Garden
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-200 font-mono text-[10px] font-semibold">
+                      SGX Dedicated Tenancy (asia-southeast1)
+                    </span>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      1-Click Open-Source / Open-Weight Model Onboarding
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Deploy and register open-weight models hosted on Vertex AI Model Garden with SGX dedicated VPC/tenancy directly into the Apigee KVM Rate Card (<code className="font-mono text-slate-800">ai-model-rates</code>) and <code className="font-mono text-slate-800">Enterprise AI Tier</code> product.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
+                {[
+                  { id: 'deepseek-v4', title: 'DeepSeek V4+', vendor: 'DeepSeek (Vertex SGX)', provider: 'deepseek', tier: 'medium' as const, inRate: 0.27, outRate: 1.10, desc: 'Frontier open-weight coding & reasoning' },
+                  { id: 'kimi-k3', title: 'Kimi K3', vendor: 'Moonshot AI (Vertex SGX)', provider: 'moonshot-vertex', tier: 'medium' as const, inRate: 0.30, outRate: 1.20, desc: '2M ultra-long context analysis' },
+                  { id: 'glm-5.3', title: 'GLM 5.3', vendor: 'Zhipu AI (Vertex SGX)', provider: 'zhipu-vertex', tier: 'low' as const, inRate: 0.20, outRate: 0.80, desc: 'Fast bilingual enterprise agentic tool-use' },
+                  { id: 'llama-4-maverick', title: 'Llama 4 Maverick', vendor: 'Meta (Vertex SGX)', provider: 'meta-vertex', tier: 'medium' as const, inRate: 0.25, outRate: 0.90, desc: 'Open-weight multimodal MoE' },
+                  { id: 'qwen-3-235b', title: 'Qwen 3 235B', vendor: 'Alibaba Qwen (Vertex SGX)', provider: 'qwen-vertex', tier: 'medium' as const, inRate: 0.22, outRate: 0.88, desc: '235B MoE coding & quantitative math' },
+                ].map((m) => {
+                  const isOnboarded = Boolean(rates[m.id]);
+                  return (
+                    <div
+                      key={m.id}
+                      className={`p-3 rounded-xl border flex flex-col justify-between gap-2 transition ${
+                        isOnboarded
+                          ? 'bg-white border-emerald-300 shadow-2xs'
+                          : 'bg-white/80 border-slate-200 hover:border-emerald-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold text-xs text-slate-900">{m.title}</span>
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            ${m.inRate}/${m.outRate}
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-mono text-emerald-700 font-semibold mt-0.5">{m.id}</div>
+                        <div className="text-[10px] text-slate-500 mt-1 leading-snug">{m.desc}</div>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={ratesSaving}
+                        onClick={() => handleQuickOnboardModelGarden(m.id, m.provider, m.tier, m.inRate, m.outRate)}
+                        className={`w-full py-1.5 px-2 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                          isOnboarded
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs'
+                        }`}
+                      >
+                        {isOnboarded ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            <span>Active on SGX Tenancy (Re-Sync)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3 h-3" />
+                            <span>1-Click Onboard to Gateway</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
               <div className="relative flex-1 w-full">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -2060,7 +2239,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter by model ID (e.g., gemini-3.1, claude-opus, flash)..."
+                  placeholder="Filter by model ID (e.g., deepseek-v4, kimi-k3, glm-5.3, gemini-3.1, claude-opus)..."
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
                 />
               </div>
@@ -2096,6 +2275,15 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                     <AnthropicLogo className="w-3.5 h-3.5" />
                     <span>Anthropic</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterProvider('open-weight')}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
+                      filterProvider === 'open-weight' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>Vertex Model Garden (SGX OSS)</span>
+                  </button>
                 </div>
 
                 {hasRateChanges && (
@@ -2116,7 +2304,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Add Model</span>
+                  <span>Add Custom Model</span>
                 </button>
 
                 <button
@@ -2187,10 +2375,14 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                                   <AnthropicLogo className="w-3 h-3" />
                                   <span>Anthropic Vertex</span>
                                 </span>
-                              ) : (
+                              ) : item.provider === 'google' ? (
                                 <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
                                   <GoogleLogo className="w-3 h-3" />
                                   <span>Google Gemini</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                  <span>🌱 {item.provider} (Vertex SGX Tenancy)</span>
                                 </span>
                               )}
                             </td>
@@ -2609,7 +2801,7 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g., gemini-3.1-pro-preview, claude-opus-4-5@20251101"
+                  placeholder="e.g., deepseek-v4, kimi-k3, glm-5.3, llama-4-maverick, qwen-3-235b"
                   value={newModelId}
                   onChange={(e) => setNewModelId(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-xs"
@@ -2618,12 +2810,17 @@ export const MonetizationManager: React.FC<MonetizationManagerProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Provider</label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Provider (Vertex / SGX Tenancy)</label>
                   <select
                     value={newProvider}
                     onChange={(e) => setNewProvider(e.target.value as any)}
                     className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer shadow-xs"
                   >
+                    <option value="deepseek">DeepSeek (Vertex SGX Tenancy)</option>
+                    <option value="moonshot-vertex">Moonshot Kimi (Vertex SGX Tenancy)</option>
+                    <option value="zhipu-vertex">Zhipu GLM (Vertex SGX Tenancy)</option>
+                    <option value="meta-vertex">Meta Llama (Vertex SGX Tenancy)</option>
+                    <option value="qwen-vertex">Alibaba Qwen (Vertex SGX Tenancy)</option>
                     <option value="google">Google Gemini</option>
                     <option value="anthropic">Anthropic Vertex</option>
                   </select>

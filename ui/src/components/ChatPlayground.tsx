@@ -3,8 +3,8 @@ import { ChatMessage, GatewaySettings, GatewayTelemetry, ScenarioPreset, PromptT
 import { sendPromptToApigee, getGatewayTargetUrl } from '../services/apigeeClient';
 import { TourActionId } from '../services/tourSteps';
 import { GatewayTraceViewer } from './GatewayTraceViewer';
-import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES, MODEL_ARMOR_EXAMPLES } from '../services/defaultSettings';
-import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap, Workflow } from 'lucide-react';
+import { SCENARIO_PRESETS, USERS, getUserInfo, DEFAULT_SSO_USER, AUTO_ROUTING_EXAMPLES, CACHE_EXAMPLES, TOKEN_LIMIT_EXAMPLES, UNAUTHORIZED_401_EXAMPLES, MODEL_ARMOR_EXAMPLES, CLAUDE_CLI_OVERRIDE_EXAMPLES } from '../services/defaultSettings';
+import { Send, Bot, User, ShieldAlert, Activity, Sparkles, Shield, Database, Globe, RotateCcw, Zap, Workflow, Terminal } from 'lucide-react';
 import { ApigeeColorSymbol } from './ApigeeLogo';
 
 interface ChatPlaygroundProps {
@@ -48,6 +48,18 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const [tokenStep, setTokenStep] = useState<0 | 1>(0);
   const [authStep, setAuthStep] = useState<0 | 1>(0);
   const [armorStep, setArmorStep] = useState<0 | 1 | 2>(0);
+  const [claudeStep, setClaudeStep] = useState<0 | 1>(0);
+  const [pendingConfirmIntercept, setPendingConfirmIntercept] = useState<{
+    prompt: string;
+    requestedModel: string;
+    clientSource: string;
+  } | null>(null);
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
+  const [quotaScope, setQuotaScope] = useState<'Person' | 'Team'>('Team');
+  const [quotaNewTokens, setQuotaNewTokens] = useState(10000);
+  const [quotaReason, setQuotaReason] = useState('Unattended subagent sprint & high-frequency analysis');
+  const [quotaSubmitting, setQuotaSubmitting] = useState(false);
+  const [quotaSuccessMsg, setQuotaSuccessMsg] = useState<string | null>(null);
   const [activeSendingUrl, setActiveSendingUrl] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +69,8 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
   const handleReset = () => {
     setInputText('');
+    setPendingConfirmIntercept(null);
+    setQuotaSuccessMsg(null);
     if (onResetChat) {
       onResetChat();
     }
@@ -167,7 +181,25 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
-    let settingsToUse = { ...settings, omitEmailHeader: false };
+    const trimmed = inputText.trim();
+    // If developer manually targets claude-opus-4-5@20251101 with a short/simple query, trigger the Claude Code CLI Confirm Intercept
+    if (settings.model === 'claude-opus-4-5@20251101' && trimmed.length < 75 && !pendingConfirmIntercept) {
+      setPendingConfirmIntercept({
+        prompt: trimmed,
+        requestedModel: 'claude-opus-4-5@20251101',
+        clientSource: 'claude-code-cli',
+      });
+      setInputText('');
+      return;
+    }
+    let settingsToUse: GatewaySettings = {
+      ...settings,
+      omitEmailHeader: false,
+      clientSource: undefined,
+      subagentName: undefined,
+      overrideMode: undefined,
+      originalRequestedModel: undefined,
+    };
     if (settings.model === 'auto' && settings.activeUser !== 'admin') {
       settingsToUse = {
         ...settingsToUse,
@@ -179,7 +211,116 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     if (settings.omitEmailHeader) {
       setSettings((prev) => ({ ...prev, omitEmailHeader: false }));
     }
-    handleExecute(inputText, settingsToUse);
+    handleExecute(trimmed, settingsToUse);
+  };
+
+  const handleClaudeStep = (step: 0 | 1, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setClaudeStep(step);
+    const example = CLAUDE_CLI_OVERRIDE_EXAMPLES[step];
+    if (step === 0) {
+      // Step 0: Interactive Developer Confirmation Mode in Claude Code CLI
+      setSettings((prev) => ({
+        ...prev,
+        activeUser: 'admin',
+        keyTier: 'admin',
+        apiKey: USERS.admin.apiKey,
+        model: 'claude-opus-4-5@20251101',
+        useCache: false,
+        omitEmailHeader: false,
+      }));
+      setPendingConfirmIntercept({
+        prompt: example.prompt,
+        requestedModel: example.requestedModel,
+        clientSource: 'claude-code-cli (Interactive Developer Session)',
+      });
+      return;
+    }
+
+    // Step 1: Unattended Claude Code Subagent Policy Auto-Override
+    setPendingConfirmIntercept(null);
+    const effectiveSettings: GatewaySettings = {
+      ...settings,
+      activeUser: 'admin',
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
+      model: example.requestedModel,
+      useCache: false,
+      omitEmailHeader: false,
+      clientSource: 'claude-code-cli',
+      subagentName: example.subagentName || 'subagent:code-worker',
+      overrideMode: 'auto-override',
+      originalRequestedModel: example.requestedModel,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      activeUser: 'admin',
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
+      model: example.requestedModel,
+      useCache: false,
+      omitEmailHeader: false,
+    }));
+    handleExecute(example.prompt, effectiveSettings);
+  };
+
+  const handleConfirmInterceptDecision = (chosenModel: string, mode: 'confirmed-switch' | 'confirmed-keep') => {
+    if (!pendingConfirmIntercept) return;
+    const { prompt, requestedModel } = pendingConfirmIntercept;
+    setPendingConfirmIntercept(null);
+    const effectiveSettings: GatewaySettings = {
+      ...settings,
+      activeUser: 'admin',
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
+      model: chosenModel,
+      useCache: false,
+      omitEmailHeader: false,
+      clientSource: 'claude-code-cli',
+      overrideMode: mode,
+      originalRequestedModel: requestedModel,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      activeUser: 'admin',
+      keyTier: 'admin',
+      apiKey: USERS.admin.apiKey,
+      model: chosenModel,
+      useCache: false,
+      omitEmailHeader: false,
+    }));
+    handleExecute(prompt, effectiveSettings);
+  };
+
+  const handleSubmitQuotaIncrease = async () => {
+    setQuotaSubmitting(true);
+    const teamLabel = 'SGX Quantitative Engineering';
+    try {
+      const res = await fetch('/api/quotas/request-increase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scope: quotaScope,
+          requester: settings.ssoUser?.email || settings.userEmail || DEFAULT_SSO_USER.email,
+          team: teamLabel,
+          model: 'claude-haiku-4-5@20251001',
+          requestedTokensPerMin: quotaNewTokens,
+          requestedBudgetUsd: 500,
+          reason: quotaReason,
+          autoApprove: true,
+        }),
+      });
+      if (res.ok) {
+        setShowQuotaModal(false);
+        setQuotaSuccessMsg(
+          `Quota Increase Approved (${quotaScope}: ${quotaScope === 'Team' ? teamLabel : (settings.ssoUser?.email || DEFAULT_SSO_USER.email)}) — Limit raised from 50 to ${quotaNewTokens.toLocaleString()} tokens/min on claude-haiku-4-5@20251001! Re-run the prompt to verify 200 OK.`
+        );
+      }
+    } catch {
+      // Ignore network error
+    } finally {
+      setQuotaSubmitting(false);
+    }
   };
 
   const handleSelectSample = (preset: ScenarioPreset) => {
@@ -209,10 +350,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
           ...persistentOverrides,
           ...(preset.settingsOverride?.activeUser
             ? {
-                // Must not fall back to prev.apiKey: that is the previously
-                // active persona's key (admin at session start), which would
-                // silently escalate this scenario's privileges. Empty is
-                // correct here; apigeeClient re-resolves from /api/me.
                 apiKey: USERS[preset.settingsOverride.activeUser]?.apiKey || '',
               }
             : {}),
@@ -228,9 +365,21 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     handleExecute(preset.prompt, effectiveSettings);
   };
 
-  // 6 preset scenarios in strictly requested sequence:
-  // 1. Identity check, 2. Unauthorized model, 3. Model Armor, 4. Auto, 5. Semantic cache, 6. No cache
   const sampleChips = [
+    {
+      label:
+        claudeStep === 0
+          ? '🤖 Claude Code: Confirm Switch (1/2)'
+          : '🤖 Claude Subagent: Auto-Override (2/2)',
+      promptId: 'claude-cli-override',
+      title:
+        claudeStep === 0
+          ? 'Step 1 (Developer Confirm Mode): Simple query on expensive Claude Opus 4.5 -> Gateway asks developer to confirm switching to Flash Lite or DeepSeek V4 (99.5% savings)'
+          : 'Step 2 (Unattended Subagent Mode): Claude Code subagent requests Opus 4.5 -> Gateway Policy automatically overrides to DeepSeek V4 on Vertex SGX Tenancy',
+      color: 'hover:border-amber-500 hover:text-amber-600',
+      icon: Terminal,
+      iconColor: 'text-amber-500',
+    },
     {
       label:
         authStep === 0
@@ -290,7 +439,7 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
       title:
         tokenStep === 0
           ? 'Step 1: Request consuming ~90 tokens within product quota limit (HTTP 200 OK)'
-          : 'Step 2: Request exceeding product quota limit (HTTP 429 Rate Limit Interception)',
+          : 'Step 2: Request exceeding product quota limit (HTTP 429 Rate Limit Interception + Inbuilt Quota Increase Request)',
       color:
         tokenStep === 0
           ? 'hover:border-emerald-500 hover:text-emerald-500'
@@ -342,11 +491,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
     if (e) e.stopPropagation();
     setArmorStep(step);
     const example = MODEL_ARMOR_EXAMPLES[step];
-    // Model Armor runs on the request PreFlow, before any routing decision, so
-    // the block is identical on every model. Pinning /auto demonstrates it on
-    // the endpoint real traffic actually uses, and keeps the scenario from
-    // inheriting whatever model the previous demo step happened to leave
-    // selected (a rate-limited Claude, say, which would muddy the 400 with a 429).
     const effectiveSettings: GatewaySettings = {
       ...settings,
       model: 'auto',
@@ -434,6 +578,12 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
   };
 
   const handleChipClick = async (chip: (typeof sampleChips)[0]) => {
+    if (chip.promptId === 'claude-cli-override') {
+      const nextStep = claudeStep;
+      handleClaudeStep(nextStep);
+      setClaudeStep(nextStep === 0 ? 1 : 0);
+      return;
+    }
     if (chip.promptId === 'model-armor-toggle') {
       const nextStep = armorStep;
       handleArmorStep(nextStep);
@@ -721,6 +871,33 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                         </div>
                       )}
 
+                      {chip.promptId === 'claude-cli-override' && (
+                        <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 w-full">
+                          <button
+                            type="button"
+                            onClick={(e) => handleClaudeStep(0, e)}
+                            className={`w-full text-center text-[8.5px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
+                              claudeStep === 0
+                                ? 'bg-indigo-500/20 text-indigo-600 font-bold border border-indigo-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            1. Dev Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleClaudeStep(1, e)}
+                            className={`w-full text-center text-[8.5px] px-1 py-0.5 rounded font-mono transition cursor-pointer whitespace-nowrap ${
+                              claudeStep === 1
+                                ? 'bg-indigo-500/20 text-indigo-600 font-bold border border-indigo-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                            }`}
+                          >
+                            2. Subagent Override
+                          </button>
+                        </div>
+                      )}
+
                       {chip.promptId === 'cache-toggle' && (
                         <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 w-full">
                           <button
@@ -798,18 +975,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                 </div>
               )}
 
-              {/*
-                Agent responses that carry telemetry are selectable: clicking one loads that
-                call into the inspector on the right. This is how you look back at an earlier
-                call without re-running it, and it is what makes the "what changed" hints
-                below reachable for every call rather than only the most recent one.
-
-                The bubble stays a div, not a button, even though it is clickable: it
-                already contains a real button ("Request Flow"), and nesting interactive
-                content inside a button is invalid HTML and breaks it for assistive tech.
-                Keyboard and screen-reader users get the explicit "Telemetry" button in the
-                footer row instead, which does exactly the same thing.
-              */}
               {(() => {
                 const selectable = msg.sender === 'agent' && !!msg.telemetry;
                 const isSelected = selectable && msg.id === selectedMessageId;
@@ -829,6 +994,24 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                   <>
                     <div className="whitespace-pre-wrap">{msg.text}</div>
 
+                    {/* Inline Quota Increase Action on 429 Exceeded Bubbles */}
+                    {msg.telemetry?.status === 429 && (
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="text-[11px] text-amber-900 font-sans">
+                          <span className="font-bold">SGX Self-Service Quota Governance:</span> Need a higher token limit for your Person / Team?
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowQuotaModal(true);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-sans font-bold text-[11px] transition cursor-pointer shadow-2xs"
+                        >
+                          ⚡ Request Quota Increase (Person / Team)
+                        </button>
+                      </div>
+                    )}
 
                 {/* Inline Telemetry & Target URL Badge on Agent Messages */}
                 <div className="mt-2 pt-1.5 border-t border-slate-100 space-y-1 text-[10px] text-slate-500 font-mono">
@@ -843,11 +1026,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                       </div>
                       {msg.telemetry && (
                         <div className="flex items-center gap-1 shrink-0">
-                          {/*
-                            The keyboard path to what clicking the bubble does. Hidden from
-                            the accessibility tree would be wrong here - this is the only
-                            way to reach an earlier call's telemetry without a mouse.
-                          */}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -855,18 +1033,11 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                               setActiveTelemetry(msg.telemetry!);
                             }}
                             aria-pressed={msg.id === selectedMessageId}
-                            /*
-                              Do NOT reach for bg-slate-800 + text-white here. The light
-                              theme in index.css repaints bg-slate-800 to #f1f5f9 with
-                              !important, so the selected pill came out white-on-white.
-                              bg-slate-200 / text-slate-900 are outside that override layer.
-                            */
                             className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-sans font-semibold text-[10px] transition cursor-pointer shadow-2xs border ${
                               msg.id === selectedMessageId
                                 ? 'bg-slate-200 text-slate-900 border-slate-400 font-bold'
                                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
                             }`}
-
                             title="Show this call's telemetry in the inspector"
                           >
                             <Activity className="w-3 h-3" />
@@ -921,16 +1092,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                     </div>
                   )}
 
-                  {/*
-                    Which model the router picked.
-
-                    Shown only for /auto, because that is the only case where the target
-                    URL above does not already answer the question: a direct
-                    /models/<name> call names its model in the path, so repeating it here
-                    would be noise. `autoRouted` is false for those, and also false on an
-                    unattributed cache hit, where no model ran at all - the Semantic Cache
-                    card owns that story instead.
-                  */}
                   {msg.telemetry?.autoRouted && msg.telemetry.model && (
                     <div className="flex items-center gap-1 flex-wrap pt-0.5">
                       <span
@@ -941,6 +1102,23 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
                         <span className="uppercase tracking-wide opacity-70">Routed to</span>
                         <span className="font-mono">{msg.telemetry.model}</span>
                       </span>
+                    </div>
+                  )}
+
+                  {msg.telemetry?.overrideApplied && (
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 font-sans font-semibold text-[9px]">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Gateway Model Override:</span>
+                        <span className="font-mono line-through text-rose-600">{msg.telemetry.requestedModel}</span>
+                        <span>→</span>
+                        <span className="font-mono text-emerald-700 font-bold">{msg.telemetry.model}</span>
+                      </span>
+                      {msg.telemetry.vertexTenancy && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 font-mono text-[9px]">
+                          Tenancy: {msg.telemetry.vertexTenancy}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -967,6 +1145,99 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
               )}
             </div>
           ))}
+
+          {/* Interactive Claude Code CLI Cost-Guardrail Confirmation Terminal Window */}
+          {pendingConfirmIntercept && (
+            <div className="rounded-2xl overflow-hidden border-2 border-amber-500/70 bg-slate-950 text-slate-100 shadow-xl font-mono text-xs">
+              {/* macOS Terminal Header Bar */}
+              <div className="px-4 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                  <span className="ml-2 text-[11px] font-bold text-amber-400">
+                    ✻ Claude Code CLI v2.1.19 — ANTHROPIC_BASE_URL=https://bap.api.136.81.199.107.nip.io/ai/v1
+                  </span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold">
+                  SGX-Interactive-Model-Downgrade-Confirm
+                </span>
+              </div>
+
+              {/* Terminal Body */}
+              <div className="p-4 space-y-3">
+                <div className="text-slate-300">
+                  <span className="text-amber-400 font-bold">claude ({pendingConfirmIntercept.requestedModel}) &gt; </span>
+                  <span className="text-white">{pendingConfirmIntercept.prompt}</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/40 space-y-1.5 text-[11px]">
+                  <div className="text-amber-400 font-bold">
+                    ⚡ APIGEE AI GATEWAY — COST &amp; MODEL ROUTING GUARDRAIL (SGX TENANCY)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-slate-300 pt-1">
+                    <div>
+                      • Client Source: <span className="text-white font-semibold">{pendingConfirmIntercept.clientSource}</span>
+                    </div>
+                    <div>
+                      • Complexity Score: <span className="text-emerald-400 font-semibold">0.12 (Low / Simple Lookup)</span>
+                    </div>
+                    <div>
+                      • Requested Model: <span className="text-rose-400 font-semibold">{pendingConfirmIntercept.requestedModel}</span> ($15.00 / $75.00 per 1M)
+                    </div>
+                    <div>
+                      • Recommended: <span className="text-emerald-400 font-semibold">gemini-3.1-flash-lite</span> ($0.075 / 1M • 99.5% Saved)
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-amber-200/90 text-[11px]">
+                  ? Apigee AI Gateway paused this expensive Opus 4.5 call. Select how Claude Code CLI should route this request:
+                </div>
+
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmInterceptDecision('gemini-3.1-flash-lite', 'confirmed-switch')}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition cursor-pointer shadow-xs text-left"
+                  >
+                    [1] Switch to gemini-3.1-flash-lite ($0.075/1M • Save 99.5%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmInterceptDecision('deepseek-v4', 'confirmed-switch')}
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition cursor-pointer shadow-xs text-left"
+                  >
+                    [2] Switch to deepseek-v4 (Vertex SGX Tenancy • Save 98.2%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmInterceptDecision(pendingConfirmIntercept.requestedModel, 'confirmed-keep')}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-medium text-xs transition cursor-pointer text-left"
+                  >
+                    [3] Keep {pendingConfirmIntercept.requestedModel} ($15/$75 • Audit Log)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Quota Approval Success Banner */}
+          {quotaSuccessMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">✅</span>
+                <span className="font-semibold">{quotaSuccessMsg}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuotaSuccessMsg(null)}
+                className="text-[11px] underline text-emerald-700 hover:text-emerald-900 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {/* Prominent Loading / Sending Indicator with Target URL */}
           {loading && (
@@ -995,12 +1266,6 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
 
         {/* Input & Quick Chips */}
         <div className="p-3 sm:p-3.5 bg-white/90 border-t border-slate-200 shrink-0 backdrop-blur">
-          {/*
-            All 6 Scenario Chips in Exact Required Order.
-            The guided tour points here rather than at the empty-state card grid above,
-            because that grid unmounts as soon as the first message lands - and by the
-            time the tour is talking about scenarios, it usually has.
-          */}
           <div
             data-tour-id="scenario-presets"
             className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2.5 no-scrollbar w-full"
@@ -1117,8 +1382,120 @@ export const ChatPlayground: React.FC<ChatPlaygroundProps> = ({
           onToggleCache={() =>
             setSettings((prev) => ({ ...prev, useCache: !prev.useCache }))
           }
+          onRequestQuotaIncrease={() => setShowQuotaModal(true)}
         />
       </div>
+
+      {/* Inbuilt Quota Increase Request Modal (Person / Team) */}
+      {showQuotaModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-mono text-[10px] font-bold uppercase">
+                  SGX Self-Service Governance
+                </span>
+                <h3 className="text-base font-bold text-slate-900 mt-1">
+                  Request Token Quota Increase (Person / Team)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Submit an inbuilt quota elevation request directly through the AI Gateway.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuotaModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1 font-mono text-[11px]">
+                <div>Requester: <strong className="text-slate-900">{effectiveEmail}</strong></div>
+                <div>Target Model: <strong className="text-purple-700">{settings.model}</strong></div>
+                <div>Current Enforced Limit: <strong className="text-rose-600">50 tokens / min (Demo Strict Cap)</strong></div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Quota Scope (Person vs Team)
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuotaScope('Person')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                      quotaScope === 'Person'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700'
+                        : 'bg-white border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    👤 By Person ({ssoUser.name.split(' ')[0]})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuotaScope('Team')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                      quotaScope === 'Team'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700'
+                        : 'bg-white border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    👥 By Team (SGX Quantitative Engineering)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Requested New Limit (Tokens / Minute)
+                </label>
+                <select
+                  value={quotaNewTokens}
+                  onChange={(e) => setQuotaNewTokens(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-mono text-slate-900"
+                >
+                  <option value={5000}>5,000 tokens / min (Standard Developer)</option>
+                  <option value={10000}>10,000 tokens / min (Power Claude Code CLI User)</option>
+                  <option value={50000}>50,000 tokens / min (Team Unattended Agent Pool)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Business Justification
+                </label>
+                <textarea
+                  rows={2}
+                  value={quotaReason}
+                  onChange={(e) => setQuotaReason(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowQuotaModal(false)}
+                className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={quotaSubmitting}
+                onClick={handleSubmitQuotaIncrease}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                {quotaSubmitting ? 'Approving & Syncing KVM...' : '⚡ Submit & Auto-Approve (Demo)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

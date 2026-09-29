@@ -9,7 +9,7 @@
  * iteration/time caps -- can be unit-tested without credentials or egress.
  */
 
-export const ORG = 'bap-apac-demo2';
+export const ORG = 'sgx-totc-apigee';
 
 /**
  * Every agent write lands on a product whose name ends in this suffix.

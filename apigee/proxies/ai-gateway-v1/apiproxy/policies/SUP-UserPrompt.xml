@@ -3,7 +3,7 @@
   <DisplayName>SUP-UserPrompt</DisplayName>
   <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
   <ModelArmor>
-    <TemplateName>projects/bap-apac-demo2/locations/asia-southeast1/templates/apigee-sanitize-user-prompt</TemplateName>
+    <TemplateName>projects/sgx-totc-apigee/locations/asia-southeast1/templates/apigee-sanitize-user-prompt</TemplateName>
   </ModelArmor>
   <UserPromptSource>{flow.userPrompt}</UserPromptSource>
 </SanitizeUserPrompt>

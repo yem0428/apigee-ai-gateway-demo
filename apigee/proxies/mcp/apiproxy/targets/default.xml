@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <TargetEndpoint name="default">
   <HTTPTargetConnection>
-    <URL>https://bap-apac-demo2.mcp.apigee.internal/mcp</URL>
+    <URL>https://sgx-totc-apigee.mcp.apigee.internal/mcp</URL>
   </HTTPTargetConnection>
 </TargetEndpoint>

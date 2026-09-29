@@ -167,6 +167,18 @@ export async function sendPromptToApigee(
   if (settings.useCache) {
     headersSent['use-cache'] = 'true';
   }
+  if (settings.clientSource) {
+    headersSent['x-client-source'] = settings.clientSource;
+  }
+  if (settings.subagentName) {
+    headersSent['x-subagent-name'] = settings.subagentName;
+  }
+  if (settings.overrideMode) {
+    headersSent['x-gateway-override-mode'] = settings.overrideMode;
+  }
+  if (settings.originalRequestedModel) {
+    headersSent['x-original-requested-model'] = settings.originalRequestedModel;
+  }
 
   let responseStatus = 0;
   let responseStatusText = '';
@@ -345,7 +357,7 @@ export async function sendPromptToApigee(
       endpointUrl,
       targetUrl: getGatewayTargetUrl(settings, targetModel),
       model: effectiveModel,
-      requestedModel: settings.model,
+      requestedModel: headersReceived['x-gateway-requested-model'] || settings.originalRequestedModel || settings.model,
       // Not "Auto-Routed" on an unattributed cache hit. isAuto only says the
       // client called /auto; the router never ran, so nothing was routed.
       //
@@ -355,6 +367,11 @@ export async function sendPromptToApigee(
       autoRouted: cacheHitUnattributed
         ? false
         : (headersReceived['x-auto-routed'] === 'true' || (isAuto && !!effectiveModel)),
+      overrideApplied: headersReceived['x-gateway-override-applied'] === 'true',
+      overrideReason: headersReceived['x-gateway-override-reason'] || undefined,
+      clientSource: headersReceived['x-client-source'] || settings.clientSource || undefined,
+      subagentName: headersReceived['x-subagent-name'] || settings.subagentName || undefined,
+      vertexTenancy: headersReceived['x-vertex-tenancy'] || undefined,
       intent: effectiveIntent,
       environment: settings.environment,
       user: userInfo.name,

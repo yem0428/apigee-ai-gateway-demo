@@ -3,7 +3,7 @@
   <DisplayName>AM-RouteClaudeTarget</DisplayName>
   <AssignVariable>
     <Name>flow.projectId</Name>
-    <Value>bap-apac-demo2</Value>
+    <Value>sgx-totc-apigee</Value>
   </AssignVariable>
   <AssignVariable>
     <Name>flow.location</Name>

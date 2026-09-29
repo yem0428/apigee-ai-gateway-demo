@@ -17,6 +17,6 @@
         </Scopes>
       </GoogleAccessToken>
     </Authentication>
-    <URL>https://aiplatform.googleapis.com/v1/projects/bap-apac-demo2/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent</URL>
+    <URL>https://aiplatform.googleapis.com/v1/projects/sgx-totc-apigee/locations/global/publishers/google/models/gemini-2.5-flash:generateContent</URL>
   </HTTPTargetConnection>
 </ServiceCallout>
