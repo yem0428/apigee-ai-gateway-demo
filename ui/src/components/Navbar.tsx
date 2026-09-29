@@ -10,7 +10,6 @@ import {
   Shield,
   ShieldCheck,
   X,
-  Terminal,
   BarChart3,
   Users,
   User,

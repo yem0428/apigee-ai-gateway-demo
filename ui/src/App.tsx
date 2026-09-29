@@ -384,7 +384,7 @@ export function App() {
     }
     return null;
   });
-  const [activeMcpTelemetry, setActiveMcpTelemetry] = useState<McpTelemetry | null>(null);
+  const [activeMcpTelemetry] = useState<McpTelemetry | null>(null);
 
   // Analytics Dashboard Controls State (hoisted to Navbar)
   const [analyticsViewMode, setAnalyticsViewMode] = useState<'admin' | 'user'>(() => {
