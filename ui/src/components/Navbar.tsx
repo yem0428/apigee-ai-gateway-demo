@@ -158,21 +158,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden min-[1400px]:inline">AI Gateway</span>
             </button>
-            <button
-              type="button"
-              data-tour-id="tab-mcp-gateway"
-              onClick={() => onTabChange('mcp-gateway')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-xs ${
-                activeTab === 'mcp-gateway'
-                  ? 'bg-cyan-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-              title="Native MCP Tools Server (/mcp)"
-            >
-              <Terminal className="w-3.5 h-3.5" />
-              <span className="hidden min-[1400px]:inline">MCP Gateway</span>
-            </button>
-            {/* 3rd Tab: Analytics & Cost */}
+            {/* 2nd Tab: Analytics & Cost */}
             <button
               type="button"
               data-tour-id="tab-analytics"
@@ -187,7 +173,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <BarChart3 className="w-3.5 h-3.5" />
               <span className="hidden min-[1400px]:inline">Analytics & Cost</span>
             </button>
-            {/* 4th Tab: Admin Console - Strictly visible ONLY in Admin view */}
+            {/* 3rd Tab: Admin Console - Strictly visible ONLY in Admin view */}
             {isAdminView && (
               <button
                 type="button"
@@ -212,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               onClick={onOpenArchitecture}
               className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-xs transition cursor-pointer shadow-2xs shrink-0"
-              title="Open Interactive AI Gateway & MCP Tools Gateway Architecture Blueprint"
+              title="Open Interactive AI Gateway Architecture Blueprint"
             >
               <Layers className="w-3.5 h-3.5 text-blue-600" />
               <span className="hidden sm:inline">Architecture</span>

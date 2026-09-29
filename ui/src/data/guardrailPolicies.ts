@@ -6,10 +6,6 @@ import {
   Split,
   Gauge,
   Receipt,
-  Plug,
-  Users,
-  Workflow,
-  ScrollText,
 } from 'lucide-react';
 
 export type GuardrailGateway = 'ai' | 'mcp';
@@ -245,121 +241,6 @@ export const GUARDRAIL_CONTROLS: GuardrailControl[] = [
         name: 'AM-SetResponseHeaders',
         type: 'AssignMessage',
         purpose: 'Injects the x-gateway-* trace headers used by the trace viewer.',
-      },
-    ],
-  },
-  {
-    id: 'mcp-client',
-    gateway: 'mcp',
-    proxy: MCP_PROXY,
-    title: 'MCP Protocol Validation',
-    category: 'Security',
-    summary:
-      'Parses and validates the JSON-RPC 2.0 envelope for tools/list and tools/call so malformed or unsupported agent traffic is rejected at the edge.',
-    attachPoint: 'Proxy PreFlow',
-    onViolation: 'JSON-RPC error response — request is not bridged',
-    configSource: 'MCP protocol policy configuration',
-    icon: Plug,
-    policies: [
-      {
-        name: 'PP-MCP',
-        type: 'MCP Protocol Policy',
-        purpose: 'Parses the incoming JSON-RPC 2.0 envelope (jsonrpc, id, method, params).',
-      },
-      {
-        name: 'CORS-Allow',
-        type: 'CORS',
-        purpose: 'Enables cross-origin browser and web-agent inspection.',
-      },
-    ],
-  },
-  {
-    id: 'mcp-auth',
-    gateway: 'mcp',
-    proxy: MCP_PROXY,
-    title: 'Agent Keys & Tool Call Rate Limits',
-    category: 'Traffic Shaping',
-    summary:
-      'Verifies the agent’s consumer key and caps tool-call rates so a runaway agent loop cannot overwhelm core banking or inventory systems.',
-    attachPoint: 'Proxy PreFlow',
-    onViolation: 'HTTP 401 unauthorized / HTTP 429 rate limited',
-    configSource: 'Developer App credentials + product quota',
-    icon: Users,
-    policies: [
-      {
-        name: 'VA-VerifyAPIKey',
-        type: 'VerifyAPIKey',
-        purpose: 'Verifies the agent consumer key against the Enterprise Tools MCP product.',
-      },
-      {
-        name: 'Q-Limit',
-        type: 'Quota',
-        purpose: 'Enforces per-app request rate limits protecting downstream systems of record.',
-      },
-      {
-        name: 'AM-RemoveAuthorization',
-        type: 'AssignMessage',
-        purpose: 'Strips client auth headers before forwarding to internal microservices.',
-      },
-    ],
-  },
-  {
-    id: 'mcp-rbac',
-    gateway: 'mcp',
-    proxy: MCP_PROXY,
-    title: 'Persona Tool RBAC',
-    category: 'Security',
-    summary:
-      'Filters the tool catalog per persona and authorizes each execution, so a Sales agent never discovers — let alone calls — a banking tool.',
-    attachPoint: 'Request & Response Flow',
-    onViolation: 'RBAC denied — tool hidden from tools/list, tools/call rejected',
-    configSource: 'API Product tool entitlements',
-    icon: ShieldCheck,
-    policies: [
-      {
-        name: 'PP-MCP',
-        type: 'MCP Governance',
-        purpose: 'Filters the tools/list response and authorizes tools/call against the product’s tool entitlements.',
-      },
-    ],
-  },
-  {
-    id: 'mcp-bridge',
-    gateway: 'mcp',
-    proxy: MCP_PROXY,
-    title: 'REST → MCP Tool Bridge',
-    category: 'Traffic Shaping',
-    summary:
-      'Turns existing REST microservices into MCP tools and validates tool arguments against JSON schemas at the gateway — no backend rewrite.',
-    attachPoint: 'Target Flow',
-    onViolation: 'Schema validation error returned to the agent',
-    configSource: 'Tool-to-endpoint mapping in the MCP policy',
-    icon: Workflow,
-    policies: [
-      {
-        name: 'PP-MCP',
-        type: 'Protocol Bridge',
-        purpose: 'Maps the MCP tool name and JSON arguments to the target URL, HTTP verb, and parameters.',
-      },
-    ],
-  },
-  {
-    id: 'mcp-backends',
-    gateway: 'mcp',
-    proxy: MCP_PROXY,
-    title: 'Tool Execution Audit Log',
-    category: 'Observability',
-    summary:
-      'Streams a structured audit record of every tool invocation — persona, tool, latency, status — to Cloud Logging.',
-    attachPoint: 'PostFlow',
-    onViolation: 'Non-blocking — always logs',
-    configSource: 'Cloud Logging sink',
-    icon: ScrollText,
-    policies: [
-      {
-        name: 'ML-CloudLogging',
-        type: 'MessageLogging',
-        purpose: 'Streams structured MCP tool execution audit logs to Google Cloud Logging.',
       },
     ],
   },

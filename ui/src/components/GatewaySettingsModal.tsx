@@ -73,7 +73,7 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
               </span>
             </div>
             <div className="text-[11px] text-slate-500 font-mono">
-              Base URL: <span className="text-slate-900 font-semibold">https://api.maloosatyam.demo.altostrat.com</span>
+              Base URL: <span className="text-slate-900 font-semibold">https://bap.api.136.81.199.107.nip.io/ai/v1</span>
             </div>
           </div>
 
@@ -93,7 +93,7 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
                 }`}
               >
                 <div className={`font-bold text-xs ${form.activeUser === 'admin' ? 'text-purple-700' : 'text-slate-800'}`}>Admin</div>
-                <div className={`text-[10px] mt-0.5 ${form.activeUser === 'admin' ? 'text-purple-700/80' : 'text-slate-500'}`}>All Models & MCP</div>
+                <div className={`text-[10px] mt-0.5 ${form.activeUser === 'admin' ? 'text-purple-700/80' : 'text-slate-500'}`}>Enterprise Tier (All Models)</div>
                 <div className="text-[9px] font-mono text-slate-400 mt-1 truncate">Key: {USERS.admin.apiKey ? `${USERS.admin.apiKey.slice(0, 8)}...` : 'Not Set'}</div>
               </button>
 
@@ -101,12 +101,12 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
                 type="button"
                 onClick={() => handleUserSelect('sales_agent')}
                 className={`p-3 rounded-xl border text-left transition cursor-pointer shadow-2xs ${form.activeUser === 'sales_agent'
-                    ? 'bg-blue-50 border-blue-300 text-blue-900 ring-2 ring-blue-500/20'
+                    ? 'bg-blue-50 border-blue-300 text-blue-900 ring-2 ring-purple-500/20'
                     : 'bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-700'
                 }`}
               >
-                <div className={`font-bold text-xs ${form.activeUser === 'sales_agent' ? 'text-blue-700' : 'text-slate-800'}`}>Sales Agent</div>
-                <div className={`text-[10px] mt-0.5 ${form.activeUser === 'sales_agent' ? 'text-blue-700/80' : 'text-slate-500'}`}>Flash + Sales Tools</div>
+                <div className={`font-bold text-xs ${form.activeUser === 'sales_agent' ? 'text-blue-700' : 'text-slate-800'}`}>Standard Developer</div>
+                <div className={`text-[10px] mt-0.5 ${form.activeUser === 'sales_agent' ? 'text-blue-700/80' : 'text-slate-500'}`}>Standard Tier (Flash & Haiku)</div>
                 <div className="text-[9px] font-mono text-slate-400 mt-1 truncate">Key: {USERS.sales_agent.apiKey ? `${USERS.sales_agent.apiKey.slice(0, 8)}...` : 'Not Set'}</div>
               </button>
 
@@ -118,8 +118,8 @@ export const GatewaySettingsModal: React.FC<GatewaySettingsModalProps> = ({
                     : 'bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-700'
                 }`}
               >
-                <div className={`font-bold text-xs ${form.activeUser === 'loans_agent' ? 'text-emerald-700' : 'text-slate-800'}`}>Loans Agent</div>
-                <div className={`text-[10px] mt-0.5 ${form.activeUser === 'loans_agent' ? 'text-emerald-700/80' : 'text-slate-500'}`}>Flash + Loans Tools</div>
+                <div className={`font-bold text-xs ${form.activeUser === 'loans_agent' ? 'text-emerald-700' : 'text-slate-800'}`}>Subagent Key</div>
+                <div className={`text-[10px] mt-0.5 ${form.activeUser === 'loans_agent' ? 'text-emerald-700/80' : 'text-slate-500'}`}>Standard Tier (Headless CLI)</div>
                 <div className="text-[9px] font-mono text-slate-400 mt-1 truncate">Key: {USERS.loans_agent.apiKey ? `${USERS.loans_agent.apiKey.slice(0, 8)}...` : 'Not Set'}</div>
               </button>
             </div>

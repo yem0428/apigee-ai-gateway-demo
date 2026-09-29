@@ -138,16 +138,6 @@ export const TOUR_STEPS: TourStep[] = [
     target: 'gateway-settings',
   },
   {
-    id: 'mcp',
-    title: 'The same governance for tools',
-    body:
-      'The MCP tab runs tool calls - not prompts - through the same gateway, with the same ' +
-      'identity and quota enforcement.',
-    target: 'tab-mcp-gateway',
-    tab: 'mcp-gateway',
-    note: 'The MCP backend is currently deployed to prod only.',
-  },
-  {
     id: 'analytics',
     title: 'What it all cost',
     body:

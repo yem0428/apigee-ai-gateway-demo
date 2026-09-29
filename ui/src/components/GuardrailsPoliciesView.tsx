@@ -12,12 +12,9 @@ import {
   GUARDRAIL_CONTROLS,
   CATEGORY_STYLES,
   AI_PROXY,
-  MCP_PROXY,
   type GuardrailCategory,
   type GuardrailGateway,
 } from '../data/guardrailPolicies';
-
-type GatewayFilter = 'all' | GuardrailGateway;
 
 interface GuardrailsPoliciesViewProps {
   /** Opens the Architecture blueprint on the matching gateway pipeline. */
@@ -32,7 +29,6 @@ const GATEWAY_LABEL: Record<GuardrailGateway, string> = {
 export const GuardrailsPoliciesView: React.FC<GuardrailsPoliciesViewProps> = ({
   onInspectArchitecture,
 }) => {
-  const [gateway, setGateway] = useState<GatewayFilter>('all');
   const [category, setCategory] = useState<GuardrailCategory | 'all'>('all');
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -45,7 +41,6 @@ export const GuardrailsPoliciesView: React.FC<GuardrailsPoliciesViewProps> = ({
   const controls = useMemo(() => {
     const q = query.trim().toLowerCase();
     return GUARDRAIL_CONTROLS.filter((c) => {
-      if (gateway !== 'all' && c.gateway !== gateway) return false;
       if (category !== 'all' && c.category !== category) return false;
       if (!q) return true;
       const haystack = [
@@ -60,10 +55,10 @@ export const GuardrailsPoliciesView: React.FC<GuardrailsPoliciesViewProps> = ({
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [gateway, category, query]);
+  }, [category, query]);
 
   const policyCount = controls.reduce((sum, c) => sum + c.policies.length, 0);
-  const isFiltered = gateway !== 'all' || category !== 'all' || query.trim() !== '';
+  const isFiltered = category !== 'all' || query.trim() !== '';
 
   const toggle = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -82,8 +77,7 @@ export const GuardrailsPoliciesView: React.FC<GuardrailsPoliciesViewProps> = ({
                 {policyCount} polic{policyCount === 1 ? 'y' : 'ies'}
               </div>
               <div className="text-[11px] text-slate-500">
-                Enforced by <span className="font-mono text-slate-700">{AI_PROXY}</span> and{' '}
-                <span className="font-mono text-slate-700">{MCP_PROXY}</span> on every request.
+                Enforced by <span className="font-mono text-slate-700">{AI_PROXY}</span> on every request.
               </div>
             </div>
           </div>
@@ -108,28 +102,6 @@ export const GuardrailsPoliciesView: React.FC<GuardrailsPoliciesViewProps> = ({
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
-            </div>
-
-            {/* Gateway filter */}
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-              {([
-                ['all', 'All'],
-                ['ai', 'AI Gateway'],
-                ['mcp', 'MCP Gateway'],
-              ] as [GatewayFilter, string][]).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setGateway(value)}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
-                    gateway === value
-                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
             </div>
           </div>
         </div>
@@ -165,7 +137,6 @@ export const GuardrailsPoliciesView: React.FC<GuardrailsPoliciesViewProps> = ({
             <button
               type="button"
               onClick={() => {
-                setGateway('all');
                 setCategory('all');
                 setQuery('');
               }}

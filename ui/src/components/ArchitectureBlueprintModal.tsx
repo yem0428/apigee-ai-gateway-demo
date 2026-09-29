@@ -20,7 +20,6 @@ import {
   ShieldAlert,
   Ban,
   Eye,
-  Cloud,
   Network,
   Building2,
 } from 'lucide-react';
@@ -522,10 +521,10 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900">
                   {activeFlow === 'overview'
-                    ? 'Enterprise AI & Agent Platform — Solution Architecture'
+                    ? 'Enterprise AI Gateway — Solution Architecture'
                     : viewMode === 'request-flow'
                       ? 'Live Request Execution Trace Flow'
-                      : 'Enterprise AI & Tools Gateway Architecture Blueprint'}
+                      : 'Enterprise AI Gateway Architecture Blueprint'}
                 </h2>
                 <span
                   className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${
@@ -549,7 +548,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               </div>
               <p className="text-xs text-slate-500">
                 {activeFlow === 'overview'
-                  ? 'How consumers, agents and enterprise systems connect through Apigee. Click the AI Gateway or MCP Gateway to drill into its pipeline.'
+                  ? 'How enterprise users, coding CLIs and autonomous subagents connect to foundation models through Apigee. Click AI Gateway to drill into its 6-stage pipeline.'
                   : viewMode === 'request-flow'
                     ? 'Showing the exact policies executed for the tested request. Downstream policies after a block or cache hit are omitted.'
                     : 'Click any stage in the pipeline to inspect active XML policies, governance controls, and demo talking points.'}
@@ -621,21 +620,6 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>AI Gateway</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveFlow('mcp-gateway');
-                  setSelectedStageId('mcp-rbac');
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
-                  activeFlow === 'mcp-gateway'
-                    ? 'bg-cyan-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Terminal className="w-3.5 h-3.5" />
-                <span>MCP Tools</span>
-              </button>
             </div>
 
             <button
@@ -657,10 +641,10 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               <div className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-300/60 rounded-2xl p-4 sm:p-5">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
                   <Network className="w-4 h-4 text-purple-600" />
-                  Unified AI &amp; Tool Governance Plane
+                  Enterprise AI Governance Plane
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Every caller — enterprise users, MCP clients and Cloud Run ADK agents — reaches models and tools exclusively through the <strong>Apigee X Governance Plane</strong>, where the <strong>AI Gateway</strong> governs reasoning (LLM calls) and the <strong>MCP Gateway</strong> governs action (tool calls). No credentials, model endpoints or backend URLs are ever hardcoded in application or agent code.
+                  Every caller — enterprise users, AI coding CLIs (Claude Code), and autonomous subagents — reaches foundation models exclusively through the <strong>Apigee X AI Gateway</strong>, which enforces identity, Model Armor safety, semantic caching, intelligent auto-routing, per-user/team token quotas, and real-time FinOps cost attribution.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] text-slate-500 font-semibold">Drill down:</span>
@@ -674,26 +658,13 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 transition cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    AI Gateway pipeline
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveFlow('mcp-gateway');
-                      setViewMode('full-blueprint');
-                      setSelectedStageId('mcp-rbac');
-                    }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition cursor-pointer"
-                  >
-                    <Terminal className="w-3.5 h-3.5" />
-                    MCP Gateway pipeline
+                    Inspect 6-Stage AI Gateway Pipeline
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
               </div>
 
-              {/* Layered Flow Diagram (3 Columns: Consumers & Agents -> Apigee Governance Plane -> Models & Tools) */}
+              {/* Layered Flow Diagram (3 Columns: Consumers & Agents -> Apigee AI Gateway -> Multi-Cloud & Open-Weight Models) */}
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.15fr)_auto_minmax(0,1fr)] gap-4 items-stretch">
                 {/* ---------- Column 1: Consumers & Agent Runtime ---------- */}
                 <div className="flex flex-col gap-3">
@@ -706,10 +677,10 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                             <Building2 className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-900 leading-snug">Enterprise Users &amp; Apps</div>
-                            <div className="text-[10px] text-slate-500 leading-snug">Gemini Enterprise &amp; web apps</div>
+                            <div className="text-xs font-bold text-slate-900 leading-snug">Enterprise Users &amp; Web Apps</div>
+                            <div className="text-[10px] text-slate-500 leading-snug">Interactive chat &amp; internal apps</div>
                           </div>
-                          <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">SSO / REST</span>
+                          <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">SSO / JWT</span>
                         </div>
                       </div>
 
@@ -719,10 +690,10 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                             <Terminal className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-900 leading-snug">MCP Clients</div>
-                            <div className="text-[10px] text-slate-500 leading-snug">Claude Code, IDEs &amp; AI assistants</div>
+                            <div className="text-xs font-bold text-slate-900 leading-snug">AI Coding CLIs &amp; IDEs</div>
+                            <div className="text-[10px] text-slate-500 leading-snug">Claude Code, Cursor &amp; Dev Teams</div>
                           </div>
-                          <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">MCP</span>
+                          <span className="ml-auto shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded bg-white border border-slate-200 text-slate-600">CLI / SDK</span>
                         </div>
                       </div>
                     </div>
@@ -735,18 +706,18 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                           <Workflow className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-slate-900">Agent Runtime</div>
-                          <div className="text-[10px] text-slate-500">Google ADK on Cloud Run</div>
+                          <div className="text-xs font-bold text-slate-900">Autonomous Subagents</div>
+                          <div className="text-[10px] text-slate-500">Headless Background Workers</div>
                         </div>
                       </div>
                       <div className="mb-2">
                         <div className="rounded-lg bg-white border border-emerald-200 px-3 py-2 text-[11px] font-semibold text-emerald-800 text-center">
-                          ADK Agent
+                          Subagent Auto-Override (x-agent-mode)
                         </div>
                       </div>
                     </div>
                     <div className="text-[10px] text-slate-500 leading-snug">
-                      The agent holds a <strong>persona-scoped API key only</strong> — every model call and every tool call exits through Apigee X.
+                      Subagents pass <strong>x-agent-mode: subagent</strong> — Apigee automatically routes them to cost-optimal open-weight or Flash-Lite models without blocking for human confirmation.
                     </div>
                   </div>
                 </div>
@@ -758,89 +729,60 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                 {/* ---------- Column 2: Apigee X Governance Plane ---------- */}
                 <div className="flex flex-col">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-2">Governance Layer</div>
-                  <div className="flex-1 rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/40 p-3 flex flex-col">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                        <ShieldCheck className="w-4 h-4" />
+                  <div className="flex-1 rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/40 p-3 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">Apigee X — AI Gateway Plane</div>
+                          <div className="text-[10px] text-slate-500">Centralized security, routing &amp; tokenomics</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900">Apigee X — Governance Plane</div>
-                        <div className="text-[10px] text-slate-500">Where AI &amp; tool policy is enforced</div>
+
+                      <div className="space-y-2.5">
+                        {/* AI Gateway (clickable) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveFlow('ai-gateway');
+                            setViewMode('full-blueprint');
+                            setSelectedStageId('ai-router');
+                          }}
+                          className="w-full text-left rounded-xl bg-white border-2 border-blue-400 hover:border-blue-600 hover:shadow-md transition p-3 cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                              <span className="text-xs font-bold text-slate-900">AI Gateway Proxy (ai-gateway-v1)</span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-blue-600 group-hover:underline flex items-center gap-0.5">
+                              Inspect <ArrowRight className="w-3 h-3" />
+                            </span>
+                          </div>
+                          <code className="block text-[11px] font-mono font-bold text-blue-700 mb-2">{'/ai/v1/auto  ·  /ai/v1/models/<model>'}</code>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <span className="px-2 py-1 text-[9px] font-semibold rounded bg-slate-100 text-slate-700">01 · Access Control &amp; JWT</span>
+                            <span className="px-2 py-1 text-[9px] font-semibold rounded bg-slate-100 text-slate-700">02 · Model Armor Safety</span>
+                            <span className="px-2 py-1 text-[9px] font-semibold rounded bg-slate-100 text-slate-700">03 · Semantic Vector Cache</span>
+                            <span className="px-2 py-1 text-[9px] font-semibold rounded bg-slate-100 text-slate-700">04 · Intelligent Auto-Routing</span>
+                            <span className="px-2 py-1 text-[9px] font-semibold rounded bg-slate-100 text-slate-700">05 · Per-User/Team Quotas</span>
+                            <span className="px-2 py-1 text-[9px] font-semibold rounded bg-slate-100 text-slate-700">06 · KVM Cost &amp; Wallets</span>
+                          </div>
+                        </button>
                       </div>
                     </div>
 
-                    <div className="space-y-2 flex-1">
-                      {/* AI Gateway (clickable) */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveFlow('ai-gateway');
-                          setViewMode('full-blueprint');
-                          setSelectedStageId('ai-router');
-                        }}
-                        className="w-full text-left rounded-xl bg-white border-2 border-blue-400 hover:border-blue-600 hover:shadow-md transition p-2.5 cursor-pointer group"
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                            <span className="text-xs font-bold text-slate-900">AI Gateway</span>
-                          </div>
-                          <span className="text-[10px] font-semibold text-blue-600 group-hover:underline flex items-center gap-0.5">
-                            Inspect <ArrowRight className="w-3 h-3" />
-                          </span>
-                        </div>
-                        <code className="block text-[11px] font-mono font-bold text-blue-700 mb-1.5">{'/llm/<model>'}</code>
-                        <div className="flex flex-wrap gap-1">
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Model Armor</span>
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Semantic Cache</span>
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Auto-Routing</span>
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Token Quotas</span>
-                        </div>
-                      </button>
-
-                      {/* MCP Gateway (clickable) */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveFlow('mcp-gateway');
-                          setViewMode('full-blueprint');
-                          setSelectedStageId('mcp-rbac');
-                        }}
-                        className="w-full text-left rounded-xl bg-white border-2 border-cyan-400 hover:border-cyan-600 hover:shadow-md transition p-2.5 cursor-pointer group"
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <Terminal className="w-3.5 h-3.5 text-cyan-600" />
-                            <span className="text-xs font-bold text-slate-900">MCP Gateway</span>
-                          </div>
-                          <span className="text-[10px] font-semibold text-cyan-600 group-hover:underline flex items-center gap-0.5">
-                            Inspect <ArrowRight className="w-3 h-3" />
-                          </span>
-                        </div>
-                        <code className="block text-[11px] font-mono font-bold text-cyan-700 mb-1.5">/mcp</code>
-                        <div className="flex flex-wrap gap-1">
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">JSON-RPC 2.0</span>
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Persona RBAC</span>
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">REST → MCP</span>
-                          <span className="px-1.5 py-0.5 text-[9px] rounded bg-slate-100 text-slate-700">Tool Catalog</span>
-                        </div>
-                      </button>
-
-                      <div className="flex items-center justify-between gap-2 rounded-xl bg-white border border-slate-200 px-2.5 py-1.5">
-                        <code className="text-[11px] font-mono font-bold text-slate-700">/rest-api/v1</code>
-                        <span className="text-[9px] text-slate-400">system APIs</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5 mt-2.5 pt-2.5 border-t border-emerald-200">
+                    <div className="grid grid-cols-3 gap-1.5 mt-3 pt-2.5 border-t border-emerald-200">
                       <div className="flex items-center justify-center gap-1 rounded-lg bg-white border border-slate-200 py-1 text-[9px] font-semibold text-slate-600">
-                        <Lock className="w-3 h-3" /> Security
+                        <Lock className="w-3 h-3" /> Zero-Trust Auth
                       </div>
                       <div className="flex items-center justify-center gap-1 rounded-lg bg-white border border-slate-200 py-1 text-[9px] font-semibold text-slate-600">
-                        <Coins className="w-3 h-3" /> Analytics
+                        <Coins className="w-3 h-3" /> FinOps Ledger
                       </div>
                       <div className="flex items-center justify-center gap-1 rounded-lg bg-white border border-slate-200 py-1 text-[9px] font-semibold text-slate-600">
-                        <FileCode2 className="w-3 h-3" /> Registry
+                        <FileCode2 className="w-3 h-3" /> API Products
                       </div>
                     </div>
                   </div>
@@ -850,74 +792,50 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                   <ArrowRight className="w-5 h-5" />
                 </div>
 
-                {/* ---------- Column 4: Upstream Providers & Systems ---------- */}
+                {/* ---------- Column 3: Upstream Foundation Models ---------- */}
                 <div className="flex flex-col gap-3">
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Models &amp; Tools</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Enterprise LLM Backends</div>
                     <div className="rounded-2xl border border-blue-200 bg-blue-50/40 p-2.5">
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-blue-600 mb-1.5">Foundation Models</div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-blue-600 mb-1.5">Commercial Frontier Models</div>
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
                           <GoogleLogo className="w-4 h-4 shrink-0" />
                           <div className="min-w-0">
                             <div className="text-[11px] font-bold text-slate-800 leading-snug">Vertex AI — Gemini</div>
-                            <div className="text-[9px] text-slate-500 leading-snug">Flash-Lite, Flash &amp; Pro</div>
+                            <div className="text-[9px] text-slate-500 leading-snug">Gemini 3.1 Flash-Lite, Flash &amp; Pro</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
                           <AnthropicLogo className="w-4 h-4 shrink-0" />
                           <div className="min-w-0">
                             <div className="text-[11px] font-bold text-slate-800 leading-snug">Anthropic — Claude</div>
-                            <div className="text-[9px] text-slate-500 leading-snug">Haiku &amp; Opus via Vertex</div>
+                            <div className="text-[9px] text-slate-500 leading-snug">Claude 4.5 Haiku &amp; Opus on Vertex</div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-cyan-200 bg-cyan-50/40 p-2.5">
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-cyan-700 mb-1.5">Enterprise APIs → MCP</div>
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-2.5 flex-1">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 mb-1.5">Vertex AI Model Garden (SGX Dedicated)</div>
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
-                        <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                          <Server className="w-3.5 h-3.5" />
+                        <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 text-[9px] font-mono font-bold">
+                          OSS
                         </div>
                         <div className="min-w-0">
-                          <div className="text-[11px] font-bold text-slate-800 leading-snug">Sales &amp; Inventory API</div>
-                          <div className="text-[9px] text-slate-500 leading-snug">REST bridged to MCP tools</div>
+                          <div className="text-[11px] font-bold text-slate-800 leading-snug">DeepSeek V4+ &amp; Qwen 3 235B</div>
+                          <div className="text-[9px] text-slate-500 leading-snug">Open-weight coding &amp; reasoning specialists</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
-                        <div className="w-6 h-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                          <Building2 className="w-3.5 h-3.5" />
+                        <div className="w-6 h-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 text-[9px] font-mono font-bold">
+                          OSS
                         </div>
                         <div className="min-w-0">
-                          <div className="text-[11px] font-bold text-slate-800 leading-snug">Loans &amp; Banking Core</div>
-                          <div className="text-[9px] text-slate-500 leading-snug">REST bridged to MCP tools</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 flex-1">
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Third-Party MCP Servers</div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
-                        <div className="w-6 h-6 rounded-md bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-                          <Cloud className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-bold text-slate-800 leading-snug">Salesforce</div>
-                          <div className="text-[9px] text-slate-500 leading-snug">CRM records &amp; opportunities</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2">
-                        <div className="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                          <Database className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-bold text-slate-800 leading-snug">BigQuery</div>
-                          <div className="text-[9px] text-slate-500 leading-snug">Governed analytics queries</div>
+                          <div className="text-[11px] font-bold text-slate-800 leading-snug">Kimi K3, GLM 5.3 &amp; Llama 4</div>
+                          <div className="text-[9px] text-slate-500 leading-snug">Long-context &amp; bilingual agentic models</div>
                         </div>
                       </div>
                     </div>
@@ -929,32 +847,32 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 mb-1">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Reasoning is governed
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Intelligent Model Routing
                   </div>
                   <p className="text-[11px] text-slate-500 leading-snug">
-                    Prompts are screened, cached and routed to the cheapest capable model, with token quotas per product tier.
+                    Prompts are screened by Model Armor, checked against Semantic Cache, and routed to the optimal model per tier.
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 mb-1">
-                    <Terminal className="w-3.5 h-3.5 text-cyan-600" /> Action is governed
+                    <Terminal className="w-3.5 h-3.5 text-cyan-600" /> Human vs. Subagent Routing
                   </div>
                   <p className="text-[11px] text-slate-500 leading-snug">
-                    Existing REST APIs are exposed as MCP tools, alongside third-party MCP servers, filtered per persona.
+                    Interactive users can confirm model switches, while unattended subagents are automatically routed to cost-optimal models.
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 mb-1">
-                    <Key className="w-3.5 h-3.5 text-amber-600" /> One identity everywhere
+                    <Key className="w-3.5 h-3.5 text-amber-600" /> Per-User &amp; Team Tokenomics
                   </div>
                   <p className="text-[11px] text-slate-500 leading-snug">
-                    The same API key drives entitlements, spend and audit across models and tools — no provider keys in code.
+                    Independent token counters (<code className="font-mono">flow.emailId</code>) and monthly USD budgets enforce limits per developer and team.
                   </p>
                 </div>
               </div>
             </div>
           ) : (
-            /* Interactive Pipeline Flowchart (AI Gateway OR MCP Tools Gateway) */
+            /* Interactive Pipeline Flowchart (AI Gateway) */
             <>
               {/* Pipeline Steps Grid */}
               <div>
@@ -963,9 +881,7 @@ export const ArchitectureBlueprintModal: React.FC<ArchitectureBlueprintModalProp
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                       {viewMode === 'request-flow'
                         ? `Executed Pipeline Path (${visibleStages.length} of ${allCurrentStages.length} Stages Executed)`
-                        : activeFlow === 'ai-gateway'
-                          ? 'AI Gateway Proxy Pipeline (PreFlow ➔ Target ➔ PostFlow)'
-                          : 'MCP Tools Gateway Proxy Pipeline (JSON-RPC 2.0 Ingress ➔ RBAC ➔ Backend)'}
+                        : 'AI Gateway Proxy Pipeline (PreFlow ➔ Target ➔ PostFlow)'}
                     </span>
                   </div>
                   <span className="text-xs text-slate-500">

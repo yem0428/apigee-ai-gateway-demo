@@ -1,11 +1,10 @@
-# Apigee AI & Tools Gateway with Google ADK
+# Apigee Enterprise AI Gateway with Google ADK
 
 This repository is an enterprise demonstration and development platform for:
 1. **Apigee API Management**: API governance, security, rate-limiting, and developer enablement.
-2. **Apigee AI Gateway**: Intelligent auto-routing across Gemini and Anthropic Claude models, product-driven LLM token quotas, Model Armor prompt guardrails, response sanitization, semantic caching, and per-request cost attribution.
-3. **Apigee Tools Gateway**: Centralized tool/function execution governance, agent authentication, and native MCP (Model Context Protocol) serving.
-4. **Google ADK (Agent Development Kit)**: Dual-pattern Python agents that consume Apigee gateways for models and tools, and are hosted as managed backend microservices fronted by Apigee.
-5. **Interactive Demo UI**: React + Vite + Tailwind playground with real-time gateway trace inspection, token/latency/cost metrics, and live policy toggles.
+2. **Apigee AI Gateway**: Intelligent auto-routing across Gemini, Anthropic Claude, and Vertex AI Model Garden open-weight models, product-driven LLM token quotas, Model Armor prompt guardrails, response sanitization, semantic caching, and per-request cost attribution.
+3. **Google ADK (Agent Development Kit)**: Python agents that consume the Apigee AI Gateway for models and are hosted as managed backend microservices fronted by Apigee.
+4. **Interactive Demo UI**: React + Vite + Tailwind playground with real-time gateway trace inspection, token/latency/cost metrics, and live policy toggles.
 
 > [!WARNING]
 > **`gemini-2.5-flash` is RETIRED.** Ahead of its 2026-10-20 end of life it was removed from both API Products and from the UI dropdown, and is now entitled by nothing — calling it returns 401 at `VA-VerifyAPIKey`. Its **rate-card entry, `model_rates.properties` rate, `CalculateCost.js` prefix entry and analytics colour mapping are deliberately retained**, because `server.js` recomputes historical analytics cost by looking the model up in the rate card; deleting them would silently re-cost past traffic at the `default` rate. Do not "clean up" those.
@@ -36,7 +35,6 @@ This repository is an enterprise demonstration and development platform for:
 | Bundle | Status | Purpose |
 | --- | --- | --- |
 | `ai-gateway-v1` | **Primary / active** | The AI Gateway. All new work lands here. |
-| `mcp` | **Active** | Native MCP Tools Gateway. |
 | `vertex-ai-v1` | **Legacy** | Superseded by `ai-gateway-v1`. Do not extend. |
 
 ---

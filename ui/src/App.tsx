@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Settings2, Compass } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { ChatPlayground } from './components/ChatPlayground';
-import { McpPlayground } from './components/McpPlayground';
 import { MonetizationManager } from './components/MonetizationManager';
 import { AdminAgentPanel } from './components/AdminAgentPanel';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
@@ -496,17 +495,6 @@ export function App() {
             onOpenRequestFlow={(telemetry) => {
               setActiveTelemetry(telemetry);
               setArchInitialTab('ai-gateway');
-              setArchInitialMode('request-flow');
-              setIsArchitectureOpen(true);
-            }}
-          />
-        ) : activeTab === 'mcp-gateway' ? (
-          <McpPlayground
-            settings={settings}
-            onTelemetryChange={setActiveMcpTelemetry}
-            onOpenRequestFlow={(telemetry) => {
-              setActiveMcpTelemetry(telemetry);
-              setArchInitialTab('mcp-gateway');
               setArchInitialMode('request-flow');
               setIsArchitectureOpen(true);
             }}

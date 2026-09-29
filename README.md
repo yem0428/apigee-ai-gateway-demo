@@ -1,4 +1,4 @@
-# Apigee AI & Tools Gateway with Google ADK
+# Apigee Enterprise AI Gateway with Google ADK
 
 [![Apigee X](https://img.shields.io/badge/Apigee-X-blue.svg)](https://cloud.google.com/apigee)
 [![Google ADK](https://img.shields.io/badge/Google-ADK-4285F4.svg)](https://google.github.io/adk/)
@@ -7,7 +7,7 @@
 [![Cloud Run](https://img.shields.io/badge/Google_Cloud-Cloud_Run-4285F4.svg)](https://cloud.google.com/run)
 
 An enterprise-grade demonstration and development platform showcasing **Apigee API Management**,
-the **Apigee AI Gateway**, the **Apigee MCP Tools Gateway**, and **Google ADK (Agent Development Kit)**
+the **Apigee Enterprise AI Gateway**, and **Google ADK (Agent Development Kit)**
 microservices — with live policy trace telemetry, identity-driven entitlement governance,
 product-driven LLM token quotas, and Apigee native monetization.
 
@@ -17,11 +17,9 @@ product-driven LLM token quotas, and Apigee native monetization.
 
 | Surface | URL | Source of truth |
 | :--- | :--- | :--- |
-| Interactive UI Playground | `https://ai-ui.maloosatyam.demo.altostrat.com/` | IAP-fronted Cloud Run service |
-| AI Gateway | `https://api.maloosatyam.demo.altostrat.com/ai/v1` | `<BasePath>/ai/v1</BasePath>` in [default.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml#L184) |
-| MCP Tools Gateway | `https://api.maloosatyam.demo.altostrat.com/mcp` | `<BasePath>/mcp</BasePath>` in [mcp/default.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp/apiproxy/proxies/default.xml#L4) |
-| MCP OAuth Protected Resource Metadata | `https://api.maloosatyam.demo.altostrat.com/.well-known/oauth-protected-resource/mcp` | [oauth-prm-endpoint.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp/apiproxy/proxies/oauth-prm-endpoint.xml#L4) |
-| Legacy Vertex passthrough | `https://api.maloosatyam.demo.altostrat.com/vertexai/v1` | [vertex-ai-v1/default.xml](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/vertex-ai-v1/apiproxy/proxies/default.xml#L69) — superseded by `ai-gateway-v1` |
+| Interactive UI Playground | `https://apigee-ai-gateway-ui-142670223749.asia-southeast1.run.app/` | Cloud Run service (`sgx-totc-apigee`) |
+| AI Gateway | `https://bap.api.136.81.199.107.nip.io/ai/v1` | `<BasePath>/ai/v1</BasePath>` in [default.xml](file:///Users/yem/.gemini/jetski/scratch/apigee-ai-gateway-demo/apigee/proxies/ai-gateway-v1/apiproxy/proxies/default.xml) |
+| Legacy Vertex passthrough | `https://bap.api.136.81.199.107.nip.io/vertexai/v1` | [vertex-ai-v1/default.xml](file:///Users/yem/.gemini/jetski/scratch/apigee-ai-gateway-demo/apigee/proxies/vertex-ai-v1/apiproxy/proxies/default.xml) — superseded by `ai-gateway-v1` |
 
 ---
 
@@ -283,24 +281,7 @@ so an unset variable yields an absent or empty header rather than a fault — cl
 header as optional. On a cache hit the cost and token variables are never populated, which is why
 `x-gateway-cached` is the field to branch on.
 
-### 7. 🛠️ Native MCP Server & Tools Governance
-
-The [mcp](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/proxies/mcp/apiproxy) proxy governs
-JSON-RPC 2.0 `tools/list` and `tools/call` traffic with six policies
-(`VA-VerifyAPIKey`, `PP-MCP`, `Q-Limit`, `CORS-Allow`, `AM-RemoveAuthorization`, `ML-CloudLogging`).
-
-Authorization is expressed as **per-operation entries in the API product**, so a persona can only
-invoke the tools its product enumerates:
-
-| Product | Operations | Quotas |
-| :--- | :--- | :--- |
-| [Sales Tools MCP](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/sales_tools_mcp.json) | `tools/list`, `tools/call/listAllDiscounts`, `tools/call/getDiscountForSku` | 5/min, 1 per 5 s, 2/min |
-| [Loans Tools MCP](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/loans_tools_mcp.json) | `tools/list`, `tools/call/getLoanApplication`, `tools/call/patchLoanApplication`, `tools/call/submitLoanApplication` | per-operation |
-| [Enterprise Tools MCP](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_tools_mcp.json) | enterprise-domain superset | per-operation |
-
-A Sales-persona key calling a Loans tool is rejected because the operation is absent from its product.
-
-### Entitlement tiers — what the products actually grant
+### 7. Entitlement tiers — what the products actually grant
 
 Every grant is enumerated per model. There are **no `model="*"` entitlements and no `**` resource
 globs** — both were removed. Each model gets a single gateway-shaped resource:
@@ -312,7 +293,7 @@ globs** — both were removed. Each model gets a single gateway-shaped resource:
 | Product | Models | Resources | Token quota |
 | :--- | :--- | :--- | :--- |
 | **[Standard AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/standard_ai_tier.json)** | `auto`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, `claude-haiku-4-5@20251001` — **4** | 4 `operationConfigs` | 2000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
-| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 4 plus `gemini-3.1-pro-preview`, `gemini-3.7-flash`, `gemini-3.8-flash` and `claude-opus-4-5@20251101` — **8** | 8 `operationConfigs` | 10000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
+| **[Enterprise AI Tier](file:///Users/maloosatyam/Codebase/AI%20Code/apigee/products/enterprise_ai_tier.json)** | the Standard 4 plus `gemini-3.1-pro-preview`, `gemini-3.7-flash`, `gemini-3.8-flash`, `claude-opus-4-5@20251101`, `openai/gpt-oss-120b-maas`, `meta/llama-3.1-8b-instruct` and `google/gemma-4-26b-it` — **11** | 11 `operationConfigs` | 10000 / min · `claude-haiku-4-5@20251001` → **50 / min** |
 
 `auto` is granted as **one exact resource** in both products:
 
@@ -486,15 +467,11 @@ All under `/api/admin-agent/*`, served by
 │   ├── apps/                              # Developer apps (2)
 │   │   ├── unified_sales_app.json
 │   │   └── unified_loans_app.json
-│   ├── products/                          # API products (5)
+│   ├── products/                          # API products (2)
 │   │   ├── standard_ai_tier.json
-│   │   ├── enterprise_ai_tier.json
-│   │   ├── enterprise_tools_mcp.json
-│   │   ├── sales_tools_mcp.json
-│   │   └── loans_tools_mcp.json
+│   │   └── enterprise_ai_tier.json
 │   ├── proxies/
 │   │   ├── ai-gateway-v1/                 # PRIMARY AI Gateway — 36 policies
-│   │   ├── mcp/                           # Native MCP Tools Gateway — 6 policies
 │   │   └── vertex-ai-v1/                  # LEGACY, superseded by ai-gateway-v1
 │   ├── scripts/
 │   │   ├── deploy_all.sh                  deploy_proxy.sh      package_bundle.sh
@@ -522,7 +499,7 @@ All under `/api/admin-agent/*`, served by
     │   ├── guardrailCatalog.json          # Generated catalogue (read from disk at runtime)
     │   └── generateGuardrailCatalog.js    # Regenerates the JSON from guardrailPolicies.ts
     ├── vite.config.ts                     # Dev server (port 3000) + dev-only /api/* middleware
-    ├── index.html                         # <title>AI &amp; Tools Gateway - Live Playground</title>
+    ├── index.html                         # <title>Enterprise AI Gateway - Live Playground</title>
     ├── package.json
     ├── public/{apigee-color.svg, env-config.js}
     ├── tests/
@@ -532,18 +509,17 @@ All under `/api/admin-agent/*`, served by
         ├── App.tsx                        # Root app, tab routing, SSO bootstrap
         ├── main.tsx  index.css  vite-env.d.ts
         ├── types/index.ts
-        ├── components/                    # 15 components
+        ├── components/
         │   ├── AnalyticsDashboard.tsx     ApigeeLogo.tsx        ArchitectureBlueprintModal.tsx
         │   ├── ChatPlayground.tsx         DeveloperOnboardingModal.tsx
         │   ├── DonutPieChart.tsx          GatewaySettingsModal.tsx
-        │   ├── GatewayTraceViewer.tsx     McpPlayground.tsx     McpTraceViewer.tsx
+        │   ├── GatewayTraceViewer.tsx     GuardrailsPoliciesView.tsx
         │   ├── ModelRateCardView.tsx      MonetizationManager.tsx
         │   └── Navbar.tsx  ScenarioPresets.tsx
         └── services/
             ├── api.ts                     # Management/identity client (/api/me, /api/monetization/*)
             ├── apigeeClient.ts            # AI Gateway REST client
-            ├── defaultSettings.ts
-            └── mcpClient.ts               # JSON-RPC 2.0 tool protocol client
+            └── defaultSettings.ts
 ```
 
 > [!NOTE]
@@ -553,11 +529,11 @@ All under `/api/admin-agent/*`, served by
 
 ### UI navigation
 
-[Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) renders four
-primary tabs: **AI Gateway**, **MCP Gateway**, **Analytics & Cost**, and **Admin Console**
+[Navbar.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/Navbar.tsx) renders three
+primary tabs: **AI Gateway**, **Analytics & Cost**, and **Admin Console**
 (the last is admin-view only, and hosts Developer Wallets, Token Pricing, Rate Plans,
 **Guardrails & Policies**, and the docked **Admin Agent** panel), plus an interactive **Architecture** button that opens
-[ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive reference diagram opening on **Solution Overview** (a high-level view whose AI Gateway and MCP Gateway boxes drill down), alongside **AI Gateway Flow** and **MCP Tools Flow** with clickable policy XML inspection and live trace status correlation. Additionally, every tested request in `ChatPlayground` (`Target URL:`) and `McpTraceViewer` (`JSON-RPC 2.0`) includes a **`Request Flow`** button that opens the modal in **`⚡ Tested Request Flow`** mode, dynamically short-circuiting the pipeline diagram at the exact stopping policy (e.g., red perimeter block at Model Armor or green short-circuit at Semantic Cache HIT) and omitting bypassed downstream stages. The underlying `AppTab` union in
+[ArchitectureBlueprintModal.tsx](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/components/ArchitectureBlueprintModal.tsx) — an interactive reference diagram opening on **Solution Overview** alongside **AI Gateway Flow** with clickable policy XML inspection and live trace status correlation. Additionally, every tested request in `ChatPlayground` (`Target URL:`) includes a **`Request Flow`** button that opens the modal in **`⚡ Tested Request Flow`** mode, dynamically short-circuiting the pipeline diagram at the exact stopping policy (e.g., red perimeter block at Model Armor or green short-circuit at Semantic Cache HIT) and omitting bypassed downstream stages. The underlying `AppTab` union in
 [types/index.ts](file:///Users/maloosatyam/Codebase/AI%20Code/ui/src/types/index.ts#L131) also carries
 `kvm-pricing` and `rate-cards`, which render inside the Admin Console surface.
 
