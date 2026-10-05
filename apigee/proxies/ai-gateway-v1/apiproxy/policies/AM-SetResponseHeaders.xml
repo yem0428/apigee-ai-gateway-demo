@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="true" enabled="true" name="AM-SetResponseHeaders">
+  <DisplayName>AM-SetResponseHeaders</DisplayName>
+  <Set>
+    <Headers>
+      <Header name="x-gateway-model">{flow.target_model}</Header>
+      <Header name="x-gateway-provider">{flow.target_provider}</Header>
+      <Header name="x-auto-routed">{flow.autoRouted}</Header>
+      <Header name="x-gateway-category">{flow.routerCategory}</Header>
+      <Header name="x-gateway-router-category">{flow.routerCategory}</Header>
+      <Header name="x-gateway-cost-tier">{flow.costTier}</Header>
+      <Header name="x-gateway-cost-usd">{flow.tx_cost_usd}</Header>
+      <Header name="x-gateway-currency">USD</Header>
+      <Header name="x-gateway-cached">{flow.cached}</Header>
+      <Header name="x-gateway-cache-status">{flow.cacheStatus}</Header>
+      <Header name="x-gateway-prompt-tokens">{flow.promptTokenCount}</Header>
+      <Header name="x-gateway-completion-tokens">{flow.candidatesTokenCount}</Header>
+      <Header name="x-gateway-total-tokens">{flow.totalTokenCount}</Header>
+      <Header name="x-gateway-budget-status">{flow.budget_status}</Header>
+      <Header name="x-gateway-budget-used-usd">{flow.budget_used_usd}</Header>
+      <Header name="x-gateway-budget-limit-usd">{flow.budget_limit_usd}</Header>
+      <Header name="x-gateway-monetization-status">{mint.limitscheck.status_message}</Header>
+      <Header name="x-gateway-prepaid-balance">{mint.limitscheck.prepaid_developer_balance}</Header>
+      <Header name="x-gateway-prepaid-currency">{mint.limitscheck.prepaid_developer_currency}</Header>
+      <Header name="x-gateway-balance-remaining">{flow.prepaid_balance_remaining}</Header>
+    </Headers>
+  </Set>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+  <AssignTo createNew="false" transport="http" type="response"/>
+</AssignMessage>

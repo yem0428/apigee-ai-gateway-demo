@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<DataCapture name="DC-ModelAnalytics" continueOnError="false" enabled="true">
+  <DisplayName>DC-ModelAnalytics</DisplayName>
+  <IgnoreUnresolvedVariables>false</IgnoreUnresolvedVariables>
+  <Capture>
+    <Collect ref="flow.emailId" default=""/>
+    <DataCollector>dc_user_email</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.model" default=""/>
+    <DataCollector>dc_model_name</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.candidatesTokenCount" default="0"/>
+    <DataCollector>dc_candidates_token_count</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.promptTokenCount" default="0"/>
+    <DataCollector>dc_prompt_token_count</DataCollector>
+  </Capture>
+  <Capture>
+    <Collect ref="flow.totalTokenCount" default="0"/>
+    <DataCollector>dc_total_token_count</DataCollector>
+  </Capture>
+</DataCapture>

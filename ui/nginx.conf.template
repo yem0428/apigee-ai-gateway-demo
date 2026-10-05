@@ -1,0 +1,97 @@
+map $http_x_goog_authenticated_user_email $iap_user_email {
+    ~*^accounts\.google\.com:(.+)$ $1;
+    default $http_x_goog_authenticated_user_email;
+}
+
+server {
+    listen ${PORT};
+    server_name localhost;
+
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+
+    # Gzip Compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 10240;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript application/json image/svg+xml;
+    gzip_disable "MSIE [1-6]\.";
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Health check for Cloud Run
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "healthy\n";
+    }
+
+    # IAP Identity endpoint for SPA frontend
+    location ~ ^/api/me/?$ {
+        default_type application/json;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+        return 200 '{"email":"$iap_user_email","raw":"$http_x_goog_authenticated_user_email","id":"$http_x_goog_authenticated_user_id"}';
+    }
+
+    # Apigee Dev Gateway Reverse Proxy
+    location /api/vertexai-dev {
+        resolver 8.8.8.8 8.8.4.4 valid=300s;
+        resolver_timeout 5s;
+        rewrite ^/api/vertexai-dev/?(.*)$ /vertexai/v1/$1 break;
+        proxy_pass https://dev.api.gateway.example.com;
+        proxy_ssl_server_name on;
+        proxy_set_header Host dev.api.gateway.example.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Apigee Prod Gateway Reverse Proxy
+    location /api/vertexai-prod {
+        resolver 8.8.8.8 8.8.4.4 valid=300s;
+        resolver_timeout 5s;
+        rewrite ^/api/vertexai-prod/?(.*)$ /vertexai/v1/$1 break;
+        proxy_pass https://api.gateway.example.com;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.gateway.example.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Apigee Dev MCP Gateway Reverse Proxy
+    location /api/mcp-dev {
+        resolver 8.8.8.8 8.8.4.4 valid=300s;
+        resolver_timeout 5s;
+        rewrite ^/api/mcp-dev/?(.*)$ /mcp/$1 break;
+        proxy_pass https://dev.api.gateway.example.com;
+        proxy_ssl_server_name on;
+        proxy_set_header Host dev.api.gateway.example.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Apigee Prod MCP Gateway Reverse Proxy
+    location /api/mcp-prod {
+        resolver 8.8.8.8 8.8.4.4 valid=300s;
+        resolver_timeout 5s;
+        rewrite ^/api/mcp-prod/?(.*)$ /mcp/$1 break;
+        proxy_pass https://api.gateway.example.com;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.gateway.example.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # SPA routing: fallback to index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

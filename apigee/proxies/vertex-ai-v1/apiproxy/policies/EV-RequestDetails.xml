@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ExtractVariables continueOnError="false" enabled="true" name="EV-RequestDetails">
+  <DisplayName>EV-RequestDetails</DisplayName>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+  <Header name="X-User-Email">
+    <Pattern ignoreCase="true">{emailId}</Pattern>
+  </Header>
+  <URIPath>
+    <Pattern ignoreCase="true">/v1/projects/*/locations/*/publishers/google/models/{model}:generateContent</Pattern>
+  </URIPath>
+  <JSONPayload>
+    <Variable name="userPrompt">
+      <JSONPath>$.contents[-1].parts[-1].text</JSONPath>
+    </Variable>
+  </JSONPayload>
+  <Source clearPayload="false">request</Source>
+  <VariablePrefix>flow</VariablePrefix>
+</ExtractVariables>

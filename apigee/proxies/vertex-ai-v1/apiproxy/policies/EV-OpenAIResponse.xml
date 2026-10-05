@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ExtractVariables continueOnError="false" enabled="true" name="EV-OpenAIResponse">
+  <DisplayName>EV-OpenAIResponse</DisplayName>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+  <JSONPayload>
+    <Variable name="model">
+      <JSONPath>$.modelNamen</JSONPath>
+    </Variable>
+    <Variable name="promptTokenCount">
+      <JSONPath>$.usageMetadata.inputTokenCount</JSONPath>
+    </Variable>
+    <Variable name="outputTokenCount">
+      <JSONPath>$.usageMetadata.totalTokenCount</JSONPath>
+    </Variable>
+  </JSONPayload>
+  <Source clearPayload="false">response</Source>
+  <VariablePrefix>apigee</VariablePrefix>
+</ExtractVariables>

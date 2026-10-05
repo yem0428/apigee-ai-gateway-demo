@@ -1,0 +1,22 @@
+{
+  "name": "Unified Loans App",
+  "displayName": "Unified Loans App",
+  "apiProducts": [
+    "Standard AI Tier",
+    "Loans Tools MCP"
+  ],
+  "attributes": [
+    {
+      "name": "DisplayName",
+      "value": "Unified Loans App"
+    },
+    {
+      "name": "persona",
+      "value": "loans_agent"
+    },
+    {
+      "name": "description",
+      "value": "Unified Loans Agent persona credential restricted to standard/flash models and loans MCP tools"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+SemanticCacheLookup:
+  .async: false
+  .continueOnError: false
+  .enabled: true
+  .name: SCL-Semantic-Cache-Lookup
+  DisplayName: SCL-Semantic-Cache-Lookup
+  IgnoreUnresolvedVariables: false
+  UserPromptSource: '{jsonPath(''$.contents[-1].parts[-1].text'',request.content,true)}'
+  Embeddings:
+    VertexAI:
+      URL: https://asia-southeast1-aiplatform.googleapis.com/v1/projects/your-gcp-project-id/locations/asia-southeast1/publishers/google/models/text-embedding-004:predict
+  SimilaritySearch:
+    VertexAI:
+      URL: https://YOUR_ENDPOINT.asia-southeast1-YOUR_PROJECT_NUMBER.vdb.vertexai.goog/v1/projects/your-gcp-project-id/locations/asia-southeast1/indexEndpoints/YOUR_INDEX_ENDPOINT_ID:findNeighbors
+      DeployedIndexID: semantic_cache
+      Threshold: 0.95
